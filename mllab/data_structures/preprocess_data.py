@@ -753,3 +753,40 @@ class FinancePreprocessor:
             ylabel='Price',  # Подпись оси Y
             ylabel_lower='Volume'  # Подпись оси объёма
         )
+
+
+    def normalize_column(self, df: pd.DataFrame, column_name: str):
+        """Нормализует указанный столбец с использованием процентного изменения."""
+        df[column_name] = df[column_name].pct_change()
+        return df
+
+
+    def normalize_by_ticker(self, df: pd.DataFrame, download: bool = False):
+        """Нормализует данные для каждого тикера отдельно."""
+
+        if download:
+            return pd.read_csv(processor.file_path + '_normalize.csv')
+
+        # Создаём пустой DataFrame для хранения нормализованных данных
+        normalized_data = []
+
+        # Группируем данные по 'tic'
+        grouped = df.groupby('tic')
+
+        for tic, group in grouped:
+            # Сортируем по времени внутри каждой группы
+            group = group.sort_values(by='timestamp')
+
+            # Нормализуем каждую колонку, кроме 'timestamp' и 'tic'
+            for column in group.columns:
+                if column not in ['timestamp', 'tic']:
+                    group = normalize_column(group, column)
+
+            # Добавляем нормализованную группу в список
+            normalized_data.append(group)
+
+        # сохраняем нормализованный датасет на диске
+        normalized_data.to_csv(self.file_path + '_normalize.csv', index=False)
+
+        # Объединяем все нормализованные группы обратно в один DataFrame
+        return pd.concat(normalized_data, ignore_index=True)
