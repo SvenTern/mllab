@@ -21,5 +21,5 @@ from mllab.data_structures.run_data_structures import (get_ema_volume_run_bars, 
                                                           get_const_tick_run_bars, get_const_dollar_run_bars)
 from mllab.data_structures.standard_data_structures import (get_tick_bars, get_dollar_bars, get_volume_bars)
 from mllab.data_structures.time_data_structures import get_time_bars
-from mllab.data_structures.time_data_structures import FinancePreprocessor
+from mllab.data_structures.preprocess_data import FinancePreprocessor
 
