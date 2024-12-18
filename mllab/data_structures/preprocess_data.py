@@ -758,7 +758,7 @@ class FinancePreprocessor:
         """Нормализует данные для каждого тикера отдельно."""
 
         if download:
-            return pd.read_csv(processor.file_path + '_normalize.csv')
+            return pd.read_csv(self.file_path + '_normalize.csv')
 
         normalized_data = []
         for ticker, group in df.groupby('tic'):
