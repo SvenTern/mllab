@@ -28,7 +28,7 @@ def get_daily_vol(close, lookback=50):
     :param lookback: (int) Lookback period to compute volatility
     :return: (pd.Series) Daily volatility value
     """
-    return close.pct_change().ewm(span=lookback).std()
+    return close.ewm(span=lookback).std()
 
 def get_parksinson_vol(high: pd.Series, low: pd.Series, window: int = 20) -> pd.Series:
     """
