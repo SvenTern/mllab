@@ -73,6 +73,9 @@ def mp_pandas_obj(func, pd_obj, num_threads=24, mp_batches=1, lin_mols=True, ver
     else:
         out = process_jobs(jobs, num_threads=num_threads, verbose=verbose)
 
+    if not out:  # Ensure out is not empty
+        return pd.DataFrame() if isinstance(pd_obj[1], pd.DataFrame) else pd.Series()
+
     if isinstance(out[0], pd.DataFrame):
         return pd.concat(out)
     elif isinstance(out[0], pd.Series):
