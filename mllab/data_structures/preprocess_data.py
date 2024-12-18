@@ -172,7 +172,7 @@ class FinancePreprocessor:
         # If tz-naive, localize to desired timezone using tz_localize
         return local_time.tz_localize(time_zone)
 
-    def evaluate_optimal_threshold(self, data, max_threshold=None, num_thresholds=50, target_bar_ratio=0.05):
+    def evaluate_optimal_threshold(self, data, max_threshold=None, num_thresholds=50, target_bar_ratio=0.4):
         """
         Оценивает оптимальный порог для функции create_dollar_bars для нескольких тикеров.
 
@@ -225,7 +225,7 @@ class FinancePreprocessor:
 
         return optimal_thresholds
 
-    def create_dollar_bars(self, data: pd.DataFrame = None, download_from_disk: bool = False, optimal_thresholds: Union[Dict[str, float], float]) -> pd.DataFrame:
+    def create_dollar_bars(self, data: pd.DataFrame = None, download_from_disk: bool = False, optimal_thresholds: Union[Dict[str, float], float] = None) -> pd.DataFrame:
         """
         Создаёт долларовые бары из минутных данных для нескольких тикеров.
 
@@ -246,6 +246,9 @@ class FinancePreprocessor:
         # Получение уникальных тикеров
         unique_tickers = data['tic'].unique()
         all_dollar_bars = []
+
+        if optimal_thresholds is None:
+            optimal_thresholds = self.evaluate_optimal_threshold(data)
 
         # Обработка каждого тикера отдельно
         for ticker in unique_tickers:
