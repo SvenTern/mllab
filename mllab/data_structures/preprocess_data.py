@@ -225,7 +225,7 @@ class FinancePreprocessor:
 
         return optimal_thresholds
 
-    def create_dollar_bars(self, data: pd.DataFrame, optimal_thresholds: Union[Dict[str, float], float]) -> pd.DataFrame:
+    def create_dollar_bars(self, data: pd.DataFrame = None, download_from_disk: bool = False, optimal_thresholds: Union[Dict[str, float], float]) -> pd.DataFrame:
         """
         Создаёт долларовые бары из минутных данных для нескольких тикеров.
 
@@ -235,6 +235,9 @@ class FinancePreprocessor:
                                   или единое число для всех тикеров.
         :return: DataFrame с долларовыми барами, включая столбцы ['timestamp', 'open', 'high', 'low', 'close', 'tic'].
         """
+        if data is None or download_from_disk:
+            return pd.read_csv(self.file_path + '_final.csv')
+
         # Проверка на наличие обязательных столбцов
         required_columns = {'tic', 'close', 'volume'}
         if not required_columns.issubset(data.columns):
@@ -306,6 +309,9 @@ class FinancePreprocessor:
 
         # Объединение всех тикеров в один DataFrame
         all_dollar_bars_df = pd.concat(all_dollar_bars, ignore_index=True)
+
+        all_dollar_bars_df.to_csv(self.file_path + '_final.csv', index=False)
+
         return all_dollar_bars_df
 
 
@@ -754,10 +760,10 @@ class FinancePreprocessor:
             ylabel_lower='Volume'  # Подпись оси объёма
         )
 
-    def normalize_by_ticker(self, df: pd.DataFrame, download: bool = False):
+    def normalize_by_ticker(self, df: pd.DataFrame = None, download_from_disk: bool = False):
         """Нормализует данные для каждого тикера отдельно."""
 
-        if download:
+        if download_from_disk or df is None:
             return pd.read_csv(self.file_path + '_normalize.csv')
 
         normalized_data = []
@@ -767,6 +773,10 @@ class FinancePreprocessor:
             normalized_data.append(group)
 
         data_normalized = pd.concat(normalized_data).reset_index(drop=True)
+
+        data_normalized.set_index('timestamp', inplace=True)
+        # Преобразование Index в DatetimeIndex
+        data_normalized.index = pd.to_datetime(data_normalized.index)
 
         # сохраняем нормализованный датасет на диске
         data_normalized.to_csv(self.file_path + '_normalize.csv', index=False)
