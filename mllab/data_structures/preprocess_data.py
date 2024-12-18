@@ -780,7 +780,7 @@ class FinancePreprocessor:
             # Нормализуем каждую колонку, кроме 'timestamp' и 'tic'
             for column in group.columns:
                 if column not in ['timestamp', 'tic']:
-                    group = normalize_column(group, column)
+                    group = self.normalize_column(group, column)
 
             # Добавляем нормализованную группу в список
             normalized_data.append(group)
