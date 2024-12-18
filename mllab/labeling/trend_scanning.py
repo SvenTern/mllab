@@ -6,28 +6,12 @@ Implementation of Trend-Scanning labels described in `Advances in Financial Mach
 import pandas as pd
 import numpy as np
 
-from mlfinlab.structural_breaks.sadf import get_betas
-
+from mllab.structural_breaks.sadf import get_betas
 
 def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observation_window: int = 20,
                           look_forward: bool = True, min_sample_length: int = 5, step: int = 1) -> pd.DataFrame:
     """
-    `Trend scanning <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3257419>`_ is both a classification and
-    regression labeling technique.
-
-    That can be used in the following ways:
-
-    1. Classification: By taking the sign of t-value for a given observation we can set {-1, 1} labels to define the
-       trends as either downward or upward.
-    2. Classification: By adding a minimum t-value threshold you can generate {-1, 0, 1} labels for downward, no-trend,
-       upward.
-    3. The t-values can be used as sample weights in classification problems.
-    4. Regression: The t-values can be used in a regression setting to determine the magnitude of the trend.
-
-    The output of this algorithm is a DataFrame with t1 (time stamp for the farthest observation), t-value, returns for
-    the trend, and bin.
-
-    This function allows using both forward-looking and backward-looking window (use the look_forward parameter).
+    Trend scanning labels implementation.
 
     :param price_series: (pd.Series) Close prices used to label the data set
     :param t_events: (list) Filtered events, array of pd.Timestamps
@@ -38,6 +22,42 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observ
     :return: (pd.DataFrame) Consists of t1, t-value, ret, bin (label information). t1 - label endtime, tvalue,
         ret - price change %, bin - label value based on price change sign
     """
-    # pylint: disable=invalid-name
+    # Initialize results DataFrame
+    results = pd.DataFrame(index=t_events, columns=['t1', 'tvalue', 'ret', 'bin'])
 
-    pass
+    for t in t_events:
+        if look_forward:
+            window_prices = price_series[t:t + pd.Timedelta(days=observation_window)]
+        else:
+            window_prices = price_series[t - pd.Timedelta(days=observation_window):t]
+
+        if len(window_prices) < min_sample_length:
+            continue
+
+        max_tvalue, max_tvalue_index = -np.inf, None
+
+        for i in range(min_sample_length, len(window_prices), step):
+            sub_window_prices = window_prices.iloc[:i]
+            y = sub_window_prices.pct_change().dropna().values
+            X = np.arange(len(y)).reshape(-1, 1)
+
+            if len(y) < min_sample_length:
+                continue
+
+            # Regression fit and t-value computation
+            betas = get_betas(X, y, add_intercept=True)
+            tvalue = betas['t_values'][1]  # t-value of slope
+
+            if tvalue > max_tvalue:
+                max_tvalue = tvalue
+                max_tvalue_index = sub_window_prices.index[-1]
+
+        if max_tvalue_index is not None:
+            t1 = max_tvalue_index
+            ret = price_series[t1] / price_series[t] - 1
+            bin_label = np.sign(max_tvalue)
+
+            results.loc[t] = [t1, max_tvalue, ret, bin_label]
+
+    results.dropna(inplace=True)
+    return results

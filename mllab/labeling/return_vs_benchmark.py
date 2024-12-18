@@ -33,4 +33,33 @@ def return_over_benchmark(prices, benchmark=0, binary=False, resample_by=None, l
             return is below the benchmark, 1 if above, and 0 if it exactly matches the benchmark.
     """
 
-    pass
+    # If prices are a DataFrame or Series, validate input
+    if not isinstance(prices, (pd.Series, pd.DataFrame)):
+        raise ValueError("`prices` should be a pandas Series or DataFrame.")
+
+    # Resample prices if requested
+    if resample_by is not None:
+        prices = prices.resample(resample_by).last()
+
+    # Calculate returns
+    returns = prices.pct_change().dropna()
+
+    # Lag the returns to make them forward-looking
+    if lag:
+        returns = returns.shift(-1).dropna()
+
+    # Handle benchmark input
+    if isinstance(benchmark, (int, float)):
+        excess_returns = returns - benchmark
+    elif isinstance(benchmark, pd.Series):
+        if not benchmark.index.equals(prices.index):
+            raise ValueError("`benchmark` Series must have the same index as `prices`.")
+        excess_returns = returns.subtract(benchmark, axis=0)
+    else:
+        raise ValueError("`benchmark` should be a float, int, or pandas Series.")
+
+    # If binary labels are requested
+    if binary:
+        excess_returns = excess_returns.applymap(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
+
+    return excess_returns

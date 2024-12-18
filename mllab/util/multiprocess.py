@@ -2,164 +2,152 @@
 Contains the logic from chapter 20 on multiprocessing and vectorization.
 """
 
-import sys
+import numpy as np
+import pandas as pd
+import multiprocessing as mp
 import time
 import datetime as dt
 
-import multiprocessing as mp
-
-import numpy as np
-import pandas as pd
-
-
-# Snippet 20.5 (page 306), the lin_parts function
 def lin_parts(num_atoms, num_threads):
     """
-    Advances in Financial Machine Learning, Snippet 20.5, page 306.
-
-    The lin_parts function
-
-    The simplest way to form molecules is to partition a list of atoms in subsets of equal size,
-    where the number of subsets is the minimum between the number of processors and the number
-    of atoms. For N subsets we need to find the N+1 indices that enclose the partitions.
-    This logic is demonstrated in Snippet 20.5.
-
-    This function partitions a list of atoms in subsets (molecules) of equal size.
-    An atom is a set of indivisible set of tasks.
-
+    Partitions a list of atoms into subsets of equal size.
+    
     :param num_atoms: (int) Number of atoms
     :param num_threads: (int) Number of processors
     :return: (np.array) Partition of atoms
     """
+    num_threads = min(num_threads, num_atoms)
+    parts = np.linspace(0, num_atoms, num_threads + 1).astype(int)
+    return parts
 
-    pass
-
-
-# Snippet 20.6 (page 308), The nested_parts function
 def nested_parts(num_atoms, num_threads, upper_triangle=False):
     """
-    Advances in Financial Machine Learning, Snippet 20.6, page 308.
+    Enables parallelization of nested loops.
 
-    The nested_parts function
-
-    This function enables parallelization of nested loops.
     :param num_atoms: (int) Number of atoms
     :param num_threads: (int) Number of processors
-    :param upper_triangle: (bool) Flag to order atoms as an upper triangular matrix (including the main diagonal)
-    :return: (np.array) Partition of atoms
+    :param upper_triangle: (bool) Flag to order atoms as an upper triangular matrix
+    :return: (list) Partition of atoms
     """
+    parts, num_threads = [0], min(num_threads, num_atoms)
+    for num in range(num_threads):
+        part = 1 + 4 * (parts[-1]**2 + parts[-1] + num_atoms * (num_atoms + 1) / num_threads)
+        part = (-1 + part**0.5) / 2
+        parts.append(min(num_atoms, int(part)))
+    parts = np.array(parts).astype(int)
+    if upper_triangle:
+        jobs = []
+        for i in range(1, len(parts)):
+            jobs.append((parts[i - 1], parts[i]))
+        return jobs
+    return parts
 
-    pass
-
-
-# Snippet 20.7 (page 310), The mpPandasObj, used at various points in the book
-def mp_pandas_obj(func, pd_obj, num_threads=24, mp_batches=1, lin_mols=True, verbose=True, **kargs):
+def mp_pandas_obj(func, pd_obj, num_threads=24, mp_batches=1, lin_mols=True, verbose=True, **kwargs):
     """
-    Advances in Financial Machine Learning, Snippet 20.7, page 310.
-
-    The mpPandasObj, used at various points in the book
-
-    Parallelize jobs, return a dataframe or series.
-    Example: df1=mp_pandas_obj(func,('molecule',df0.index),24,**kwds)
-
-    First, atoms are grouped into molecules, using linParts (equal number of atoms per molecule)
-    or nestedParts (atoms distributed in a lower-triangular structure). When mpBatches is greater
-    than 1, there will be more molecules than cores. Suppose that we divide a task into 10 molecules,
-    where molecule 1 takes twice as long as the rest. If we run this process in 10 cores, 9 of the
-    cores will be idle half of the runtime, waiting for the first core to process molecule 1.
-    Alternatively, we could set mpBatches=10 so as to divide that task in 100 molecules. In doing so,
-    every core will receive equal workload, even though the first 10 molecules take as much time as the
-    next 20 molecules. In this example, the run with mpBatches=10 will take half of the time consumed by
-    mpBatches=1.
-
-    Second, we form a list of jobs. A job is a dictionary containing all the information needed to process
-    a molecule, that is, the callback function, its keyword arguments, and the subset of atoms that form
-    the molecule.
-
-    Third, we will process the jobs sequentially if numThreads==1 (see Snippet 20.8), and in parallel
-    otherwise (see Section 20.5.2). The reason that we want the option to run jobs sequentially is for
-    debugging purposes. It is not easy to catch a bug when programs are run in multiple processors.
-    Once the code is debugged, we will want to use numThreads>1.
-
-    Fourth, we stitch together the output from every molecule into a single list, series, or dataframe.
-
-    :param func: (function) A callback function, which will be executed in parallel
-    :param pd_obj: (tuple) Element 0: The name of the argument used to pass molecules to the callback function
-                    Element 1: A list of indivisible tasks (atoms), which will be grouped into molecules
-    :param num_threads: (int) The number of threads that will be used in parallel (one processor per thread)
-    :param mp_batches: (int) Number of parallel batches (jobs per core)
-    :param lin_mols: (bool) Tells if the method should use linear or nested partitioning
-    :param verbose: (bool) Flag to report progress on asynch jobs
-    :param kargs: (var args) Keyword arguments needed by func
-    :return: (pd.DataFrame) of results
+    Parallelizes jobs, returning a pandas DataFrame or Series.
+    
+    :param func: (function) Callback function to execute in parallel
+    :param pd_obj: (tuple) ("molecule", list of atoms)
+    :param num_threads: (int) Number of threads
+    :param mp_batches: (int) Number of parallel batches
+    :param lin_mols: (bool) Use linear partitioning
+    :param verbose: (bool) Verbose output
+    :param kwargs: Additional arguments for func
+    :return: (pd.DataFrame or pd.Series) Results
     """
+    if lin_mols:
+        parts = lin_parts(len(pd_obj[1]), num_threads * mp_batches)
+    else:
+        parts = nested_parts(len(pd_obj[1]), num_threads * mp_batches)
 
-    pass
+    jobs = []
+    for i in range(1, len(parts)):
+        job = {
+            "func": func,
+            "kwargs": {pd_obj[0]: pd_obj[1][parts[i - 1]:parts[i]], **kwargs}
+        }
+        jobs.append(job)
 
+    if num_threads == 1:
+        out = process_jobs_(jobs)
+    else:
+        out = process_jobs(jobs, num_threads=num_threads, verbose=verbose)
 
-# Snippet 20.8, pg 311, Single thread execution, for debugging
+    if isinstance(out[0], pd.DataFrame):
+        return pd.concat(out)
+    elif isinstance(out[0], pd.Series):
+        return pd.concat(out)
+    else:
+        return out
+
 def process_jobs_(jobs):
     """
-    Advances in Financial Machine Learning, Snippet 20.8, page 311.
+    Processes jobs sequentially for debugging.
 
-    Single thread execution, for debugging
-
-    Run jobs sequentially, for debugging
-
-    :param jobs: (list) Jobs (molecules)
+    :param jobs: (list) Jobs
     :return: (list) Results of jobs
     """
+    out = []
+    for job in jobs:
+        out_ = expand_call(job)
+        out.append(out_)
+    return out
 
-    pass
-
-
-# Snippet 20.10 Passing the job (molecule) to the callback function
 def expand_call(kargs):
     """
-    Advances in Financial Machine Learning, Snippet 20.10.
+    Executes the callback function for a job.
 
-    Passing the job (molecule) to the callback function
-
-    Expand the arguments of a callback function, kargs['func']
-
-    :param kargs: Job (molecule)
-    :return: Result of a job
+    :param kargs: (dict) Job arguments
+    :return: Result of the job
     """
+    func = kargs['func']
+    del kargs['func']
+    return func(**kargs)
 
-    pass
-
-
-# Snippet 20.9.1, pg 312, Example of Asynchronous call to pythons multiprocessing library
 def report_progress(job_num, num_jobs, time0, task):
     """
-    Advances in Financial Machine Learning, Snippet 20.9.1, pg 312.
+    Reports progress of asynchronous jobs.
 
-    Example of Asynchronous call to pythons multiprocessing library
-
-    :param job_num: (int) Number of current job
+    :param job_num: (int) Current job number
     :param num_jobs: (int) Total number of jobs
     :param time0: (time) Start time
     :param task: (str) Task description
     :return: (None)
     """
+    msg = [
+        task,
+        f'{job_num}/{num_jobs} completed',
+        f'{(job_num / num_jobs):.2%} progress',
+        f'elapsed time: {time.time() - time0:.2f}s',
+        f'estimated remaining time: {(time.time() - time0) * (num_jobs / job_num - 1):.2f}s'
+    ]
+    print(', '.join(msg))
 
-    pass
-
-
-# Snippet 20.9.2, pg 312, Example of Asynchronous call to pythons multiprocessing library
 def process_jobs(jobs, task=None, num_threads=24, verbose=True):
     """
-    Advances in Financial Machine Learning, Snippet 20.9.2, page 312.
+    Executes jobs in parallel using multiprocessing.
 
-    Example of Asynchronous call to pythons multiprocessing library
-
-    Run in parallel. jobs must contain a 'func' callback, for expand_call
-
-    :param jobs: (list) Jobs (molecules)
+    :param jobs: (list) Jobs
     :param task: (str) Task description
-    :param num_threads: (int) The number of threads that will be used in parallel (one processor per thread)
-    :param verbose: (bool) Flag to report progress on asynch jobs
-    :return: (None)
+    :param num_threads: (int) Number of threads
+    :param verbose: (bool) Verbose output
+    :return: (list) Results of jobs
     """
+    if verbose:
+        time0 = time.time()
+        job_num = 0
 
-    pass
+    pool = mp.Pool(processes=num_threads)
+    out = []
+    for i, job in enumerate(jobs):
+        out.append(pool.apply_async(expand_call, args=(job,)))
+
+    pool.close()
+    pool.join()
+
+    out = [o.get() for o in out]
+
+    if verbose:
+        report_progress(len(jobs), len(jobs), time0, task)
+
+    return out

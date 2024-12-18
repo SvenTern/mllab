@@ -7,7 +7,6 @@ to some event horizon, say a day.
 import numpy as np
 import pandas as pd
 
-
 # Snippet 2.4, page 39, The Symmetric CUSUM Filter.
 def cusum_filter(raw_time_series, threshold, time_stamps=True):
     """
@@ -35,9 +34,28 @@ def cusum_filter(raw_time_series, threshold, time_stamps=True):
     :param time_stamps: (bool) Default is to return a DateTimeIndex, change to false to have it return a list.
     :return: (datetime index vector) Vector of datetimes when the events occurred. This is used later to sample.
     """
+    t_events = []
+    s_pos, s_neg = 0, 0
 
-    pass
+    if isinstance(threshold, (float, int)):
+        threshold = pd.Series(threshold, index=raw_time_series.index)
 
+    diff = raw_time_series.diff().dropna()
+
+    for i in diff.index:
+        s_pos = max(0, s_pos + diff.loc[i])
+        s_neg = min(0, s_neg + diff.loc[i])
+
+        if s_pos > threshold.loc[i]:
+            s_pos = 0
+            t_events.append(i)
+        elif s_neg < -threshold.loc[i]:
+            s_neg = 0
+            t_events.append(i)
+
+    if time_stamps:
+        return pd.DatetimeIndex(t_events)
+    return t_events
 
 def z_score_filter(raw_time_series, mean_window, std_window, z_score=3, time_stamps=True):
     """
@@ -51,5 +69,12 @@ def z_score_filter(raw_time_series, mean_window, std_window, z_score=3, time_sta
     :param time_stamps: (bool) Default is to return a DateTimeIndex, change to false to have it return a list.
     :return: (datetime index vector) Vector of datetimes when the events occurred. This is used later to sample.
     """
+    rolling_mean = raw_time_series.rolling(window=mean_window).mean()
+    rolling_std = raw_time_series.rolling(window=std_window).std()
 
-    pass
+    z_scores = (raw_time_series - rolling_mean) / rolling_std
+    t_events = z_scores[abs(z_scores) > z_score].index
+
+    if time_stamps:
+        return pd.DatetimeIndex(t_events)
+    return list(t_events)

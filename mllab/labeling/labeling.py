@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 # Snippet 3.1, page 44, Daily Volatility Estimates
-from mlfinlab.util.multiprocess import mp_pandas_obj
+from mllab.util.multiprocess import mp_pandas_obj
 
 
 # Snippet 3.2, page 45, Triple Barrier Labeling Method
@@ -28,8 +28,22 @@ def apply_pt_sl_on_t1(close, events, pt_sl, molecule):  # pragma: no cover
     :param molecule: (an array) A set of datetime index values for processing
     :return: (pd.DataFrame) Timestamps of when first barrier was touched
     """
+    results = pd.DataFrame(index=molecule)
+    for loc in molecule:
+        if loc not in events.index:
+            continue
+        df0 = close[loc:events.loc[loc, 't1']]  # Path prices
+        trgt = events.loc[loc, 'trgt']
 
-    pass
+        # Profit taking and stop loss
+        pt = trgt * pt_sl[0] if pt_sl[0] > 0 else np.nan
+        sl = -trgt * pt_sl[1] if pt_sl[1] > 0 else np.nan
+
+        # Barriers
+        results.loc[loc, 'sl'] = df0[df0 <= sl].index.min()
+        results.loc[loc, 'pt'] = df0[df0 >= pt].index.min()
+        results.loc[loc, 't1'] = events.loc[loc, 't1']
+    return results
 
 
 # Snippet 3.4 page 49, Adding a Vertical Barrier
@@ -52,8 +66,10 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
     :param num_seconds: (int) Number of seconds to add for vertical barrier
     :return: (pd.Series) Timestamps of vertical barriers
     """
-
-    pass
+    timedelta = pd.Timedelta(days=num_days, hours=num_hours, minutes=num_minutes, seconds=num_seconds)
+    t1 = t_events + timedelta
+    t1 = t1[t1 <= close.index[-1]]  # Ensure barriers are within data range
+    return t1
 
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
@@ -89,8 +105,32 @@ def get_events(close, t_events, pt_sl, target, min_ret, num_threads, vertical_ba
             -events['pt'] is profit taking multiple
             -events['sl']  is stop loss multiple
     """
+    # Filter events based on min_ret
+    target = target[target > min_ret]
+    t_events = t_events.intersection(target.index)
 
-    pass
+    # Set vertical barriers
+    if isinstance(vertical_barrier_times, pd.Series):
+        t1 = vertical_barrier_times
+    else:
+        t1 = pd.Series(pd.NaT, index=t_events)
+
+    # Create events DataFrame
+    events = pd.DataFrame({'t1': t1, 'trgt': target.loc[t_events]}, index=t_events)
+    if side_prediction is not None:
+        events['side'] = side_prediction.loc[events.index]
+
+    # Apply Triple Barrier Labeling
+    df0 = mp_pandas_obj(
+        func=apply_pt_sl_on_t1,
+        pd_obj=('molecule', events.index),
+        num_threads=num_threads,
+        close=close,
+        events=events,
+        pt_sl=pt_sl
+    )
+    events = events.assign(**df0)
+    return events
 
 
 # Snippet 3.9, pg 55, Question 3.3
@@ -108,8 +148,20 @@ def barrier_touched(out_df, events):
     :param events: (pd.DataFrame) The original events data frame. Contains the pt sl multiples needed here.
     :return: (pd.DataFrame) Returns, target, and labels
     """
+    for loc in out_df.index:
+        sl = out_df.loc[loc, 'sl']
+        pt = out_df.loc[loc, 'pt']
+        t1 = out_df.loc[loc, 't1']
 
-    pass
+        if pd.isna(sl) and pd.isna(pt):
+            out_df.loc[loc, 'label'] = 0
+        elif not pd.isna(sl) and (pd.isna(pt) or sl <= pt):
+            out_df.loc[loc, 'label'] = -1
+        elif not pd.isna(pt) and (pd.isna(sl) or pt <= sl):
+            out_df.loc[loc, 'label'] = 1
+        else:
+            out_df.loc[loc, 'label'] = 0
+    return out_df
 
 
 # Snippet 3.4 -> 3.7, page 51, Labeling for Side & Size with Meta Labels
@@ -137,8 +189,18 @@ def get_bins(triple_barrier_events, close):
     :param close: (pd.Series) Close prices
     :return: (pd.DataFrame) Meta-labeled events
     """
+    out = triple_barrier_events[['t1', 'trgt']].copy()
+    for loc, event in triple_barrier_events.iterrows():
+        df0 = close[loc:event['t1']]  # Path prices
+        df0 = (df0 / close[loc] - 1) * event['side'] if 'side' in event else df0 / close[loc] - 1
 
-    pass
+        # Assign labels
+        out.loc[loc, 'bin'] = 0
+        if df0.max() > event['trgt']:
+            out.loc[loc, 'bin'] = 1
+        if df0.min() < -event['trgt']:
+            out.loc[loc, 'bin'] = -1
+    return out
 
 
 # Snippet 3.8 page 54
@@ -152,5 +214,9 @@ def drop_labels(events, min_pct=.05):
     :param min_pct: (float) A fraction used to decide if the observation occurs less than that fraction.
     :return: (pd.DataFrame) Events.
     """
-
-    pass
+    while True:
+        df0 = events['bin'].value_counts(normalize=True)
+        if df0.min() > min_pct or df0.shape[0] < 3:
+            break
+        events = events[events['bin'] != df0.idxmin()]
+    return events
