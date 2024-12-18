@@ -10,7 +10,7 @@ from mllab.util.multiprocess import mp_pandas_obj
 
 
 # Snippet 3.2, page 45, Triple Barrier Labeling Method
-def apply_pt_sl_on_t1(close, events, pt_sl, molecule):  # pragma: no cover
+def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     """
     Advances in Financial Machine Learning, Snippet 3.2, page 45.
 
@@ -28,6 +28,12 @@ def apply_pt_sl_on_t1(close, events, pt_sl, molecule):  # pragma: no cover
     :param molecule: (an array) A set of datetime index values for processing
     :return: (pd.DataFrame) Timestamps of when first barrier was touched
     """
+    molecule = kwargs['molecule']
+    close = kwargs['close']
+    events = kwargs['events']
+    pt_sl = kwargs['pt_sl']
+
+
     results = pd.DataFrame(index=molecule)
     for loc in molecule:
         if loc not in events.index:
@@ -133,8 +139,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
         num_threads=num_threads,
         close=close,
         events=events,
-        pt_sl=pt_sl,
-        molecule = events.index
+        pt_sl=pt_sl
     )
     events = events.assign(**df0)
     return events
