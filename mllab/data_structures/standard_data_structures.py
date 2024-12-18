@@ -21,7 +21,7 @@ from typing import Union, Iterable, Optional
 import numpy as np
 import pandas as pd
 
-from mlfinlab.data_structures.base_bars import BaseBars
+from mllab.data_structures.base_bars import BaseBars
 
 
 class StandardBars(BaseBars):

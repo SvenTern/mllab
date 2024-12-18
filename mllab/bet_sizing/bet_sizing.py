@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm, moment
 
-from mlfinlab.bet_sizing.ch10_snippets import get_signal, avg_active_signals, discrete_signal
-from mlfinlab.bet_sizing.ch10_snippets import get_w, get_target_pos, limit_price, bet_size
-from mlfinlab.bet_sizing.ef3m import M2N, raw_moment, most_likely_parameters
+from mllab.bet_sizing.ch10_snippets import get_signal, avg_active_signals, discrete_signal
+from mllab.bet_sizing.ch10_snippets import get_w, get_target_pos, limit_price, bet_size
+from mllab.bet_sizing.ef3m import M2N, raw_moment, most_likely_parameters
 
 
 def bet_size_probability(events, prob, num_classes, pred=None, step_size=0.0, average_active=False, num_threads=1):
@@ -82,9 +82,9 @@ def bet_size_reserve(events_t1, sides, fit_runs=100, epsilon=1e-5, factor=5, var
     strategy results in a sigmoid-shaped bet sizing response aligned to the expected number of concurrent long
     and short bets in the dataset.
 
-    Note that this function creates a <mlfinlab.bet_sizing.ef3m.M2N> object and makes use of the parallel fitting
+    Note that this function creates a <mllab.bet_sizing.ef3m.M2N> object and makes use of the parallel fitting
     functionality. As such, this function accepts and passes fitting parameters to the
-    mlfinlab.bet_sizing.ef3m.M2N.mp_fit() method.
+    mllab.bet_sizing.ef3m.M2N.mp_fit() method.
 
     :param events_t1: (pandas.Series) The end datetime of the position with the start datetime as the index.
     :param sides: (pandas.Series) The side of the bet with the start datetime as index. Index must match the

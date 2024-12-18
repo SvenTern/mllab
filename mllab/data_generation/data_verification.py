@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from scipy.cluster import hierarchy
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
-from mlfinlab.codependence import get_dependence_matrix
-from mlfinlab.clustering.hierarchical_clustering import optimal_hierarchical_cluster
+from mllab.codependence import get_dependence_matrix
+from mllab.clustering.hierarchical_clustering import optimal_hierarchical_cluster
 
 
 def plot_time_series_dependencies(time_series, dependence_method="gnpr_distance", **kwargs):

@@ -7,10 +7,10 @@ https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3512994&download=yes
 import numpy as np
 import pandas as pd
 
-from mlfinlab.codependence.information import variation_of_information_score, get_mutual_info
-from mlfinlab.codependence.correlation import distance_correlation
-from mlfinlab.codependence.gnpr_distance import spearmans_rho, gpr_distance, gnpr_distance
-from mlfinlab.codependence.optimal_transport import optimal_transport_dependence
+from mllab.codependence.information import variation_of_information_score, get_mutual_info
+from mllab.codependence.correlation import distance_correlation
+from mllab.codependence.gnpr_distance import spearmans_rho, gpr_distance, gnpr_distance
+from mllab.codependence.optimal_transport import optimal_transport_dependence
 
 
 # pylint: disable=invalid-name

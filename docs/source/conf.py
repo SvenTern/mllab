@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('./../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'mlfinlab'
+project = 'mllab'
 copyright = '2019, Hudson & Thames Quantitative Research.'
 author = 'Hudson & Thames Quantitative Research'
 
@@ -65,7 +65,7 @@ add_module_names = False
 # html_theme_options = {}
 
 html_context = {'logo': 'logo_white.png', 'theme_logo_only': True}
-html_favicon = '_static/favicon_mlfinlab.png'
+html_favicon = '_static/favicon_mllab.png'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -74,5 +74,5 @@ html_static_path = ['_static']
 html_copy_source = True
 
 # 'releases' (changelog) settings
-releases_github_path = 'hudson-and-thames/mlfinlab_premium'
+releases_github_path = 'hudson-and-thames/mllab_premium'
 releases_unstable_prehistory = True

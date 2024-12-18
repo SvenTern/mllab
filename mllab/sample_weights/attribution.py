@@ -6,8 +6,8 @@ And stacked sample weights logic: return and time based sample weights for a mul
 import numpy as np
 import pandas as pd
 
-from mlfinlab.sampling.concurrent import (num_concurrent_events, get_av_uniqueness_from_triple_barrier)
-from mlfinlab.util.multiprocess import mp_pandas_obj
+from mllab.sampling.concurrent import (num_concurrent_events, get_av_uniqueness_from_triple_barrier)
+from mllab.util.multiprocess import mp_pandas_obj
 
 def _apply_weight_by_return(label_endtime, num_conc_events, close_series, molecule):
     """

@@ -4,7 +4,7 @@ Implementation of Chu-Stinchcombe-White test
 
 import pandas as pd
 import numpy as np
-from mlfinlab.util import mp_pandas_obj
+from mllab.util import mp_pandas_obj
 
 
 def _get_values_diff(test_type, series, index, ind):

@@ -1,6 +1,6 @@
 # Copyright 2019, Hudson and Thames Quantitative Research
 # All rights reserved
-# Read more: https://github.com/hudson-and-thames/mlfinlab/blob/master/LICENSE.txt
+# Read more: https://github.com/hudson-and-thames/mllab/blob/master/LICENSE.txt
 """
 Implementation of sampling realistic financial correlation matrices from
 "CorrGAN: Sampling Realistic Financial Correlation Matrices using

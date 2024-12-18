@@ -1,6 +1,6 @@
 # Copyright 2019, Hudson and Thames Quantitative Research
 # All rights reserved
-# Read more: https://github.com/hudson-and-thames/mlfinlab/blob/master/LICENSE.txt
+# Read more: https://github.com/hudson-and-thames/mllab/blob/master/LICENSE.txt
 
 """
 Module which implements feature importance algorithms as described in Chapter 8 of Advances in Financial Machine
@@ -21,7 +21,7 @@ from sklearn.metrics import log_loss
 from sklearn.model_selection import BaseCrossValidator
 import matplotlib.pyplot as plt
 
-from mlfinlab.cross_validation.cross_validation import ml_cross_val_score, stacked_dataset_from_dict
+from mllab.cross_validation.cross_validation import ml_cross_val_score, stacked_dataset_from_dict
 
 
 def mean_decrease_impurity(model, feature_names, clustered_subsets=None):

@@ -9,7 +9,7 @@ from typing import Tuple, Union, Generator, Iterable, Optional
 import numpy as np
 import pandas as pd
 
-from mlfinlab.util.fast_ewma import ewma
+from mllab.util.fast_ewma import ewma
 
 
 def _crop_data_frame_in_batches(df: pd.DataFrame, chunksize: int) -> list:

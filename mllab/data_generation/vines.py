@@ -1,6 +1,6 @@
 # Copyright 2019, Hudson and Thames Quantitative Research
 # All rights reserved
-# Read more: https://github.com/hudson-and-thames/mlfinlab/blob/master/LICENSE.txt
+# Read more: https://github.com/hudson-and-thames/mllab/blob/master/LICENSE.txt
 """
 Implementation of generating financial correlation matrices from
 "Generating random correlation matrices based on vines and extended onion method"

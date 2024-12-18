@@ -15,7 +15,7 @@ We have quite a rigorous process of unit testing, code style checks, and documen
 
 
 ## Raise an Issue
-We have created [templates](https://github.com/hudson-and-thames/mlfinlab/issues/new/choose) to help aid in creating issues and PRs:
+We have created [templates](https://github.com/hudson-and-thames/mllab/issues/new/choose) to help aid in creating issues and PRs:
 * Bug report
 * Feature request
 * Custom issue template

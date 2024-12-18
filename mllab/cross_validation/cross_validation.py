@@ -203,7 +203,7 @@ def stacked_ml_cross_val_score(
         require_proba: bool = True,
         n_jobs_score: int = 1) -> np.array:
     """
-    Implements ml_cross_val_score (mlfinlab.cross_validation.ml_cross_val_score) for multi-asset dataset.
+    Implements ml_cross_val_score (mllab.cross_validation.ml_cross_val_score) for multi-asset dataset.
 
     Function to run a cross-validation evaluation of the using sample weights and a custom CV generator.
     Note: This function is different to the book in that it requires the user to pass through a CV object. The book

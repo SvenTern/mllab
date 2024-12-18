@@ -26,8 +26,8 @@ from typing import Union, Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
-from mlfinlab.data_structures.base_bars import BaseImbalanceBars
-from mlfinlab.util.fast_ewma import ewma
+from mllab.data_structures.base_bars import BaseImbalanceBars
+from mllab.util.fast_ewma import ewma
 
 
 class EMAImbalanceBars(BaseImbalanceBars):

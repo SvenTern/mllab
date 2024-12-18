@@ -1,6 +1,6 @@
 <div align="center">
-   <a href="https://hudsonthames.org/mlfinlab">
-   <img src="https://hudsonthames.org/wp-content/uploads/2021/11/mlfinlab_github_header_v2.jpg" width="100%" 
+   <a href="https://hudsonthames.org/mllab">
+   <img src="https://hudsonthames.org/wp-content/uploads/2021/11/mllab_github_header_v2.jpg" width="100%" 
    style="margin-left: auto; margin-right: auto; display:block;">
    
    </a>
@@ -39,14 +39,14 @@ importing the libraries and ending with strategy performance metrics so you can 
 
 <div align="left">
    <a href="https://portal.hudsonthames.org/sign-in">
-   <img src="https://hudsonthames.org/wp-content/uploads/2021/11/purchase_mlfinlab_v2.png" height="100px" 
+   <img src="https://hudsonthames.org/wp-content/uploads/2021/11/purchase_mllab_v2.png" height="100px" 
    style="margin-left: auto; margin-right: auto; display:inline-block;">
    </a>
    <a href="https://hudsonthames.org/">
    <img src="https://hudsonthames.org/wp-content/uploads/2021/11/website_link_m.png" height="100px">
    </a>
    <a href="https://www.youtube.com/channel/UC8hI87gt0dmTAIEupEcsckA">
-   <img src="https://hudsonthames.org/wp-content/uploads/2021/11/youtube_mlfinlab.png" height="100px">
+   <img src="https://hudsonthames.org/wp-content/uploads/2021/11/youtube_mllab.png" height="100px">
    </a>
 </div>
 
@@ -71,7 +71,7 @@ importing the libraries and ending with strategy performance metrics so you can 
 
 
 ## Licensing options
-This project is licensed under an all rights reserved [licence](https://github.com/hudson-and-thames/mlfinlab/blob/master/LICENSE.txt).
+This project is licensed under an all rights reserved [licence](https://github.com/hudson-and-thames/mllab/blob/master/LICENSE.txt).
 
 * Business
 * Enterprise

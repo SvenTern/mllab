@@ -6,7 +6,7 @@
 |
 
 ================================================
-Machine Learning Financial Laboratory (mlfinlab)
+Machine Learning Financial Laboratory (mllab)
 ================================================
 
 MlFinlab is a python package which helps portfolio managers and traders who want to leverage the power of machine learning
@@ -16,7 +16,7 @@ Adding MlFinLab to your companies pipeline is like adding a department of PhD re
 
 .. code-block::
 
-   pip install mlfinlab
+   pip install mllab
 
 We source all of our implementations from the most elite and peer-reviewed journals. Including publications from:
 
@@ -29,7 +29,7 @@ We source all of our implementations from the most elite and peer-reviewed journ
 Documentation & Tutorials
 #########################
 
-We lower barriers to entry for all users by providing extensive `documentation <https://hudson-and-thames-mlfinlab-premium.readthedocs-hosted.com/en/latest/>`_
+We lower barriers to entry for all users by providing extensive `documentation <https://hudson-and-thames-mllab-premium.readthedocs-hosted.com/en/latest/>`_
 and `tutorial notebooks <https://github.com/Hudson-and-Thames-Clients/research>`_, with code examples.
 
 Who is Hudson & Thames?
@@ -40,7 +40,7 @@ quantitative finance. We productionalize all our tools in the form of libraries 
 
 * `Website <https://hudsonthames.org/>`_
 * `Github Group <https://github.com/hudson-and-thames>`_
-* `MlFinLab Documentation <https://mlfinlab.readthedocs.io/en/latest/>`_
+* `MlFinLab Documentation <https://mllab.readthedocs.io/en/latest/>`_
 
 Contact us
 ##########
@@ -54,7 +54,7 @@ License
 
 This project is licensed under an all rights reserved licence and is NOT open-source, and may not be used for commercial purposes without a commercial license which may be purchased from Hudson and Thames Quantitative Research.
 
-`LICENSE.txt <https://github.com/hudson-and-thames/mlfinlab/blob/master/LICENSE.txt>`_ file for details.
+`LICENSE.txt <https://github.com/hudson-and-thames/mllab/blob/master/LICENSE.txt>`_ file for details.
 
 .. toctree::
     :maxdepth: 2

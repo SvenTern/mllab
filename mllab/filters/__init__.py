@@ -5,5 +5,5 @@ Logic regarding the various types of filters:
 * Z-score filter
 """
 
-from mlfinlab.filters.filters import cusum_filter
-from mlfinlab.filters.filters import z_score_filter
+from mllab.filters.filters import cusum_filter
+from mllab.filters.filters import z_score_filter

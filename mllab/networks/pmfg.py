@@ -10,7 +10,7 @@ import warnings
 import networkx as nx
 from matplotlib import pyplot as plt
 
-from mlfinlab.networks.graph import Graph
+from mllab.networks.graph import Graph
 
 
 class PMFG(Graph):

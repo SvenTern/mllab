@@ -14,7 +14,7 @@ import numpy as np
 from scipy.special import comb
 from sklearn.model_selection import KFold
 
-from mlfinlab.cross_validation.cross_validation import ml_get_train_times
+from mllab.cross_validation.cross_validation import ml_get_train_times
 
 
 def _get_number_of_backtest_paths(n_train_splits: int, n_test_splits: int) -> int:

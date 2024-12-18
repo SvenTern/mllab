@@ -26,8 +26,8 @@ from typing import Union, Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
-from mlfinlab.data_structures.base_bars import BaseRunBars
-from mlfinlab.util.fast_ewma import ewma
+from mllab.data_structures.base_bars import BaseRunBars
+from mllab.util.fast_ewma import ewma
 
 
 class EMARunBars(BaseRunBars):

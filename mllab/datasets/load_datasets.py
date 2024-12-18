@@ -8,9 +8,9 @@ import os
 import numpy as np
 import pandas as pd
 
-from mlfinlab.labeling.labeling import get_events, add_vertical_barrier, get_bins
-from mlfinlab.util.volatility import get_daily_vol
-from mlfinlab.filters.filters import cusum_filter
+from mllab.labeling.labeling import get_events, add_vertical_barrier, get_bins
+from mllab.util.volatility import get_daily_vol
+from mllab.filters.filters import cusum_filter
 
 
 def load_stock_prices() -> pd.DataFrame:
