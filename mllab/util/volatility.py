@@ -7,7 +7,7 @@ import numpy as np
 
 # pylint: disable=redefined-builtin
 
-def get_daily_vol(close, lookback=50):
+def get_daily_vol(close, lookback=50, normalized_data: bool = False):
     """
     Advances in Financial Machine Learning, Snippet 3.1, page 44.
 
@@ -27,8 +27,16 @@ def get_daily_vol(close, lookback=50):
     :param close: (pd.Series) Closing prices
     :param lookback: (int) Lookback period to compute volatility
     :return: (pd.Series) Daily volatility value
+
     """
-    return close.ewm(span=lookback).std()
+    # Calculate returns
+    if normalized_data:
+        returns = close
+    else:
+        returns = close.pct_change()
+
+    # Compute the exponentially weighted moving standard deviation
+    daily_vol = returns.ewm(span=lookback).std()
 
 def get_parksinson_vol(high: pd.Series, low: pd.Series, window: int = 20) -> pd.Series:
     """

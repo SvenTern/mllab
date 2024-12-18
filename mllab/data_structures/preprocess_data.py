@@ -690,7 +690,7 @@ class FinancePreprocessor:
         latest_turb = turb_df["Close"].values
         return latest_price, latest_tech, latest_turb
 
-    def candle_plot(self, df: pd.DataFrame, tic: str = 'AAPL', style: str = 'yahoo', interval: str = '1T'):
+    def candle_plot(self, df: pd.DataFrame, tic: str = 'AAPL', style: str = 'yahoo', interval: str = '1T', type_chart : str = 'candle'):
         """
         Построение свечного графика с возможностью задания интервала.
 
@@ -757,7 +757,7 @@ class FinancePreprocessor:
         # Построение свечного графика
         mpf.plot(
             resampled_data,
-            type='candle',  # Тип графика: свечной
+            type=type_chart,  # Тип графика: свечной
             volume= not dont_use_volume,    # Добавить объём
             title=f"Candlestick {tic} ({interval} interval)",  # Заголовок графика
             style=style,  # Стиль графика
