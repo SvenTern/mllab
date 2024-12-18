@@ -38,6 +38,8 @@ def get_daily_vol(close, lookback=50, normalized_data: bool = False):
     # Compute the exponentially weighted moving standard deviation
     daily_vol = returns.ewm(span=lookback).std()
 
+    return daily_vol
+
 def get_parksinson_vol(high: pd.Series, low: pd.Series, window: int = 20) -> pd.Series:
     """
     Parkinson volatility estimator
