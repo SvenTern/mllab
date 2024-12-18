@@ -711,11 +711,13 @@ class FinancePreprocessor:
 
         # Подготовка данных
         index_name = "timestamp"
-        if index_name not in df.columns:
-            index_name = "date"
         df_copy = df.copy()
-        df_copy[index_name] = pd.to_datetime(df_copy[index_name])
-        df_copy = df_copy.set_index(index_name)
+        if not df_copy.index.name == index_name:
+            if index_name not in df_copy.columns:
+                index_name = "date"
+            df_copy = df.copy()
+            df_copy[index_name] = pd.to_datetime(df_copy[index_name])
+            df_copy = df_copy.set_index(index_name)
         if dont_use_volume:
             df_copy = df_copy.rename(columns={"open": "Open", "high": "High", "low": "Low", "close": "Close"})
         else:

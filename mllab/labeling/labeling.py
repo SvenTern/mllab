@@ -115,7 +115,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     """
     # Auto-set min_ret if not provided
     if not min_ret is None:
-        #min_ret = target.median()
+        min_ret = target.median()
         # Filter events based on min_ret
         target = target[target > min_ret]
 
