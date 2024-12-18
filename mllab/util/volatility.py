@@ -7,7 +7,7 @@ import numpy as np
 
 # pylint: disable=redefined-builtin
 
-def get_daily_vol(close, lookback=100):
+def get_daily_vol(close, lookback=50):
     """
     Advances in Financial Machine Learning, Snippet 3.1, page 44.
 
