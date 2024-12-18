@@ -73,7 +73,7 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
 
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
-def get_events(close, t_events, pt_sl, target, min_ret, num_threads, vertical_barrier_times=False,
+def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vertical_barrier_times=False,
                side_prediction=None, verbose=True):
     """
     Advances in Financial Machine Learning, Snippet 3.6 page 50.
@@ -92,6 +92,7 @@ def get_events(close, t_events, pt_sl, target, min_ret, num_threads, vertical_ba
     :param target: (pd.Series) of values that are used (in conjunction with pt_sl) to determine the width
         of the barrier. In this program this is daily volatility series.
     :param min_ret: (float) The minimum target return required for running a triple barrier search.
+                    If None, it will be set to the median of the target series.
     :param num_threads: (int) The number of threads concurrently used by the function.
     :param vertical_barrier_times: (pd.Series) A pandas series with the timestamps of the vertical barriers.
         We pass a False when we want to disable vertical barriers.
@@ -105,8 +106,12 @@ def get_events(close, t_events, pt_sl, target, min_ret, num_threads, vertical_ba
             -events['pt'] is profit taking multiple
             -events['sl']  is stop loss multiple
     """
-    # Filter events based on min_ret
-    target = target[target > min_ret]
+    # Auto-set min_ret if not provided
+    if not min_ret is None:
+        #min_ret = target.median()
+        # Filter events based on min_ret
+        target = target[target > min_ret]
+
     t_events = t_events.intersection(target.index)
 
     # Set vertical barriers
