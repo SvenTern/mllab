@@ -126,13 +126,15 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
         events['side'] = side_prediction.loc[events.index]
 
     # Apply Triple Barrier Labeling
+    # close, events, pt_sl, molecule
     df0 = mp_pandas_obj(
         func=apply_pt_sl_on_t1,
         pd_obj=('molecule', events.index),
         num_threads=num_threads,
         close=close,
         events=events,
-        pt_sl=pt_sl
+        pt_sl=pt_sl,
+        molecule = events.index
     )
     events = events.assign(**df0)
     return events
