@@ -28,6 +28,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     :param molecule: (an array) A set of datetime index values for processing
     :return: (pd.DataFrame) Timestamps of when first barrier was touched
     """
+    print(kwargs)
     molecule = kwargs['molecule']
     close = kwargs['close']
     events = kwargs['events']
