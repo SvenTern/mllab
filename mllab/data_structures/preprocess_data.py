@@ -79,6 +79,15 @@ class FinancePreprocessor:
     ...
     """
 
+    def read_csv(self, file_name: str = ""):
+
+        data_return = pd.read_csv(self.file_path + file_name, index_col='timestamp')
+        # Преобразование индекса в datetime
+        data_return.index = pd.to_datetime(data_return.index)
+
+        return data_return
+
+
     def convert_interval(self, time_interval: str) -> str:
         # Convert FinRL 'standardised' time periods to Yahoo format: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
         if time_interval in [
@@ -108,7 +117,7 @@ class FinancePreprocessor:
         if clean_data:
             self.clean = True
         if download_from_disk:
-          return pd.read_csv(self.file_path + '.csv', index_col='timestamp')
+          return self.read_csv('.csv')
 
         # Download and save the data in a pandas DataFrame
         start_date = pd.Timestamp(self.start)
@@ -243,7 +252,7 @@ class FinancePreprocessor:
         :return: DataFrame с долларовыми барами, включая столбцы ['timestamp', 'open', 'high', 'low', 'close', 'tic'].
         """
         if data is None or download_from_disk:
-            return pd.read_csv(self.file_path + '_final.csv', index_col='timestamp')
+            return self.read_csv('_final.csv')
 
         # Проверка на наличие обязательных столбцов
         required_columns = {'tic', 'close', 'volume'}
@@ -341,7 +350,7 @@ class FinancePreprocessor:
         if clean is not None:
           self.clean = clean
         if self.clean:
-            return pd.read_csv(self.file_path + '_clean.csv', index_col='timestamp')
+            return self.read_csv('_clean.csv')
         tic_list = np.unique(df.tic.values)
         NY = "America/New_York"
 
@@ -786,7 +795,7 @@ class FinancePreprocessor:
         """Нормализует данные для каждого тикера отдельно."""
 
         if download_from_disk or df is None:
-            return pd.read_csv(self.file_path + '_normalize.csv', index_col='timestamp')
+            return self.read_csv('_normalize.csv')
 
         normalized_data = []
         for ticker, group in df.groupby('tic'):
