@@ -201,10 +201,7 @@ class FinancePreprocessor:
             bars_count = []
 
             for threshold in thresholds:
-                print('начинаем делать оценку с threshold',threshold)
-                dollar_bars = self.create_dollar_bars(ticker_data, threshold, evaluate = True)
-                print('данные после оценки', len(dollar_bars))
-                print('целевое значение баров ', len(ticker_data) * target_bar_ratio)
+                dollar_bars = self.create_dollar_bars(ticker_data, download_from_disk = False, optimal_thresholds = threshold, evaluate = True)
                 bars_count.append(len(dollar_bars))
 
             total_minutes = len(ticker_data)
@@ -229,7 +226,6 @@ class FinancePreprocessor:
             plt.show()
 
 
-            print(optimal_threshold)
             print(f"Ticker: {ticker}, Optimal Threshold: {optimal_threshold:.2f}")
             optimal_thresholds[ticker] = optimal_threshold
 
@@ -247,9 +243,6 @@ class FinancePreprocessor:
         :return: DataFrame с долларовыми барами, включая столбцы ['timestamp', 'open', 'high', 'low', 'close', 'tic'].
         """
         if data is None or download_from_disk:
-            print('нашел 1 data', data)
-            print('нашел 1 download_from_disk', download_from_disk)
-            print('нашел 1 data is None or download_from_disk', data is None or download_from_disk)
             return pd.read_csv(self.file_path + '_final.csv')
 
         # Проверка на наличие обязательных столбцов
@@ -316,7 +309,7 @@ class FinancePreprocessor:
                     cum_vwap_volume = 0
                     cum_volume = 0
                     bar = {'open': None, 'high': -np.inf, 'low': np.inf, 'close': None, 'vwap': None, 'transactions': None, 'timestamp': None, 'tic': ticker}
-                    print('набранное количество баров при оценке ', len(dollar_bars))
+
 
             # Добавление последнего бара, если данные остались
             if bar['open'] is not None:
