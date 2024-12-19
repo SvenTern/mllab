@@ -269,8 +269,6 @@ class FinancePreprocessor:
             else:
                 threshold = optimal_thresholds
 
-            print('threshold for evaluate',threshold)
-
             dollar_bars = []
             cum_dollar_volume = 0
             cum_transactions_volume = 0
@@ -788,7 +786,9 @@ class FinancePreprocessor:
         """Нормализует данные для каждого тикера отдельно."""
 
         if download_from_disk or df is None:
-            return pd.read_csv(self.file_path + '_normalize.csv')
+            data = pd.read_csv(self.file_path + '_normalize.csv', index_col='timestamp')
+
+            return data
 
         normalized_data = []
         for ticker, group in df.groupby('tic'):
