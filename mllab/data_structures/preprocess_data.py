@@ -313,7 +313,12 @@ class FinancePreprocessor:
         # Объединение всех тикеров в один DataFrame
         all_dollar_bars_df = pd.concat(all_dollar_bars, ignore_index=True)
 
-        all_dollar_bars_df.to_csv(self.file_path + '_final.csv', index=False)
+        all_dollar_bars_df.set_index('timestamp', inplace=True)
+        # Преобразование Index в DatetimeIndex
+        all_dollar_bars_df.index = pd.to_datetime(all_dollar_bars_df.index)
+
+        # сохраняем нормализованный датасет на диске
+        all_dollar_bars_df.to_csv(self.file_path + '_final.csv', index=True)
 
         return all_dollar_bars_df
 
@@ -784,6 +789,6 @@ class FinancePreprocessor:
         data_normalized.index = pd.to_datetime(data_normalized.index)
 
         # сохраняем нормализованный датасет на диске
-        data_normalized.to_csv(self.file_path + '_normalize.csv', index=False)
+        data_normalized.to_csv(self.file_path + '_normalize.csv', index=True)
 
         return data_normalized
