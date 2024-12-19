@@ -192,8 +192,6 @@ class FinancePreprocessor:
         for ticker in unique_tickers:
             ticker_data = data[data['tic'] == ticker]
 
-            print(ticker_data)
-
             ticker_data['DollarVolume'] = ticker_data['close'] * ticker_data['volume']
 
             if max_threshold is None:
@@ -272,6 +270,8 @@ class FinancePreprocessor:
             else:
                 threshold = optimal_thresholds
 
+            print('threshold for evaluate',threshold)
+
             dollar_bars = []
             cum_dollar_volume = 0
             cum_transactions_volume = 0
@@ -310,6 +310,7 @@ class FinancePreprocessor:
                     cum_vwap_volume = 0
                     cum_volume = 0
                     bar = {'open': None, 'high': -np.inf, 'low': np.inf, 'close': None, 'vwap': None, 'transactions': None, 'timestamp': None, 'tic': ticker}
+                    print('набранное количество баров при оценке ', len(dollar_bars))
 
             # Добавление последнего бара, если данные остались
             if bar['open'] is not None:
