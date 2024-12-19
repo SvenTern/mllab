@@ -108,7 +108,7 @@ class FinancePreprocessor:
         if clean_data:
             self.clean = True
         if download_from_disk:
-          return pd.read_csv(self.file_path + '.csv')
+          return pd.read_csv(self.file_path + '.csv', index_col='timestamp')
 
         # Download and save the data in a pandas DataFrame
         start_date = pd.Timestamp(self.start)
@@ -243,7 +243,7 @@ class FinancePreprocessor:
         :return: DataFrame с долларовыми барами, включая столбцы ['timestamp', 'open', 'high', 'low', 'close', 'tic'].
         """
         if data is None or download_from_disk:
-            return pd.read_csv(self.file_path + '_final.csv')
+            return pd.read_csv(self.file_path + '_final.csv', index_col='timestamp')
 
         # Проверка на наличие обязательных столбцов
         required_columns = {'tic', 'close', 'volume'}
@@ -341,7 +341,7 @@ class FinancePreprocessor:
         if clean is not None:
           self.clean = clean
         if self.clean:
-            return pd.read_csv(self.file_path + '_clean.csv')
+            return pd.read_csv(self.file_path + '_clean.csv', index_col='timestamp')
         tic_list = np.unique(df.tic.values)
         NY = "America/New_York"
 
@@ -786,9 +786,7 @@ class FinancePreprocessor:
         """Нормализует данные для каждого тикера отдельно."""
 
         if download_from_disk or df is None:
-            data = pd.read_csv(self.file_path + '_normalize.csv', index_col='timestamp')
-
-            return data
+            return pd.read_csv(self.file_path + '_normalize.csv', index_col='timestamp')
 
         normalized_data = []
         for ticker, group in df.groupby('tic'):
