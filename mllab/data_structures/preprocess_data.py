@@ -204,7 +204,7 @@ class FinancePreprocessor:
                 print('начинаем делать оценку с threshold',threshold)
                 dollar_bars = self.create_dollar_bars(ticker_data, threshold, evaluate = True)
                 print('данные после оценки', len(dollar_bars))
-                print('целевое значение баров ', total_minutes * target_bar_ratio)
+                print('целевое значение баров ', len(ticker_data) * target_bar_ratio)
                 bars_count.append(len(dollar_bars))
 
             total_minutes = len(ticker_data)
