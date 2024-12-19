@@ -247,11 +247,13 @@ class FinancePreprocessor:
         :return: DataFrame с долларовыми барами, включая столбцы ['timestamp', 'open', 'high', 'low', 'close', 'tic'].
         """
         if data is None or download_from_disk:
+            print('нашел 1')
             return pd.read_csv(self.file_path + '_final.csv')
 
         # Проверка на наличие обязательных столбцов
         required_columns = {'tic', 'close', 'volume'}
         if not required_columns.issubset(data.columns):
+            print('нашел 2')
             raise ValueError(f"DataFrame должен содержать столбцы: {required_columns}")
 
         # Получение уникальных тикеров
@@ -268,6 +270,7 @@ class FinancePreprocessor:
             # Определение порога
             if isinstance(optimal_thresholds, dict):
                 if ticker not in optimal_thresholds:
+                    print('нашел 3')
                     raise ValueError(f"Порог для тикера {ticker} отсутствует в словаре optimal_thresholds.")
                 threshold = optimal_thresholds[ticker]
             else:
