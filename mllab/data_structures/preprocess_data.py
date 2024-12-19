@@ -200,7 +200,7 @@ class FinancePreprocessor:
             bars_count = []
 
             for threshold in thresholds:
-                dollar_bars = self.create_dollar_bars(ticker_data, threshold)
+                dollar_bars = self.create_dollar_bars(ticker_data, threshold, evaluate = True)
                 bars_count.append(len(dollar_bars))
 
             total_minutes = len(ticker_data)
@@ -224,12 +224,13 @@ class FinancePreprocessor:
             plt.grid()
             plt.show()
 
-            optimal_thresholds[ticker] = optimal_threshold
             print(f"Ticker: {ticker}, Optimal Threshold: {optimal_threshold:.2f}")
+            optimal_thresholds[ticker] = optimal_threshold
+
 
         return optimal_thresholds
 
-    def create_dollar_bars(self, data: pd.DataFrame = None, download_from_disk: bool = False, optimal_thresholds: Union[Dict[str, float], float] = None) -> pd.DataFrame:
+    def create_dollar_bars(self, data: pd.DataFrame = None, download_from_disk: bool = False, evaluate: bool = False, optimal_thresholds: Union[Dict[str, float], float] = None) -> pd.DataFrame:
         """
         Создаёт долларовые бары из минутных данных для нескольких тикеров.
 
@@ -316,6 +317,10 @@ class FinancePreprocessor:
 
         # Объединение всех тикеров в один DataFrame
         all_dollar_bars_df = pd.concat(all_dollar_bars, ignore_index=True)
+
+        # возврат значения оценки без сохранения на диске
+        if evaluate:
+            return all_dollar_bars_df
 
         all_dollar_bars_df.set_index('timestamp', inplace=True)
         # Преобразование Index в DatetimeIndex
