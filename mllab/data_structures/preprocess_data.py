@@ -26,6 +26,10 @@ from stockstats import StockDataFrame as Sdf
 from google.colab import drive
 import os
 
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib import colors
+
 
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
