@@ -201,7 +201,9 @@ class FinancePreprocessor:
             bars_count = []
 
             for threshold in thresholds:
+                print('начинаем делать оценку с threshold',threshold)
                 dollar_bars = self.create_dollar_bars(ticker_data, threshold, evaluate = True)
+                print('данные после оценки', dollar_bars)
                 bars_count.append(len(dollar_bars))
 
             total_minutes = len(ticker_data)
