@@ -191,6 +191,9 @@ class FinancePreprocessor:
 
         for ticker in unique_tickers:
             ticker_data = data[data['tic'] == ticker]
+
+            print(ticker_data)
+
             ticker_data['DollarVolume'] = ticker_data['close'] * ticker_data['volume']
 
             if max_threshold is None:
@@ -224,6 +227,8 @@ class FinancePreprocessor:
             plt.grid()
             plt.show()
 
+
+            print(optimal_threshold)
             print(f"Ticker: {ticker}, Optimal Threshold: {optimal_threshold:.2f}")
             optimal_thresholds[ticker] = optimal_threshold
 
