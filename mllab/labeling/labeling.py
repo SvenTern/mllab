@@ -122,7 +122,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     t_events = t_events.intersection(target.index)
 
     # Set vertical barriers
-    if isinstance(vertical_barrier_times, {pd.Series,pd.DataFrame}):
+    if isinstance(vertical_barrier_times, (pd.Series, pd.DataFrame)):
         t1 = pd.Series(vertical_barrier_times)
     else:
         t1 = pd.Series(pd.NaT, index=t_events)
