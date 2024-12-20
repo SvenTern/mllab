@@ -27,9 +27,9 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observ
 
     for t in t_events:
         if look_forward:
-            window_prices = price_series[t:t + pd.Timedelta(days=observation_window)]
+            window_prices = price_series[t:t + pd.Timedelta(minutes=observation_window)]
         else:
-            window_prices = price_series[t - pd.Timedelta(days=observation_window):t]
+            window_prices = price_series[t - pd.Timedelta(minutes=observation_window):t]
 
         if len(window_prices) < min_sample_length:
             continue
