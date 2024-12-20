@@ -55,7 +55,9 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
 
         # если минимальное время начало интервала то нужно перенести на начало следующего интервала
         if results.loc[loc, 't1'] == loc and idx + 1 < len(molecule):
-            results.loc[loc, 't1'] = molecule[idx + 1]
+            results.loc[loc, 't2'] = molecule[idx + 1]
+        else:
+            results.loc[loc, 't2'] = results.loc[loc, 't1']
 
 
     return results
@@ -140,7 +142,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
         t1 = pd.Series(pd.NaT, index=t_events)
 
     # Create events DataFrame
-    events = pd.DataFrame({'t1': t1, 'trgt': target.loc[t_events]}, index=t_events)
+    events = pd.DataFrame({'t1': t1,' t2': t1, 'trgt': target.loc[t_events]}, index=t_events)
     if side_prediction is not None:
         events['side'] = side_prediction.loc[events.index]
 
@@ -216,7 +218,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
     """
     out = triple_barrier_events[['t1', 'trgt']].copy()
     for loc, event in triple_barrier_events.iterrows():
-        df0 = close[loc:event['t1']]  # Path prices
+        df0 = close[loc:event['t2']]  # Path prices
         if normalized_data:
             df0 = (df0) * event['side'] if 'side' in event else df0
         else:
@@ -228,6 +230,14 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
             out.loc[loc, 'bin'] = 1
         if df0.min() < -event['trgt']:
             out.loc[loc, 'bin'] = -1
+
+        if out.loc[loc, 'bin'] > 0:
+            out.loc[loc, 'return'] = close[loc:event['t2']].max()
+        elif out.loc[loc, 'bin'] < 0:
+            out.loc[loc, 'return'] = close[loc:event['t2']].min()
+        else:
+            out.loc[loc, 'return'] = 0
+
     return out
 
 
