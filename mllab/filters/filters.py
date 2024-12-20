@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 # Snippet 2.4, page 39, The Symmetric CUSUM Filter.
-def cusum_filter(raw_time_series, threshold, time_stamps=True):
+def cusum_filter(raw_time_series, threshold, time_stamps=True, normalized_data: bool = False):
     """
     Advances in Financial Machine Learning, Snippet 2.4, page 39.
 
@@ -40,7 +40,10 @@ def cusum_filter(raw_time_series, threshold, time_stamps=True):
     if isinstance(threshold, (float, int)):
         threshold = pd.Series(threshold, index=raw_time_series.index)
 
-    diff = raw_time_series.diff().dropna()
+    if normalized_data:
+        diff = raw_time_series.dropna()
+    else:
+        diff = raw_time_series.diff().dropna()
 
     for i in diff.index:
         s_pos = max(0, s_pos + diff.loc[i])
