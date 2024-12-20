@@ -37,6 +37,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
 
     results = pd.DataFrame(index=molecule)
     for loc in molecule:
+
         if loc not in events.index:
             continue
         df0 = close[loc:events.loc[loc, 't1']]  # Path prices
@@ -49,7 +50,12 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
         # Barriers
         results.loc[loc, 'sl'] = df0[df0 <= sl].index.min()
         results.loc[loc, 'pt'] = df0[df0 >= pt].index.min()
-        results.loc[loc, 't1'] = events.loc[loc, 't1']
+
+        # нужно поставить минимальное время где происходит пересечение барьеров ...
+        results.loc[loc, 't1'] = min(events.loc[loc, 't1'], results.loc[loc, 'sl'], results.loc[loc, 'pt'])
+
+        print('проверка отбора минимального интервала', results.loc[loc, 't1'])
+
     return results
 
 
@@ -129,6 +135,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
 
     # Create events DataFrame
     events = pd.DataFrame({'t1': t1, 'trgt': target.loc[t_events]}, index=t_events)
+    print(events)
     if side_prediction is not None:
         events['side'] = side_prediction.loc[events.index]
 
