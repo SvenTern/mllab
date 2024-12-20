@@ -135,7 +135,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
         t1 = np.array(pd.Series(pd.NaT, index=t_events))
 
     # Create events DataFrame
-    events = pd.DataFrame({'t1': t1.loc[t_events], 'trgt': target.loc[t_events]}, index=t_events)
+    events = pd.DataFrame({'t1': t1, 'trgt': target.loc[t_events]}, index=t_events)
     if side_prediction is not None:
         events['side'] = side_prediction.loc[events.index]
 
