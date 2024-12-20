@@ -54,7 +54,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
         results.loc[loc, 't1'] = min(events.loc[loc, 't1'], results.loc[loc, 'sl'], results.loc[loc, 'pt'])
 
         # если минимальное время начало интервала то нужно перенести на начало следующего интервала
-        if results.loc[loc, 't1'] == loc and not idx == len(molecule):
+        if results.loc[loc, 't1'] == loc and idx + 1 < len(molecule):
             results.loc[loc, 't1'] = molecule[idx + 1]
 
 
