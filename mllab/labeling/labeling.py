@@ -129,14 +129,13 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     t_events = t_events.intersection(target.index)
 
     # Set vertical barriers
-    if isinstance(vertical_barriers, (pd.Series, pd.DataFrame, pd.DatetimeIndex)):
+    if isinstance(vertical_barrier_times, (pd.Series, pd.DataFrame, pd.DatetimeIndex)):
         t1 = np.array(vertical_barrier_times)
     else:
         t1 = np.array(pd.Series(pd.NaT, index=t_events))
 
     # Create events DataFrame
     events = pd.DataFrame({'t1': t1.loc[t_events], 'trgt': target.loc[t_events]}, index=t_events)
-    print(events)
     if side_prediction is not None:
         events['side'] = side_prediction.loc[events.index]
 
