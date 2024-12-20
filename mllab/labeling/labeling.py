@@ -122,8 +122,8 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     t_events = t_events.intersection(target.index)
 
     # Set vertical barriers
-    if isinstance(vertical_barrier_times, pd.Series):
-        t1 = vertical_barrier_times
+    if isinstance(vertical_barrier_times, {pd.Series,pd.DataFrame}):
+        t1 = pd.Series(vertical_barrier_times)
     else:
         t1 = pd.Series(pd.NaT, index=t_events)
 
@@ -178,7 +178,7 @@ def barrier_touched(out_df, events):
 
 
 # Snippet 3.4 -> 3.7, page 51, Labeling for Side & Size with Meta Labels
-def get_bins(triple_barrier_events, close):
+def get_bins(triple_barrier_events, close, normalized_data: bool = False):
     """
     Advances in Financial Machine Learning, Snippet 3.7, page 51.
 
@@ -205,7 +205,10 @@ def get_bins(triple_barrier_events, close):
     out = triple_barrier_events[['t1', 'trgt']].copy()
     for loc, event in triple_barrier_events.iterrows():
         df0 = close[loc:event['t1']]  # Path prices
-        df0 = (df0 / close[loc] - 1) * event['side'] if 'side' in event else df0 / close[loc] - 1
+        if normalized_data:
+            df0 = (df0) * event['side'] if 'side' in event else df0
+        else:
+            df0 = (df0 / close[loc] - 1) * event['side'] if 'side' in event else df0 / close[loc] - 1
 
         # Assign labels
         out.loc[loc, 'bin'] = 0
