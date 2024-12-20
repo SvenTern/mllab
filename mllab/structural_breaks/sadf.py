@@ -78,16 +78,25 @@ def _lag_df(df: pd.DataFrame, lags: Union[int, list]) -> pd.DataFrame:
 
     return lagged_df.dropna()
 
-def get_betas(X: pd.DataFrame, y: pd.DataFrame) -> Tuple[np.array, np.array]:
-    """
-    Advances in Financial Machine Learning, Snippet 17.4, page 259.
 
-    Fitting The ADF Specification (get beta estimate and estimate variance)
-
-    :param X: (pd.DataFrame) Features(factors)
-    :param y: (pd.DataFrame) Outcomes
-    :return: (np.array, np.array) Betas and variances of estimates
+def get_betas(X: pd.DataFrame, y: pd.DataFrame, add_intercept: bool = False) -> Tuple[np.array, np.array]:
     """
+    Fitting the ADF Specification to obtain regression coefficients and their standard errors.
+
+    :param X: (pd.DataFrame) Predictor variables (features).
+    :param y: (pd.DataFrame or pd.Series) Outcome variable.
+    :param add_intercept: (bool) Whether to add an intercept term to the predictors.
+    :return: (np.array, np.array) Regression coefficients and standard errors.
+    """
+    # Ensure inputs are aligned and X has no missing values
+    X, y = X.align(y, join='inner', axis=0)
+
+    # Add intercept column if required
+    if add_intercept:
+        X = X.copy()  # Avoid modifying the original DataFrame
+        X.insert(0, 'Intercept', 1.0)
+
+    # Fit the OLS model
     model_fit = OLS(y, X).fit()
     betas = model_fit.params
     variances = model_fit.bse
