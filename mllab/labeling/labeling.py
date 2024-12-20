@@ -87,7 +87,7 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
 
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
-def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vertical_barrier_times=False,
+def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vertical_barrier_times=None,
                side_prediction=None, verbose=True):
     """
     Advances in Financial Machine Learning, Snippet 3.6 page 50.
@@ -129,11 +129,9 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     t_events = t_events.intersection(target.index)
 
     # Set vertical barriers
-    if isinstance(vertical_barrier_times, (pd.Series, pd.DataFrame)):
-        print('правильная ветка')
+    if isinstance(vertical_barriers, (pd.Series, pd.DataFrame, pd.DatetimeIndex)):
         t1 = np.array(vertical_barrier_times)
     else:
-        print('не правильная ветка !!!')
         t1 = np.array(pd.Series(pd.NaT, index=t_events))
 
     # Create events DataFrame
