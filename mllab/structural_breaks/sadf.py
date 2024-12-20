@@ -88,6 +88,12 @@ def get_betas(X: pd.DataFrame, y: pd.DataFrame, add_intercept: bool = False) -> 
     :param add_intercept: (bool) Whether to add an intercept term to the predictors.
     :return: (np.array, np.array) Regression coefficients and standard errors.
     """
+    # Convert inputs to DataFrame/Series if they are numpy arrays
+    if isinstance(X, np.ndarray):
+        X = pd.DataFrame(X)
+    if isinstance(y, np.ndarray):
+        y = pd.Series(y)
+
     # Ensure inputs are aligned and X has no missing values
     X, y = X.align(y, join='inner', axis=0)
 
