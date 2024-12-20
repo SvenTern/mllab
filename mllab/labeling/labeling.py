@@ -35,7 +35,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     pt_sl = opt['pt_sl']
 
     results = pd.DataFrame(index=molecule)
-    for loc in molecule:
+    for idx, loc in enumerate(molecule):
 
         if loc not in events.index:
             continue
@@ -52,6 +52,10 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
 
         # нужно поставить минимальное время где происходит пересечение барьеров ...
         results.loc[loc, 't1'] = min(events.loc[loc, 't1'], results.loc[loc, 'sl'], results.loc[loc, 'pt'])
+
+        # если минимальное время начало интервала то нужно перенести на начало следующего интервала
+        if results.loc[loc, 't1'] == loc and not idx == len(molecule):
+            results.loc[loc, 't1'] = molecule(idx + 1)
 
 
     return results
@@ -127,9 +131,9 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
 
     # Set vertical barriers
     if isinstance(vertical_barrier_times, (pd.Series, pd.DataFrame, pd.DatetimeIndex)):
-        t1 = np.array(vertical_barrier_times)
+        t1 = pd.Series(vertical_barrier_times, index=t_events)
     else:
-        t1 = np.array(pd.Series(pd.NaT, index=t_events))
+        t1 = pd.Series(pd.NaT, index=t_events)
 
     # Create events DataFrame
     events = pd.DataFrame({'t1': t1, 'trgt': target.loc[t_events]}, index=t_events)
