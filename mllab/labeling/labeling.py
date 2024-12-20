@@ -34,8 +34,6 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     events = opt['events']
     pt_sl = opt['pt_sl']
 
-    print('проверка полученных данных events в обработку', events)
-
     results = pd.DataFrame(index=molecule)
     for loc in molecule:
 
@@ -55,7 +53,6 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
         # нужно поставить минимальное время где происходит пересечение барьеров ...
         results.loc[loc, 't1'] = min(events.loc[loc, 't1'], results.loc[loc, 'sl'], results.loc[loc, 'pt'])
 
-        print('проверка отбора минимального интервала', results.loc[loc, 't1'])
 
     return results
 
