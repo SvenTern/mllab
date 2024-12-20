@@ -43,7 +43,7 @@ def cusum_filter(raw_time_series, threshold, time_stamps=True, normalized_data: 
     if normalized_data:
         diff = raw_time_series.dropna()
     else:
-        diff = raw_time_series.diff().dropna()
+        diff = raw_time_series.pct_change().shift(-1).dropna()
 
     for i in diff.index:
         s_pos = max(0, s_pos + diff.loc[i])
