@@ -9,7 +9,7 @@ import numpy as np
 from mllab.structural_breaks.sadf import get_betas
 
 def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observation_window: int = 20,
-                          look_forward: bool = True, min_sample_length: int = 5, step: int = 1) -> pd.DataFrame:
+                          look_forward: bool = True, min_sample_length: int = 5, step: int = 1, normalized_data:bool = False) -> pd.DataFrame:
     """
     Trend scanning labels implementation.
 
@@ -38,7 +38,10 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observ
 
         for i in range(min_sample_length, len(window_prices), step):
             sub_window_prices = window_prices.iloc[:i]
-            y = sub_window_prices.pct_change().dropna().values
+            if normalized_data:
+                y = sub_window_prices.dropna().values
+            else:
+                y = sub_window_prices.pct_change().dropna().values
             X = np.arange(len(y)).reshape(-1, 1)
 
             if len(y) < min_sample_length:
@@ -54,7 +57,12 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observ
 
         if max_tvalue_index is not None:
             t1 = max_tvalue_index
-            ret = price_series[t1] / price_series[t] - 1
+            if normalized_data:
+                # нужно суммировать все изменения за период от t - t1
+                ret = sum(price_series[t:t1])
+            else:
+                ret = price_series[t1] / price_series[t] - 1
+
             bin_label = np.sign(max_tvalue)
 
             results.loc[t] = [t1, max_tvalue, ret, bin_label]
