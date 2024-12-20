@@ -59,7 +59,11 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observ
             t1 = max_tvalue_index
             if normalized_data:
                 # нужно суммировать все изменения за период от t - t1
-                ret = sum(price_series[t:t1])
+                if t >= t1:
+                    ret = sum(price_series[t1:t].values)
+                else:
+                    ret = sum(price_series[t:t1].values)
+                print('проверка суммы результата', ret)
             else:
                 ret = price_series[t1] / price_series[t] - 1
 
@@ -68,4 +72,11 @@ def trend_scanning_labels(price_series: pd.Series, t_events: list = None, observ
             results.loc[t] = [t1, max_tvalue, ret, bin_label]
 
     results.dropna(inplace=True)
-    return results
+
+    # Ensure the labels align with the timestamps in t_events
+    aligned_labels = results.reindex(t_events)
+
+    # Fill missing t-values with 0 or another default value
+    aligned_labels = aligned_labels.fillna(0)
+
+    return aligned_labels
