@@ -107,7 +107,7 @@ def get_betas(X: pd.DataFrame, y: pd.DataFrame, add_intercept: bool = False) -> 
     betas = model_fit.params
     variances = model_fit.bse
 
-    return betas.values, variances.values
+    return {'t_values': betas.values, 'variances': variances.values}
 
 def _sadf_outer_loop(X: pd.DataFrame, y: pd.DataFrame, min_length: int, model: str, phi: float,
                      molecule: list) -> pd.Series:
