@@ -35,7 +35,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     pt_sl = opt['pt_sl']
 
     results = pd.DataFrame(index=molecule)
-    for idx, loc in enumerate(molecule):
+    for idx, loc in enumerate(molecule, start=0):
 
         if loc not in events.index:
             continue
@@ -121,6 +121,10 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
             -events['pt'] is profit taking multiple
             -events['sl']  is stop loss multiple
     """
+    # проверка на соответствие длины t_events и количества барьеров vertical_barrier_times
+    if len(t_events) > len(vertical_barrier_times):
+        t_events = t_events[:len(vertical_barrier_times)]
+
     # Auto-set min_ret if not provided
     if not min_ret is None:
         min_ret = target.median()
