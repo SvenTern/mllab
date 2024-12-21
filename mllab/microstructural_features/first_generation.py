@@ -19,8 +19,10 @@ def get_roll_measure(close_prices: pd.Series, window: int = 20) -> pd.Series:
     :param window: (int) Estimation window
     :return: (pd.Series) Roll measure
     """
-
-    pass
+    price_diff = close_prices.diff()
+    roll_cov = price_diff.rolling(window).cov(price_diff.shift(1))
+    roll_measure = 2 * np.sqrt(-roll_cov)
+    return roll_measure.dropna()
 
 
 def get_roll_impact(close_prices: pd.Series, dollar_volume: pd.Series, window: int = 20) -> pd.Series:
@@ -34,11 +36,11 @@ def get_roll_impact(close_prices: pd.Series, dollar_volume: pd.Series, window: i
     :param window: (int) Estimation window
     :return: (pd.Series) Roll impact
     """
+    roll_measure = get_roll_measure(close_prices, window)
+    roll_impact = roll_measure / dollar_volume.rolling(window).mean()
+    return roll_impact.dropna()
 
-    pass
 
-
-# Corwin-Schultz algorithm
 def _get_beta(high: pd.Series, low: pd.Series, window: int) -> pd.Series:
     """
     Advances in Financial Machine Learning, Snippet 19.1, page 285.
@@ -50,8 +52,9 @@ def _get_beta(high: pd.Series, low: pd.Series, window: int) -> pd.Series:
     :param window: (int) Estimation window
     :return: (pd.Series) Beta estimates
     """
-
-    pass
+    hl_ratio = (high / low).rolling(window=2).mean()
+    beta = np.log(hl_ratio) ** 2
+    return beta.dropna()
 
 
 def _get_gamma(high: pd.Series, low: pd.Series) -> pd.Series:
@@ -64,8 +67,8 @@ def _get_gamma(high: pd.Series, low: pd.Series) -> pd.Series:
     :param low: (pd.Series) Low prices
     :return: (pd.Series) Gamma estimates
     """
-
-    pass
+    gamma = np.log(high / low) ** 2
+    return gamma.dropna()
 
 
 def _get_alpha(beta: pd.Series, gamma: pd.Series) -> pd.Series:
@@ -78,8 +81,8 @@ def _get_alpha(beta: pd.Series, gamma: pd.Series) -> pd.Series:
     :param gamma: (pd.Series) Gamma estimates
     :return: (pd.Series) Alphas
     """
-
-    pass
+    alpha = np.sqrt(2 * beta) - np.sqrt(2 * gamma)
+    return alpha.dropna()
 
 
 def get_corwin_schultz_estimator(high: pd.Series, low: pd.Series, window: int = 20) -> pd.Series:
@@ -93,9 +96,11 @@ def get_corwin_schultz_estimator(high: pd.Series, low: pd.Series, window: int = 
     :param window: (int) Estimation window
     :return: (pd.Series) Corwin-Schultz spread estimators
     """
-    # Note: S<0 iif alpha<0
-
-    pass
+    beta = _get_beta(high, low, window)
+    gamma = _get_gamma(high, low)
+    alpha = _get_alpha(beta, gamma)
+    spread = 2 * (np.exp(alpha) - 1) / (1 + np.exp(alpha))
+    return spread.dropna()
 
 
 def get_bekker_parkinson_vol(high: pd.Series, low: pd.Series, window: int = 20) -> pd.Series:
@@ -109,6 +114,7 @@ def get_bekker_parkinson_vol(high: pd.Series, low: pd.Series, window: int = 20) 
     :param window: (int) Estimation window
     :return: (pd.Series) Bekker-Parkinson volatility estimates
     """
-    # pylint: disable=invalid-name
-
-    pass
+    gamma = _get_gamma(high, low)
+    beta = _get_beta(high, low, window)
+    bp_vol = np.sqrt(gamma - beta)
+    return bp_vol.dropna()

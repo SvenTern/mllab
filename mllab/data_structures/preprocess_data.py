@@ -791,7 +791,7 @@ class FinancePreprocessor:
             ylabel_lower='Volume'  # Подпись оси объёма
         )
 
-    def normalize_by_ticker(self, df: pd.DataFrame = None, download_from_disk: bool = False):
+    def normalize_by_ticker(self, df: pd.DataFrame = None, download_from_disk: bool = False, method: str = 'log'):
         """Нормализует данные для каждого тикера отдельно."""
 
         if download_from_disk or df is None:
@@ -800,7 +800,10 @@ class FinancePreprocessor:
         normalized_data = []
         for ticker, group in df.groupby('tic'):
             numeric_cols = group.select_dtypes(include=np.number).columns
-            group[numeric_cols] = group[numeric_cols].pct_change().fillna(0)
+            if method == 'log':
+                group[numeric_cols] = np.log(group[numeric_cols]).diff().fillna(0)
+            else:
+                group[numeric_cols] = group[numeric_cols].pct_change().fillna(0)
             normalized_data.append(group)
 
         data_normalized = pd.concat(normalized_data).reset_index(drop=True)

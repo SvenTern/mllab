@@ -5,9 +5,10 @@ Work "Classification-based Financial Markets Prediction using Deep Neural Networ
 labeling data this way can be used in training deep neural networks to predict price movements.
 """
 
+
+
 import warnings
 import pandas as pd
-
 
 def fixed_time_horizon(prices, threshold=0, resample_by=None, lag=True, standardized=False, window=None):
     """
@@ -37,5 +38,51 @@ def fixed_time_horizon(prices, threshold=0, resample_by=None, lag=True, standard
                     less/between/greater than the threshold at each corresponding time index. First or last row will be
                     NaN, depending on lag.
     """
+    if not isinstance(prices, (pd.Series, pd.DataFrame)):
+        raise TypeError("Prices must be a pandas Series or DataFrame.")
 
-    pass
+    # Resample prices if resample_by is provided
+    if resample_by:
+        prices = prices.resample(resample_by).last()
+
+    # Calculate returns
+    returns = prices.pct_change()
+    if lag:
+        returns = returns.shift(-1)  # Forward-looking returns
+
+    if standardized:
+        if window is None:
+            raise ValueError("Window must be provided for standardization.")
+        rolling_mean = returns.rolling(window=window, min_periods=1).mean()
+        rolling_std = returns.rolling(window=window, min_periods=1).std()
+        returns = (returns - rolling_mean) / rolling_std
+
+    # Apply threshold
+    if isinstance(threshold, (int, float)):
+        labels = returns.applymap(lambda x: 1 if x > threshold else (-1 if x < -threshold else 0)) if isinstance(prices, pd.DataFrame) else \
+                 returns.apply(lambda x: 1 if x > threshold else (-1 if x < -threshold else 0))
+    elif isinstance(threshold, pd.Series):
+        if not threshold.index.equals(returns.index):
+            raise ValueError("Threshold index must match the returns index.")
+        labels = returns.apply(lambda x, th: 1 if x > th else (-1 if x < -th else 0), args=(threshold,))
+
+    return labels
+
+def classify_price_movements(prices, thresholds, resample_by=None, lag=True):
+    """
+    Classification-based Financial Markets Prediction.
+
+    This function demonstrates how to use fixed-time horizon labeling to classify price movements for training
+    deep neural networks or other predictive models.
+
+    Work "Classification-based Financial Markets Prediction using Deep Neural Networks" by Dixon et al. (2016) describes how
+    labeling data this way can be used in training deep neural networks to predict price movements.
+
+    :param prices: (pd.Series or pd.DataFrame) Time-indexed stock prices used to calculate returns.
+    :param thresholds: (float or pd.Series) Threshold values for labeling price movements.
+    :param resample_by: (str) Optional, period for resampling prices.
+    :param lag: (bool) Optional, if True, returns will be lagged.
+    :return: (pd.DataFrame) A DataFrame with classified labels.
+    """
+    labels = fixed_time_horizon(prices, threshold=thresholds, resample_by=resample_by, lag=lag)
+    return labels

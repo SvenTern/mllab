@@ -1,6 +1,3 @@
-"""
-Various functions for message encoding (quantile)
-"""
 import numpy as np
 
 
@@ -11,8 +8,9 @@ def encode_tick_rule_array(tick_rule_array: list) -> str:
     :param tick_rule_array: (list) Tick rules
     :return: (str) Encoded message
     """
-
-    pass
+    ascii_table = _get_ascii_table()
+    tick_to_ascii_map = {-1: ascii_table[0], 0: ascii_table[1], 1: ascii_table[2]}
+    return ''.join(tick_to_ascii_map.get(tick, '?') for tick in tick_rule_array)
 
 
 def _get_ascii_table() -> list:
@@ -21,8 +19,7 @@ def _get_ascii_table() -> list:
 
     :return: (list) ASCII symbols
     """
-
-    pass
+    return [chr(i) for i in range(32, 127)]  # Printable ASCII characters
 
 
 def quantile_mapping(array: list, num_letters: int = 26) -> dict:
@@ -30,11 +27,16 @@ def quantile_mapping(array: list, num_letters: int = 26) -> dict:
     Generate dictionary of quantile-letters based on values from array and dictionary length (num_letters).
 
     :param array: (list) Values to split on quantiles
-    :param num_letters: (int) Number of letters(quantiles) to encode
+    :param num_letters: (int) Number of letters (quantiles) to encode
     :return: (dict) Dict of quantile-symbol
     """
-
-    pass
+    if not array:
+        raise ValueError("Input array is empty")
+    ascii_table = _get_ascii_table()
+    letters = ascii_table[:num_letters]
+    quantiles = np.linspace(0, 1, num_letters + 1)
+    thresholds = np.quantile(array, quantiles)
+    return {value: letters[idx] for idx, value in enumerate(thresholds[:-1])}
 
 
 def sigma_mapping(array: list, step: float = 0.01) -> dict:
@@ -45,8 +47,14 @@ def sigma_mapping(array: list, step: float = 0.01) -> dict:
     :param step: (float) Discretization step (sigma)
     :return: (dict) Dict of value-symbol
     """
-
-    pass
+    if not array:
+        raise ValueError("Input array is empty")
+    ascii_table = _get_ascii_table()
+    letters = ascii_table
+    mean = np.mean(array)
+    std_dev = np.std(array)
+    thresholds = np.arange(mean - 3 * std_dev, mean + 3 * std_dev, step * std_dev)
+    return {threshold: letters[idx % len(letters)] for idx, threshold in enumerate(thresholds)}
 
 
 def _find_nearest(array: list, value: float) -> float:
@@ -57,8 +65,9 @@ def _find_nearest(array: list, value: float) -> float:
     :param value: (float) Value for which the nearest element needs to be found
     :return: (float) The nearest to the value element in array
     """
-
-    pass
+    array = np.array(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
 
 
 def _get_letter_from_encoding(value: float, encoding_dict: dict) -> str:
@@ -69,8 +78,9 @@ def _get_letter_from_encoding(value: float, encoding_dict: dict) -> str:
     :param encoding_dict: (dict) Used dictionary
     :return: (str) Letter from encoding dict
     """
-
-    pass
+    keys = np.array(list(encoding_dict.keys()))
+    nearest_key = _find_nearest(keys, value)
+    return encoding_dict[nearest_key]
 
 
 def encode_array(array: list, encoding_dict: dict) -> str:
@@ -82,5 +92,4 @@ def encode_array(array: list, encoding_dict: dict) -> str:
     :param encoding_dict: (dict) Dict of quantile-symbol
     :return: (str) Encoded message
     """
-
-    pass
+    return ''.join(_get_letter_from_encoding(value, encoding_dict) for value in array)

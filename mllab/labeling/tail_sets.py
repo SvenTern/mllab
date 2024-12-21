@@ -26,7 +26,10 @@ class TailSetLabels:
                         None. Has no impact if vol_adj is None.
         """
 
-        pass
+        self.prices = prices
+        self.n_bins = n_bins
+        self.vol_adj = vol_adj
+        self.window = window
 
     def get_tail_sets(self):
         """
@@ -41,7 +44,13 @@ class TailSetLabels:
         :return: (tuple) positive set, negative set, full matrix set.
         """
 
-        pass
+        vol_adj_rets = self._vol_adjusted_rets()
+        full_matrix = vol_adj_rets.apply(self._extract_tail_sets, axis=1)
+
+        positive_set = full_matrix.apply(self._positive_tail_set)
+        negative_set = full_matrix.apply(self._negative_tail_set)
+
+        return positive_set, negative_set, full_matrix
 
     def _vol_adjusted_rets(self):
         """
@@ -49,8 +58,16 @@ class TailSetLabels:
         have provided 2 techniques for volatility estimation: an exponential moving average and the traditional standard
         deviation.
         """
+        log_rets = np.log(self.prices / self.prices.shift(1))
 
-        pass
+        if self.vol_adj == "mean_abs_dev":
+            vol = log_rets.rolling(self.window).apply(lambda x: np.mean(np.abs(x - np.mean(x))), raw=False)
+        elif self.vol_adj == "stdev":
+            vol = log_rets.rolling(self.window).std()
+        else:
+            vol = 1
+
+        return log_rets / vol
 
     def _extract_tail_sets(self, row):
         """
@@ -61,8 +78,10 @@ class TailSetLabels:
         :param row: (pd.Series) Vol adjusted returns for a given date.
         :return: (pd.Series) Tail set with positive and negative labels.
         """
+        pos_threshold = row.quantile(1 - 1 / self.n_bins)
+        neg_threshold = row.quantile(1 / self.n_bins)
 
-        pass
+        return row.apply(lambda x: 1 if x >= pos_threshold else (-1 if x <= neg_threshold else 0))
 
     @staticmethod
     def _positive_tail_set(row):
@@ -76,8 +95,7 @@ class TailSetLabels:
                     -1 (negative tail set), or 0.
         :return: (list) Securities in the positive tail set.
         """
-
-        pass
+        return row[row == 1].index.tolist()
 
     @staticmethod
     def _negative_tail_set(row):
@@ -91,5 +109,4 @@ class TailSetLabels:
                     -1 (negative tail set), or 0.
         :return: (list) Securities in the negative tail set.
         """
-
-        pass
+        return row[row == -1].index.tolist()
