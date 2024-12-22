@@ -104,7 +104,7 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
 def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vertical_barrier_times=None,
-               side_prediction=None, verbose=True, normalized_data:bool=False):
+               side_prediction=None, normalized_data:bool=False, verbose=True ):
     """
     Advances in Financial Machine Learning, Snippet 3.6 page 50.
 
