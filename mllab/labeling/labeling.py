@@ -131,8 +131,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     """
     # проверка на соответствие длины t_events и количества барьеров vertical_barrier_times
     if len(t_events) > len(vertical_barrier_times):
-        t_events = t_events[:len(vertical_barrier_times)]
-
+        t_events = t_events[:len(vertical_barrier_times)-1]
 
     # Auto-set min_ret if not provided
     if not min_ret is None:
