@@ -59,7 +59,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
         else:
             results.loc[loc, 't2'] = results.loc[loc, 't1']
 
-
+    print('проверка пром результата', results)
     return results
 
 
