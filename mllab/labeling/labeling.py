@@ -33,6 +33,7 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     close = opt['close']
     events = opt['events']
     pt_sl = opt['pt_sl']
+    normalized_data = opt['normalized_data']
 
     results = pd.DataFrame(index=molecule)
     for idx, loc in enumerate(molecule, start=0):
@@ -47,8 +48,14 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
         sl = -trgt * pt_sl[1] if pt_sl[1] > 0 else np.nan
 
         # Barriers
-        results.loc[loc, 'sl'] = df0[df0 <= sl].index.min()
-        results.loc[loc, 'pt'] = df0[df0 >= pt].index.min()
+        if normalized_data:
+            # Barriers
+            # нужен барьер trgt волатильность
+            results.loc[loc, 'sl'] = df0[df0 <= sl].index.min()
+            results.loc[loc, 'pt'] = df0[df0 >= pt].index.min()
+        else:
+            results.loc[loc, 'sl'] = df0[(df0 / close[loc] - 1) <= sl].index.min()
+            results.loc[loc, 'pt'] = df0[(df0 / close[loc] - 1) >= pt].index.min()
 
         # нужно поставить минимальное время где происходит пересечение барьеров ...
         results.loc[loc, 't1'] = min(events.loc[loc, 't1'], results.loc[loc, 'sl'], results.loc[loc, 'pt'])
@@ -91,7 +98,7 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
 def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vertical_barrier_times=None,
-               side_prediction=None, verbose=True):
+               side_prediction=None, verbose=True, normalized_data:bool=False):
     """
     Advances in Financial Machine Learning, Snippet 3.6 page 50.
 
@@ -127,6 +134,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     if len(t_events) > len(vertical_barrier_times):
         t_events = t_events[:len(vertical_barrier_times)]
 
+
     # Auto-set min_ret if not provided
     if not min_ret is None:
         min_ret = target.median()
@@ -154,7 +162,8 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
         num_threads=num_threads,
         close=close,
         events=events,
-        pt_sl=pt_sl
+        pt_sl=pt_sl,
+        normalized_data=normalized_data
     )
     events = events.assign(**df0)
     return events
