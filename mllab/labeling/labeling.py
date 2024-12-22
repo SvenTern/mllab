@@ -94,7 +94,7 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
     barrier_times = barrier_times[barrier_times <= close.index[-1]]  # Ensure barriers are within data range
 
     # Align to the closest future index in close
-    aligned_barriers = pd.Series(index=barrier_times.index, dtype='datetime64[ns]')
+    aligned_barriers = pd.Series(index=barrier_times, dtype='datetime64[ns]')
     for idx, barrier_time in barrier_times.iteritems():
         future_indices = close.index[close.index >= barrier_time]
         if not future_indices.empty:
