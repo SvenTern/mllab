@@ -90,9 +90,19 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
     :return: (pd.Series) Timestamps of vertical barriers
     """
     timedelta = pd.Timedelta(days=num_days, hours=num_hours, minutes=num_minutes, seconds=num_seconds)
-    t1 = t_events + timedelta
-    t1 = t1[t1 <= close.index[-1]]  # Ensure barriers are within data range
-    return t1
+    barrier_times = t_events + timedelta
+    barrier_times = barrier_times[barrier_times <= close.index[-1]]  # Ensure barriers are within data range
+
+    # Align to the closest future index in close
+    aligned_barriers = pd.Series(index=barrier_times.index, dtype='datetime64[ns]')
+    for idx, barrier_time in barrier_times.iteritems():
+        future_indices = close.index[close.index >= barrier_time]
+        if not future_indices.empty:
+            aligned_barriers[idx] = future_indices[0]
+        else:
+            aligned_barriers[idx] = close.index[-1]
+
+    return aligned_barriers
 
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
