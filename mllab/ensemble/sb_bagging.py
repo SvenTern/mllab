@@ -124,7 +124,7 @@ class SequentiallyBootstrappedBaseBagging(BaseBagging, ABC):
     def __init__(self,
                  samples_info_sets,
                  price_bars,
-                 base_estimator=None,
+                 estimator=None,
                  n_estimators=10,
                  max_samples=1.0,
                  max_features=1.0,
@@ -135,7 +135,7 @@ class SequentiallyBootstrappedBaseBagging(BaseBagging, ABC):
                  random_state=None,
                  verbose=0):
         super().__init__(
-            base_estimator=base_estimator,
+            estimator=estimator,
             n_estimators=n_estimators,
             bootstrap=True,
             max_samples=max_samples,
