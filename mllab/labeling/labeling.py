@@ -47,6 +47,12 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
         pt = trgt * pt_sl[0] if pt_sl[0] > 0 else np.nan
         sl = -trgt * pt_sl[1] if pt_sl[1] > 0 else np.nan
 
+        print('normalized_data',normalized_data)
+        print('pt, sl', pt, sl)
+        print('df0', df0 / close[loc] - 1)
+        print('условие sl', df0[(df0 / close[loc] - 1) <= sl])
+        print('условие pt', df0[(df0 / close[loc] - 1) >= pt])
+
         # Barriers
         if normalized_data:
             # Barriers
