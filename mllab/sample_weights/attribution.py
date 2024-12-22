@@ -121,8 +121,8 @@ def get_stacked_weights_time_decay(triple_barrier_events_dict: dict, close_serie
         :param verbose: (bool) Flag to report progress on asynch jobs.
         :return: (dict) Dictionary of asset_name: sample weight series.
         """
-        weights_dict = {}
-        for asset, events in triple_barrier_events_dict.items():
-            weights_dict[asset] = SampleWeights.get_weights_by_time_decay(events, close_series_dict[asset], decay=decay,
-                                                                         num_threads=num_threads, verbose=verbose)
-        return weights_dict
+    weights_dict = {}
+    for asset, events in triple_barrier_events_dict.items():
+        weights_dict[asset] = SampleWeights.get_weights_by_time_decay(events, close_series_dict[asset], decay=decay,
+                                                                     num_threads=num_threads, verbose=verbose)
+    return weights_dict
