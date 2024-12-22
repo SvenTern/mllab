@@ -69,7 +69,6 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
     return results
 
 
-# Snippet 3.4 page 49, Adding a Vertical Barrier
 def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0, num_seconds=0):
     """
     Advances in Financial Machine Learning, Snippet 3.4 page 49.
@@ -87,22 +86,23 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
     :param num_hours: (int) Number of hours to add for vertical barrier
     :param num_minutes: (int) Number of minutes to add for vertical barrier
     :param num_seconds: (int) Number of seconds to add for vertical barrier
-    :return: (pd.Series) Timestamps of vertical barriers
+    :return: (pd.DatetimeIndex) Timestamps of vertical barriers
     """
     timedelta = pd.Timedelta(days=num_days, hours=num_hours, minutes=num_minutes, seconds=num_seconds)
     barrier_times = t_events + timedelta
     barrier_times = barrier_times[barrier_times <= close.index[-1]]  # Ensure barriers are within data range
 
     # Align to the closest future index in close
-    aligned_barriers = pd.Series(index=barrier_times, dtype='datetime64[ns]')
+    aligned_barriers = []
     for barrier_time in barrier_times:
         future_indices = close.index[close.index >= barrier_time]
         if not future_indices.empty:
-            aligned_barriers[barrier_time] = future_indices[0]
+            aligned_barriers.append(future_indices[0])
         else:
-            aligned_barriers[barrier_time] = close.index[-1]
+            aligned_barriers.append(close.index[-1])  # Fallback to the last available close index
 
-    return aligned_barriers
+    return pd.DatetimeIndex(aligned_barriers)
+
 
 
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
