@@ -20,7 +20,7 @@ def get_ind_matrix(samples_info_sets, price_bars):
     :return: (np.array) Indicator binary matrix indicating what (price) bars influence the label for each observation
     """
     ind_matrix = np.zeros((len(samples_info_sets), len(price_bars)), dtype=int)
-    for i, (start, end) in enumerate(samples_info_sets.iteritems()):
+    for i, (start, end) in enumerate(samples_info_sets.items()):
         ind_matrix[i, price_bars.index.get_loc(start):price_bars.index.get_loc(end) + 1] = 1
     return ind_matrix
 
