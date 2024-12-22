@@ -33,7 +33,7 @@ def get_daily_vol(close, lookback=50, normalized_data: bool = False):
     if normalized_data:
         returns = close
     else:
-        returns = close.pct_change().ewm(span=lookback).std()
+        returns = close.pct_change()
 
     # Compute the exponentially weighted moving standard deviation
     daily_vol = returns.ewm(span=lookback).std()
