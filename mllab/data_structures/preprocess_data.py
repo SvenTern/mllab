@@ -80,10 +80,21 @@ class FinancePreprocessor:
     """
 
     def read_csv(self, file_name: str = ""):
+        data_return = pd.read_csv(self.file_path + file_name)
 
-        data_return = pd.read_csv(self.file_path + file_name, index_col='timestamp')
-        # Преобразование индекса в datetime
-        data_return.index = pd.to_datetime(data_return.index)
+        index_name = None
+        # Determine index column
+        if 'timestamp' in data_return.columns:
+            index_name = 'timestamp'
+        elif 'Unnamed: 0' in data_return.columns:
+            # Rename column to 'timestamp'
+            data_return.rename(columns={'Unnamed: 0': 'timestamp'}, inplace=True)
+            index_name = 'timestamp'
+
+        if not index_name is None:
+            # Set the determined index and convert to datetime
+            data_return.set_index(index_name, inplace=True)
+            data_return.index = pd.to_datetime(data_return.index)
 
         return data_return
 
