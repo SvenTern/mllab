@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 1):
+def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
     """
     Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
 
@@ -29,7 +29,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
         #if has_tic:
         #    group_result['tic'] = tic
 
-        group_threshold = threshold #if not isinstance(threshold, dict) else threshold.get(tic, 0.005)
+        group_threshold = threshold if not isinstance(threshold, dict) else threshold.get(tic, threshold)
         current_bin = None
         cumulative_return = 0.0
         start_index = 0

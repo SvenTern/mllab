@@ -281,6 +281,20 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     # Group data by 'tic' if it exists
     groups = [('', data)] if not has_tic else data.groupby('tic')
 
+    # Calculate threshold per tic if necessary
+    if isinstance(threshold, dict):
+        calculated_threshold = threshold
+    elif has_tic:
+        calculated_threshold = {}
+        for tic in data['tic'].unique():
+            group = data[data['tic'] == tic]
+            mean_deal = 0.02 * 400000
+            commission = 0.0035
+            tic_threshold = 2 * commission * int(mean_deal / group['close'].mean()) / group['close'].mean()
+            calculated_threshold[tic] = tic_threshold
+    else:
+        calculated_threshold = {"default": threshold}
+
     for tic, group in groups:
         if len(group) < short_period:
             continue  # Skip groups with insufficient data
@@ -295,7 +309,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             group_result['tic'] = tic
 
         # Get threshold for the group
-        group_threshold = threshold if not isinstance(threshold, dict) else threshold.get(tic, 0.005)
+        group_threshold = threshold if not isinstance(threshold, dict) else threshold.get(tic, threshold)
         current_bin = None
         cumulative_return = 0.0
         start_index = 0
