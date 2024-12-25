@@ -272,39 +272,10 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     Returns:
         pd.DataFrame: A DataFrame with trend and outlier calculations for each timestamp.
     """
-
-    # Check if 'tic' column exists
     has_tic = 'tic' in data.columns
+    result_list = []
 
-    # Prepare result DataFrame
-    result = pd.DataFrame(index=data.index)
-    result['timestamp'] = data['timestamp'] if 'timestamp' in data.columns else None
-    if has_tic:
-        result['tic'] = data['tic']
-    result['bin'] = 0
-    result['vr_low'] = 0.0
-    result['vr_high'] = 0.0
-    result['return'] = 0.0
-    result['period_length'] = 0
-
-    # Calculate threshold per tic if necessary
-    if isinstance(threshold, dict):
-        calculated_threshold = threshold
-    elif has_tic:
-        calculated_threshold = {}
-        for tic in data['tic'].unique():
-            group = data[data['tic'] == tic]
-            mean_deal = 0.02 * 400000
-            commission = 0.0035
-            tic_threshold = 2 * commission * int(mean_deal / group['close'].mean()) / group['close'].mean()
-            calculated_threshold[tic] = tic_threshold
-    else:
-        calculated_threshold = {"default": threshold}
-
-    # Group by 'tic' if necessary
     groups = [('', data)] if not has_tic else data.groupby('tic')
-
-    result_list = []  # Collect results from each group
 
     for tic, group in groups:
         group_result = pd.DataFrame(index=group.index)
@@ -313,27 +284,23 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
         group_result['vr_high'] = 0.0
         group_result['return'] = 0.0
         group_result['period_length'] = 0
+        if has_tic:
+            group_result['tic'] = tic
 
-        # Determine threshold for the group
-        group_threshold = calculated_threshold.get(tic, calculated_threshold.get("default", 0.005))
-
-        # Initialize variables to track trend directions and cumulative returns
+        group_threshold = threshold if not isinstance(threshold, dict) else threshold.get(tic, 0.005)
         current_bin = None
-        cumulative_return = 0
+        cumulative_return = 0.0
         start_index = 0
 
-        for i in range(len(group)):
-            # Skip until we have enough data for a short period
-            if i < short_period - 1:
+        i = 0
+        while i < len(group):
+            if i < start_index + short_period - 1:
+                i += 1
                 continue
 
-            # Calculate returns for the short period
-            short_return = (group['close'].iloc[i] - group['close'].iloc[i - short_period + 1]) / group['close'].iloc[i - short_period + 1]
-
-            # Determine trend direction (bin: 1 for uptrend, -1 for downtrend)
+            short_return = (group['close'].iloc[i] - group['close'].iloc[start_index]) / group['close'].iloc[start_index]
             new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
-            # If the trend changes or the long period is exceeded, reset the cumulative tracking
             if new_bin != current_bin or (i - start_index + 1) > long_period:
                 if current_bin is not None:
                     vr_low = group['low'].iloc[start_index:i].min() / group['close'].iloc[start_index] - 1
@@ -345,15 +312,14 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
                     group_result.iloc[start_index:i, group_result.columns.get_loc('return')] = cumulative_return
                     group_result.iloc[start_index:i, group_result.columns.get_loc('period_length')] = period_length
 
-                # Reset tracking variables
                 current_bin = new_bin
-                start_index = i - short_period + 1
-                cumulative_return = 0
+                start_index = i
+                cumulative_return = 0.0
+            else:
+                cumulative_return += short_return
 
-            # Accumulate returns within the current trend
-            cumulative_return += short_return
+            i += 1
 
-        # Append the last trend if it exists
         if current_bin is not None:
             vr_low = group['low'].iloc[start_index:].min() / group['close'].iloc[start_index] - 1
             vr_high = group['high'].iloc[start_index:].max() / group['close'].iloc[start_index] - 1
@@ -364,13 +330,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             group_result.iloc[start_index:, group_result.columns.get_loc('return')] = cumulative_return
             group_result.iloc[start_index:, group_result.columns.get_loc('period_length')] = period_length
 
-        # Append group result to the list
         result_list.append(group_result.reset_index())
 
-    # Concatenate all group results
     final_result = pd.concat(result_list, ignore_index=True)
-
     return final_result
+
 
 
 
