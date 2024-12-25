@@ -291,14 +291,15 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
         current_bin = None
         cumulative_return = 0.0
         start_index = 0
+        start_pred = 0
 
         i = 0
         while i < len(group):
-            if i < start_index + short_period - 1:
+            if i < short_period - 1:
                 i += 1
                 continue
 
-            short_return = (group['close'].iloc[i] - group['close'].iloc[start_index]) / group['close'].iloc[start_index]
+            short_return = (group['close'].iloc[i] - group['close'].iloc[start_pred]) / group['close'].iloc[start_pred]
             new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
             if new_bin != current_bin or (i - start_index + 1) > long_period:
@@ -312,14 +313,14 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
                     group_result.iloc[start_index:i, group_result.columns.get_loc('return')] = cumulative_return
                     group_result.iloc[start_index:i, group_result.columns.get_loc('period_length')] = period_length
 
-                current_bin = new_bin
-                if current_bin is not None:
-                    start_index = i
-                    cumulative_return = 0.0
-            else:
-                cumulative_return = short_return
-
-            i += 1
+                    if current_bin is not None:
+                        start_index = i  # должно указывать на начало предыдущего периода !!!
+                        start_pred = start_index - short_period + 1
+                        cumulative_return = 0.0
+                    current_bin = new_bin
+                else:
+                    cumulative_return = short_return - group_threshold
+                    i += 1
 
         if current_bin is not None:
             vr_low = group['low'].iloc[start_index:].min() / group['close'].iloc[start_index] - 1
