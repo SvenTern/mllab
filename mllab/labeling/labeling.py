@@ -257,6 +257,70 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
     return out
 
+def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
+    """
+    Identifies price trends and outliers in the provided OHLC data.
+
+    Parameters:
+        data (pd.DataFrame): Input DataFrame with columns ['timestamp', 'open', 'high', 'low', 'close'].
+        short_period (int): Minimum period to evaluate a trend (short-term).
+        long_period (int): Maximum period to accumulate trend data (long-term).
+        threshold (float): Threshold for detecting trend direction change.
+
+    Returns:
+        pd.DataFrame: A DataFrame with trend and outlier calculations for each timestamp.
+    """
+    # Initialize columns for result
+    data['bin'] = 0
+    data['vr_low'] = 0.0
+    data['vr_high'] = 0.0
+    data['return'] = 0.0
+
+    # Initialize variables to track trend directions and cumulative returns
+    current_bin = None
+    cumulative_return = 0
+    start_index = 0
+
+    for i in range(len(data)):
+        # Skip until we have enough data for a short period
+        if i < short_period - 1:
+            continue
+
+        # Calculate returns for the short period
+        short_return = (data['close'].iloc[i] - data['close'].iloc[i - short_period + 1]) / data['close'].iloc[i - short_period + 1]
+
+        # Determine trend direction (bin: 1 for uptrend, -1 for downtrend)
+        new_bin = 1 if short_return > threshold else -1 if short_return < -threshold else 0
+
+        # If the trend changes or the long period is exceeded, reset the cumulative tracking
+        if new_bin != current_bin or (i - start_index + 1) > long_period:
+            if current_bin is not None:
+                vr_low = data['low'].iloc[start_index:i].min() / data['close'].iloc[start_index] - 1
+                vr_high = data['high'].iloc[start_index:i].max() / data['close'].iloc[start_index] - 1
+                data.loc[start_index:i - 1, 'bin'] = current_bin
+                data.loc[start_index:i - 1, 'vr_low'] = vr_low
+                data.loc[start_index:i - 1, 'vr_high'] = vr_high
+                data.loc[start_index:i - 1, 'return'] = cumulative_return
+
+            # Reset tracking variables
+            current_bin = new_bin
+            start_index = i - short_period + 1
+            cumulative_return = 0
+
+        # Accumulate returns within the current trend
+        cumulative_return += short_return - threshold
+
+    # Append the last trend if it exists
+    if current_bin is not None:
+        vr_low = data['low'].iloc[start_index:].min() / data['close'].iloc[start_index] - 1
+        vr_high = data['high'].iloc[start_index:].max() / data['close'].iloc[start_index] - 1
+        data.loc[start_index:, 'bin'] = current_bin
+        data.loc[start_index:, 'vr_low'] = vr_low
+        data.loc[start_index:, 'vr_high'] = vr_high
+        data.loc[start_index:, 'return'] = cumulative_return
+
+    return data
+
 
 # Snippet 3.8 page 54
 def drop_labels(events, min_pct=.05):
