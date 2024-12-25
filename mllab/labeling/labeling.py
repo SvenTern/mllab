@@ -279,7 +279,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     result_list = []
 
     # Group data by 'tic' if it exists
-    groups = [('', data)] if not has_tic else data.groupby('tic')
+    groups = [('default', data)] if not has_tic else data.groupby('tic')
 
     # Calculate threshold per tic if necessary
     if isinstance(threshold, dict):
@@ -309,7 +309,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             group_result['tic'] = tic
 
         # Get threshold for the group
-        group_threshold = threshold if not isinstance(threshold, dict) else threshold.get(tic, threshold)
+        group_threshold = threshold if not isinstance(calculated_threshold, dict) else threshold.get(tic, threshold)
         current_bin = None
         cumulative_return = 0.0
         start_index = 0
