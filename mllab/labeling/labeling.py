@@ -332,11 +332,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
                     vr_low = group['low'].iloc[start_index:i].min() / group['close'].iloc[start_index] - 1
                     vr_high = group['high'].iloc[start_index:i].max() / group['close'].iloc[start_index] - 1
                     period_length = i - start_index
-                    group_result.loc[start_index:i - 1, 'bin'] = current_bin
-                    group_result.loc[start_index:i - 1, 'vr_low'] = vr_low
-                    group_result.loc[start_index:i - 1, 'vr_high'] = vr_high
-                    group_result.loc[start_index:i - 1, 'return'] = cumulative_return
-                    group_result.loc[start_index:i - 1, 'period_length'] = period_length
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('bin')] = current_bin
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('vr_low')] = vr_low
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('vr_high')] = vr_high
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('return')] = cumulative_return
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('period_length')] = period_length
 
                 # Reset tracking variables
                 current_bin = new_bin
@@ -351,16 +351,17 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             vr_low = group['low'].iloc[start_index:].min() / group['close'].iloc[start_index] - 1
             vr_high = group['high'].iloc[start_index:].max() / group['close'].iloc[start_index] - 1
             period_length = len(group) - start_index
-            group_result.loc[start_index:, 'bin'] = current_bin
-            group_result.loc[start_index:, 'vr_low'] = vr_low
-            group_result.loc[start_index:, 'vr_high'] = vr_high
-            group_result.loc[start_index:, 'return'] = cumulative_return
-            group_result.loc[start_index:, 'period_length'] = period_length
+            group_result.iloc[start_index:, group_result.columns.get_loc('bin')] = current_bin
+            group_result.iloc[start_index:, group_result.columns.get_loc('vr_low')] = vr_low
+            group_result.iloc[start_index:, group_result.columns.get_loc('vr_high')] = vr_high
+            group_result.iloc[start_index:, group_result.columns.get_loc('return')] = cumulative_return
+            group_result.iloc[start_index:, group_result.columns.get_loc('period_length')] = period_length
 
         # Merge group results into the main result DataFrame
         result.update(group_result)
 
     return result
+
 
 
 
