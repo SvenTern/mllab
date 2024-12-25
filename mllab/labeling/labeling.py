@@ -299,9 +299,10 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
         current_bin = None
         cumulative_return = 0.0
         start_index = 0
+        pred_index = 0
 
         for i in range(short_period - 1, len(group)):
-            short_return = (group['close'].iloc[i] - group['close'].iloc[start_index]) / group['close'].iloc[start_index]
+            short_return = (group['close'].iloc[i] - group['close'].iloc[pred_index]) / group['close'].iloc[pred_index]
             new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
             if new_bin != current_bin or (i - start_index + 1) > long_period:
@@ -319,8 +320,9 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
                 current_bin = new_bin
                 start_index = i
                 cumulative_return = 0.0
+                pred_index = start_index - short_period + 1
             else:
-                cumulative_return += short_return
+                cumulative_return = short_return
 
         # Finalize the last segment
         if current_bin is not None:
