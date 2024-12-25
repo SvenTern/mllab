@@ -257,6 +257,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
     return out
 
+
 def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
     """
     Identifies price trends and outliers in the provided OHLC data.
@@ -270,11 +271,14 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     Returns:
         pd.DataFrame: A DataFrame with trend and outlier calculations for each timestamp.
     """
+
+    result = pd.DataFrame(index=data.index)
+
     # Initialize columns for result
-    data['bin'] = 0
-    data['vr_low'] = 0.0
-    data['vr_high'] = 0.0
-    data['return'] = 0.0
+    result['bin'] = 0
+    result['vr_low'] = 0.0
+    result['vr_high'] = 0.0
+    result['return'] = 0.0
 
     # Initialize variables to track trend directions and cumulative returns
     current_bin = None
@@ -287,7 +291,8 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             continue
 
         # Calculate returns for the short period
-        short_return = (data['close'].iloc[i] - data['close'].iloc[i - short_period + 1]) / data['close'].iloc[i - short_period + 1]
+        short_return = (data['close'].iloc[i] - data['close'].iloc[i - short_period + 1]) / data['close'].iloc[
+            i - short_period + 1]
 
         # Determine trend direction (bin: 1 for uptrend, -1 for downtrend)
         new_bin = 1 if short_return > threshold else -1 if short_return < -threshold else 0
@@ -297,10 +302,10 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             if current_bin is not None:
                 vr_low = data['low'].iloc[start_index:i].min() / data['close'].iloc[start_index] - 1
                 vr_high = data['high'].iloc[start_index:i].max() / data['close'].iloc[start_index] - 1
-                data.loc[start_index:i - 1, 'bin'] = current_bin
-                data.loc[start_index:i - 1, 'vr_low'] = vr_low
-                data.loc[start_index:i - 1, 'vr_high'] = vr_high
-                data.loc[start_index:i - 1, 'return'] = cumulative_return
+                result.iloc[start_index:i, result.columns.get_loc('bin')] = current_bin
+                result.iloc[start_index:i, result.columns.get_loc('vr_low')] = vr_low
+                result.iloc[start_index:i, result.columns.get_loc('vr_high')] = vr_high
+                result.iloc[start_index:i, result.columns.get_loc('return')] = cumulative_return
 
             # Reset tracking variables
             current_bin = new_bin
@@ -308,18 +313,18 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             cumulative_return = 0
 
         # Accumulate returns within the current trend
-        cumulative_return += short_return - threshold
+        cumulative_return += short_return
 
     # Append the last trend if it exists
     if current_bin is not None:
         vr_low = data['low'].iloc[start_index:].min() / data['close'].iloc[start_index] - 1
         vr_high = data['high'].iloc[start_index:].max() / data['close'].iloc[start_index] - 1
-        data.loc[start_index:, 'bin'] = current_bin
-        data.loc[start_index:, 'vr_low'] = vr_low
-        data.loc[start_index:, 'vr_high'] = vr_high
-        data.loc[start_index:, 'return'] = cumulative_return
+        result.iloc[start_index:, result.columns.get_loc('bin')] = current_bin
+        result.iloc[start_index:, result.columns.get_loc('vr_low')] = vr_low
+        result.iloc[start_index:, result.columns.get_loc('vr_high')] = vr_high
+        result.iloc[start_index:, result.columns.get_loc('return')] = cumulative_return
 
-    return data
+    return result
 
 
 # Snippet 3.8 page 54
