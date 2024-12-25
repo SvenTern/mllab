@@ -313,10 +313,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
                     group_result.iloc[start_index:i, group_result.columns.get_loc('period_length')] = period_length
 
                 current_bin = new_bin
-                start_index = i
-                cumulative_return = 0.0
+                if current_bin is not None:
+                    start_index = i
+                    cumulative_return = 0.0
             else:
-                cumulative_return += short_return
+                cumulative_return = short_return
 
             i += 1
 
