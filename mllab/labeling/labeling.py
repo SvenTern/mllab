@@ -260,74 +260,104 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
 def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
     """
-    Identifies price trends and outliers in the provided OHLC data.
+    Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
 
     Parameters:
-        data (pd.DataFrame): Input DataFrame with columns ['timestamp', 'open', 'high', 'low', 'close'].
+        data (pd.DataFrame): Input DataFrame with columns ['timestamp', 'tic', 'open', 'high', 'low', 'close'] (optional 'tic').
         short_period (int): Minimum period to evaluate a trend (short-term).
         long_period (int): Maximum period to accumulate trend data (long-term).
-        threshold (float): Threshold for detecting trend direction change.
+        threshold (float or dict): Threshold for detecting trend direction change.
+                                If 'tic' is present, it must be a dictionary with keys as 'tic' values.
 
     Returns:
         pd.DataFrame: A DataFrame with trend and outlier calculations for each timestamp.
     """
 
-    result = pd.DataFrame(index=data.index)
+    # Check if 'tic' column exists
+    has_tic = 'tic' in data.columns
 
-    # Initialize columns for result
+    # Prepare result DataFrame
+    result = data[['timestamp']].copy()
+    if has_tic:
+        result['tic'] = data['tic']
     result['bin'] = 0
     result['vr_low'] = 0.0
     result['vr_high'] = 0.0
     result['return'] = 0.0
     result['period_length'] = 0
 
-    # Initialize variables to track trend directions and cumulative returns
-    current_bin = None
-    cumulative_return = 0
-    start_index = 0
+    # Calculate threshold per tic if necessary
+    if isinstance(threshold, dict):
+        calculated_threshold = threshold
+    elif has_tic:
+        calculated_threshold = {}
+        for tic in data['tic'].unique():
+            group = data[data['tic'] == tic]
+            mean_deal = 0.02 * 400000
+            commission = 0.0035
+            tic_threshold = 2 * commission * int(mean_deal / group['close'].mean()) / group['close'].mean()
+            calculated_threshold[tic] = tic_threshold
+    else:
+        calculated_threshold = {"default": threshold}
 
-    for i in range(len(data)):
-        # Skip until we have enough data for a short period
-        if i < short_period - 1:
-            continue
+    # Group by 'tic' if necessary
+    groups = [('', data)] if not has_tic else data.groupby('tic')
 
-        # Calculate returns for the short period
-        short_return = (data['close'].iloc[i] - data['close'].iloc[i - short_period + 1]) / data['close'].iloc[
-            i - short_period + 1]
+    for tic, group in groups:
+        group_result = pd.DataFrame(index=group.index)
 
-        # Determine trend direction (bin: 1 for uptrend, -1 for downtrend)
-        new_bin = 1 if short_return > threshold else -1 if short_return < -threshold else 0
+        # Determine threshold for the group
+        group_threshold = calculated_threshold.get(tic, calculated_threshold.get("default", 0.005))
 
-        # If the trend changes or the long period is exceeded, reset the cumulative tracking
-        if new_bin != current_bin or (i - start_index + 1) > long_period:
-            if current_bin is not None:
-                vr_low = data['low'].iloc[start_index:i].min() / data['close'].iloc[start_index] - 1
-                vr_high = data['high'].iloc[start_index:i].max() / data['close'].iloc[start_index] - 1
-                period_length = i - start_index
-                result.iloc[start_index:i, result.columns.get_loc('bin')] = current_bin
-                result.iloc[start_index:i, result.columns.get_loc('vr_low')] = vr_low
-                result.iloc[start_index:i, result.columns.get_loc('vr_high')] = vr_high
-                result.iloc[start_index:i, result.columns.get_loc('return')] = cumulative_return
-                result.iloc[start_index:i, result.columns.get_loc('period_length')] = period_length
+        # Initialize variables to track trend directions and cumulative returns
+        current_bin = None
+        cumulative_return = 0
+        start_index = 0
 
-            # Reset tracking variables
-            current_bin = new_bin
-            start_index = i - short_period + 1
-            cumulative_return = 0
+        for i in range(len(group)):
+            # Skip until we have enough data for a short period
+            if i < short_period - 1:
+                continue
 
-        # Accumulate returns within the current trend
-        cumulative_return += short_return
+            # Calculate returns for the short period
+            short_return = (group['close'].iloc[i] - group['close'].iloc[i - short_period + 1]) / group['close'].iloc[i - short_period + 1]
 
-    # Append the last trend if it exists
-    if current_bin is not None:
-        vr_low = data['low'].iloc[start_index:].min() / data['close'].iloc[start_index] - 1
-        vr_high = data['high'].iloc[start_index:].max() / data['close'].iloc[start_index] - 1
-        period_length = len(data) - start_index
-        result.iloc[start_index:, result.columns.get_loc('bin')] = current_bin
-        result.iloc[start_index:, result.columns.get_loc('vr_low')] = vr_low
-        result.iloc[start_index:, result.columns.get_loc('vr_high')] = vr_high
-        result.iloc[start_index:, result.columns.get_loc('return')] = cumulative_return
-        result.iloc[start_index:, result.columns.get_loc('period_length')] = period_length
+            # Determine trend direction (bin: 1 for uptrend, -1 for downtrend)
+            new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
+
+            # If the trend changes or the long period is exceeded, reset the cumulative tracking
+            if new_bin != current_bin or (i - start_index + 1) > long_period:
+                if current_bin is not None:
+                    vr_low = group['low'].iloc[start_index:i].min() / group['close'].iloc[start_index] - 1
+                    vr_high = group['high'].iloc[start_index:i].max() / group['close'].iloc[start_index] - 1
+                    period_length = i - start_index
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('bin')] = current_bin
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('vr_low')] = vr_low
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('vr_high')] = vr_high
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('return')] = cumulative_return
+                    group_result.iloc[start_index:i, group_result.columns.get_loc('period_length')] = period_length
+
+                # Reset tracking variables
+                current_bin = new_bin
+                start_index = i - short_period + 1
+                cumulative_return = 0
+
+            # Accumulate returns within the current trend
+            cumulative_return += short_return
+
+        # Append the last trend if it exists
+        if current_bin is not None:
+            vr_low = group['low'].iloc[start_index:].min() / group['close'].iloc[start_index] - 1
+            vr_high = group['high'].iloc[start_index:].max() / group['close'].iloc[start_index] - 1
+            period_length = len(group) - start_index
+            group_result.iloc[start_index:, group_result.columns.get_loc('bin')] = current_bin
+            group_result.iloc[start_index:, group_result.columns.get_loc('vr_low')] = vr_low
+            group_result.iloc[start_index:, group_result.columns.get_loc('vr_high')] = vr_high
+            group_result.iloc[start_index:, group_result.columns.get_loc('return')] = cumulative_return
+            group_result.iloc[start_index:, group_result.columns.get_loc('period_length')] = period_length
+
+        # Merge group results into the main result DataFrame
+        result.update(group_result)
 
     return result
 
