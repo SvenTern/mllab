@@ -306,6 +306,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
 
     for tic, group in groups:
         group_result = pd.DataFrame(index=group.index)
+        group_result['bin'] = 0
+        group_result['vr_low'] = 0.0
+        group_result['vr_high'] = 0.0
+        group_result['return'] = 0.0
+        group_result['period_length'] = 0
 
         # Determine threshold for the group
         group_threshold = calculated_threshold.get(tic, calculated_threshold.get("default", 0.005))
