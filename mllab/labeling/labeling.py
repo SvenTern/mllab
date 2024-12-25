@@ -304,6 +304,8 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     # Group by 'tic' if necessary
     groups = [('', data)] if not has_tic else data.groupby('tic')
 
+    result_list = []  # Collect results from each group
+
     for tic, group in groups:
         group_result = pd.DataFrame(index=group.index)
         group_result['bin'] = 0
@@ -362,10 +364,14 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             group_result.iloc[start_index:, group_result.columns.get_loc('return')] = cumulative_return
             group_result.iloc[start_index:, group_result.columns.get_loc('period_length')] = period_length
 
-        # Merge group results into the main result DataFrame
-        result.update(group_result)
+        # Append group result to the list
+        result_list.append(group_result.reset_index())
 
-    return result
+    # Concatenate all group results
+    final_result = pd.concat(result_list, ignore_index=True)
+
+    return final_result
+
 
 
 
