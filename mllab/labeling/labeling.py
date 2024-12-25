@@ -279,6 +279,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     result['vr_low'] = 0.0
     result['vr_high'] = 0.0
     result['return'] = 0.0
+    result['period_length'] = 0
 
     # Initialize variables to track trend directions and cumulative returns
     current_bin = None
@@ -302,10 +303,12 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             if current_bin is not None:
                 vr_low = data['low'].iloc[start_index:i].min() / data['close'].iloc[start_index] - 1
                 vr_high = data['high'].iloc[start_index:i].max() / data['close'].iloc[start_index] - 1
+                period_length = i - start_index
                 result.iloc[start_index:i, result.columns.get_loc('bin')] = current_bin
                 result.iloc[start_index:i, result.columns.get_loc('vr_low')] = vr_low
                 result.iloc[start_index:i, result.columns.get_loc('vr_high')] = vr_high
                 result.iloc[start_index:i, result.columns.get_loc('return')] = cumulative_return
+                result.iloc[start_index:i, result.columns.get_loc('period_length')] = period_length
 
             # Reset tracking variables
             current_bin = new_bin
@@ -319,10 +322,12 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     if current_bin is not None:
         vr_low = data['low'].iloc[start_index:].min() / data['close'].iloc[start_index] - 1
         vr_high = data['high'].iloc[start_index:].max() / data['close'].iloc[start_index] - 1
+        period_length = len(data) - start_index
         result.iloc[start_index:, result.columns.get_loc('bin')] = current_bin
         result.iloc[start_index:, result.columns.get_loc('vr_low')] = vr_low
         result.iloc[start_index:, result.columns.get_loc('vr_high')] = vr_high
         result.iloc[start_index:, result.columns.get_loc('return')] = cumulative_return
+        result.iloc[start_index:, result.columns.get_loc('period_length')] = period_length
 
     return result
 
