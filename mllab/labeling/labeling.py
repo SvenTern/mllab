@@ -307,8 +307,8 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
 
             if new_bin != current_bin or (i - start_index + 1) > long_period:
                 if current_bin is not None:
-                    vr_low = group['low'].iloc[start_index:i].min() / group['close'].iloc[start_index] - 1
-                    vr_high = group['high'].iloc[start_index:i].max() / group['close'].iloc[start_index] - 1
+                    vr_low = group['low'].iloc[pred_index:i].min() / group['close'].iloc[pred_index] - 1
+                    vr_high = group['high'].iloc[pred_index:i].max() / group['close'].iloc[pred_index] - 1
                     period_length = i - start_index
                     group_result.loc[group.index[start_index:i], 'bin'] = current_bin
                     group_result.loc[group.index[start_index:i], 'vr_low'] = vr_low
@@ -319,15 +319,15 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
                 # Reset for the next segment
                 current_bin = new_bin
                 start_index = i
-                cumulative_return = 0.0
+                cumulative_return = short_return
                 pred_index = start_index - short_period + 1
             else:
                 cumulative_return = short_return
 
         # Finalize the last segment
         if current_bin is not None:
-            vr_low = group['low'].iloc[start_index:].min() / group['close'].iloc[start_index] - 1
-            vr_high = group['high'].iloc[start_index:].max() / group['close'].iloc[start_index] - 1
+            vr_low = group['low'].iloc[pred_index:].min() / group['close'].iloc[pred_index] - 1
+            vr_high = group['high'].iloc[pred_index:].max() / group['close'].iloc[pred_index] - 1
             period_length = len(group) - start_index
             group_result.loc[group.index[start_index:], 'bin'] = current_bin
             group_result.loc[group.index[start_index:], 'vr_low'] = vr_low
