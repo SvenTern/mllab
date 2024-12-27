@@ -274,8 +274,9 @@ def _stacked_score_model(classifier, X_dict, y_dict, train, test, sample_weight_
     pass
 
 def score_confusion_matrix(y_test, y_pred):
-# Расчет матрицы ошибок
-
+    """
+    вывод точности предсказания модели классификации
+    """
     # Расчет матрицы ошибок
     cm = confusion_matrix(y_test, y_pred)
 
