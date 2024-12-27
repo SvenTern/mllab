@@ -15,6 +15,8 @@ from sklearn.metrics import log_loss
 from sklearn.model_selection import KFold
 from sklearn.base import ClassifierMixin, clone
 from sklearn.model_selection import BaseCrossValidator
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+import matplotlib.pyplot as plt
 
 
 def ml_get_train_times(samples_info_sets: pd.Series, test_times: pd.Series) -> pd.Series:
@@ -270,3 +272,45 @@ def _stacked_score_model(classifier, X_dict, y_dict, train, test, sample_weight_
     """
 
     pass
+
+def score_confusion_matrix(y_test, y_pred):
+# Расчет матрицы ошибок
+
+    # Расчет матрицы ошибок
+    cm = confusion_matrix(y_test, y_pred)
+
+    # Определение уникальных классов
+    unique_classes = sorted(set(y_test) | set(y_pred))
+    print("Уникальные классы:", unique_classes)
+
+    # Оценка качества модели
+    print("\nClassification Report:")
+    # Преобразование уникальных классов в строки (если требуется)
+    class_labels = [str(cls) for cls in unique_classes]
+    report = classification_report(y_test, y_pred, target_names=class_labels, output_dict=True)
+    print(report)
+
+    # Визуализация Classification Report
+    metrics = ['precision', 'recall', 'f1-score']
+    x = np.arange(len(unique_classes))
+    width = 0.2
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for i, metric in enumerate(metrics):
+        values = [report[cls][metric] for cls in class_labels]
+        ax.bar(x + i * width, values, width, label=metric)
+
+    ax.set_xticks(x + width)
+    ax.set_xticklabels(class_labels)
+    ax.set_ylabel('Score')
+    ax.set_title('Classification Report Metrics by Class')
+    ax.legend()
+
+    plt.show()
+
+    # Визуализация конфьюжен матрицы
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_labels)
+    disp.plot(cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix")
+    plt.show()
