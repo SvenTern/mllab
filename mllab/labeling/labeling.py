@@ -4,6 +4,9 @@ Logic regarding labeling from chapter 3. In particular the Triple Barrier Method
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+from joblib import Parallel, delayed
+from numba import njit
 
 # Snippet 3.1, page 44, Daily Volatility Estimates
 from mllab.util.multiprocess import mp_pandas_obj
@@ -261,9 +264,60 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 import pandas as pd
 import numpy as np
 
+@njit
+def calculate_segments(group_close, group_low, group_high, short_period, long_period, group_threshold):
+    n = len(group_close)
+    bins = [0] * n
+    vr_lows = [0.0] * n
+    vr_highs = [0.0] * n
+    returns = [0.0] * n
+    period_lengths = [0] * n
+
+    current_bin = 0
+    cumulative_return = 0.0
+    start_index = 0
+    pred_index = 0
+
+    for i in range(short_period - 1, n):
+        short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
+        new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
+
+        if new_bin != current_bin or (i - start_index + 1) > long_period:
+            if current_bin != 0:
+                vr_low = min(group_low[pred_index:i]) / group_close[pred_index] - 1
+                vr_high = max(group_high[pred_index:i]) / group_close[pred_index] - 1
+                period_length = i - start_index
+                for j in range(start_index, i):
+                    bins[j] = current_bin
+                    vr_lows[j] = vr_low
+                    vr_highs[j] = vr_high
+                    returns[j] = cumulative_return
+                    period_lengths[j] = period_length
+
+            current_bin = new_bin
+            start_index = i
+            cumulative_return = short_return
+            pred_index = start_index - short_period + 1
+        else:
+            cumulative_return = short_return
+
+    if current_bin != 0:
+        vr_low = min(group_low[pred_index:]) / group_close[pred_index] - 1
+        vr_high = max(group_high[pred_index:]) / group_close[pred_index] - 1
+        period_length = n - start_index
+        for j in range(start_index, n):
+            bins[j] = current_bin
+            vr_lows[j] = vr_low
+            vr_highs[j] = vr_high
+            returns[j] = cumulative_return
+            period_lengths[j] = period_length
+
+    return bins, vr_lows, vr_highs, returns, period_lengths
+
 def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
     """
     Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
+    Includes a progress indicator and optimized computation.
 
     Parameters:
         data (pd.DataFrame): Input DataFrame with columns ['timestamp', 'tic', 'open', 'high', 'low', 'close'] (optional 'tic').
@@ -277,6 +331,10 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     """
     has_tic = 'tic' in data.columns
     result_list = []
+
+    # Sort data for faster grouping
+    if has_tic:
+        data.sort_values(['tic', 'timestamp'], inplace=True)
 
     # Group data by 'tic' if it exists
     groups = [('default', data)] if not has_tic else data.groupby('tic')
@@ -295,9 +353,10 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     else:
         calculated_threshold = {"default": threshold}
 
-    for tic, group in groups:
+    # Parallel processing for groups
+    def process_group(tic, group):
         if len(group) < short_period:
-            continue  # Skip groups with insufficient data
+            return pd.DataFrame()
 
         group_result = pd.DataFrame(index=group.index)
         group_result['bin'] = 0
@@ -308,54 +367,28 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
         if has_tic:
             group_result['tic'] = tic
 
-        # Get threshold for the group
         group_threshold = threshold if not isinstance(calculated_threshold, dict) else calculated_threshold.get(tic, threshold)
-        current_bin = None
-        cumulative_return = 0.0
-        start_index = 0
-        pred_index = 0
 
-        for i in range(short_period - 1, len(group)):
-            short_return = (group['close'].iloc[i] - group['close'].iloc[pred_index]) / group['close'].iloc[pred_index]
-            new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
+        bins, vr_lows, vr_highs, returns, period_lengths = calculate_segments(
+            group['close'].values, group['low'].values, group['high'].values, short_period, long_period, group_threshold
+        )
 
-            if new_bin != current_bin or (i - start_index + 1) > long_period:
-                if current_bin is not None:
-                    vr_low = group['low'].iloc[pred_index:i].min() / group['close'].iloc[pred_index] - 1
-                    vr_high = group['high'].iloc[pred_index:i].max() / group['close'].iloc[pred_index] - 1
-                    period_length = i - start_index
-                    group_result.loc[group.index[start_index:i], 'bin'] = current_bin
-                    group_result.loc[group.index[start_index:i], 'vr_low'] = vr_low
-                    group_result.loc[group.index[start_index:i], 'vr_high'] = vr_high
-                    group_result.loc[group.index[start_index:i], 'return'] = cumulative_return
-                    group_result.loc[group.index[start_index:i], 'period_length'] = period_length
+        group_result['bin'] = bins
+        group_result['vr_low'] = vr_lows
+        group_result['vr_high'] = vr_highs
+        group_result['return'] = returns
+        group_result['period_length'] = period_lengths
 
-                # Reset for the next segment
-                current_bin = new_bin
-                start_index = i
-                cumulative_return = short_return
-                pred_index = start_index - short_period + 1
-            else:
-                cumulative_return = short_return
+        return group_result
 
-        # Finalize the last segment
-        if current_bin is not None:
-            vr_low = group['low'].iloc[pred_index:].min() / group['close'].iloc[pred_index] - 1
-            vr_high = group['high'].iloc[pred_index:].max() / group['close'].iloc[pred_index] - 1
-            period_length = len(group) - start_index
-            group_result.loc[group.index[start_index:], 'bin'] = current_bin
-            group_result.loc[group.index[start_index:], 'vr_low'] = vr_low
-            group_result.loc[group.index[start_index:], 'vr_high'] = vr_high
-            group_result.loc[group.index[start_index:], 'return'] = cumulative_return
-            group_result.loc[group.index[start_index:], 'period_length'] = period_length
-
-        result_list.append(group_result)
+    result_list = Parallel(n_jobs=-1)(
+        delayed(process_group)(tic, group) for tic, group in tqdm(groups, desc="Processing Groups", unit="group")
+    )
 
     # Combine results
     final_result = pd.concat(result_list, ignore_index=True)
     final_result.index = data.index  # Preserve the original index from the input DataFrame
     return final_result
-
 
 
 
