@@ -4,6 +4,9 @@ Inter-bar feature generator which uses trades data and bars index to calculate i
 
 import pandas as pd
 import numpy as np
+from joblib import Parallel, delayed
+from tqdm.notebook import tqdm
+
 from mllab.microstructural_features.entropy import get_shannon_entropy, get_plug_in_entropy, get_lempel_ziv_entropy, \
     get_konto_entropy
 from mllab.microstructural_features.encoding import encode_array
@@ -128,3 +131,127 @@ class MicrostructuralFeaturesGenerator:
         :return: None
         """
         pass
+
+# Feature Engineering
+
+# нужно найти все корреляции
+
+#авто регрессия
+#история
+#объемы торгов
+#взвешенные объемы торгов
+#бенчмарки SP_500_TICKE и по отрасллям
+#отношения с линиями боллинджера
+#рси
+#иакроиндексами
+
+def calculate_indicators(data):
+    """
+    # Feature Engineering
+
+    # нужно найти все корреляции
+
+    #авто регрессия
+    #история
+    #объемы торгов
+    #взвешенные объемы торгов
+    #бенчмарки SP_500_TICKE и по отрасллям
+    #отношения с линиями боллинджера
+    #рси
+    #иакроиндексами
+
+    """
+
+
+    def process_ticker(group, tic):
+        group = group.copy()
+        x = pd.DataFrame(index=group.index)
+        data_row = group['close'].shift(1)
+        data_row_volume = group['volume'].shift(1)
+        data_row_vwap = group['vwap'].shift(1)
+        data_row_transactions = group['transactions'].shift(1)
+
+        # Log-returns
+        group["log_ret"] = np.log(data_row).diff()
+
+        # Log-returns volumes
+        group["log_ret_volumes"] = np.log(data_row_volume).diff()
+
+        # Volatility
+        #x["volatility_50"] = group["log_ret"].rolling(window=50, min_periods=50, center=False).std()
+        #x["volatility_31"] = group["log_ret"].rolling(window=31, min_periods=31, center=False).std()
+        #x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15, center=False).std()
+
+        # Autocorrelation
+        #window_autocorr = 10
+        #autocorrs = group["log_ret"].rolling(window=window_autocorr, min_periods=window_autocorr).apply(
+        #    lambda x: np.corrcoef(x[:-1], x[1:])[0, 1] if len(x) > 1 else np.nan, raw=True
+        #)
+        #for lag in range(1, 6):
+        #    x[f"autocorr_{lag}"] = autocorrs.shift(lag - 1)
+
+        # Log-return momentum
+        for lag in range(1, 6):
+            x[f"log_t{lag}"] = group["log_ret"].shift(lag)
+
+        # Moving Averages
+        x["ma_10"] = (data_row.rolling(window=10).mean() - data_row) / data_row
+        x["ma_50"] = (data_row.rolling(window=50).mean() - data_row) / data_row
+        x["ma_200"] = (data_row.rolling(window=200).mean() - data_row) / data_row
+
+        # Bollinger Bands (20-day moving average, 2 standard deviations)
+        rolling_window = 20
+        x["bollinger_ma"] = data_row.rolling(window=rolling_window).mean()
+        std_dev = data_row.rolling(window=rolling_window).std()
+        x["bollinger_upper"] = (x["bollinger_ma"] + 2 * std_dev - data_row) / data_row
+        x["bollinger_lower"] = (x["bollinger_ma"] - 2 * std_dev - data_row) / data_row
+
+        # Exponential Moving Averages
+        #x["ema_12"] = (data_row.ewm(span=12, adjust=False).mean() - data_row) / data_row
+        #x["ema_26"] = (data_row.ewm(span=26, adjust=False).mean() - data_row) / data_row
+
+        # MACD (Moving Average Convergence Divergence)
+        x["macd"] = x["ema_12"] - x["ema_26"]
+        x["macd_signal"] = x["macd"].ewm(span=9, adjust=False).mean()
+
+        # RSI (Relative Strength Index)
+        delta = data_row.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        x["rsi"] = 100 - (100 / (1 + rs))
+
+        # Volume Indicators
+        #x["volume_ma_10"] = data_row_volume.rolling(window=10).mean()
+        #x["volume_ma_50"] = data_row_volume.rolling(window=50).mean()
+        #x["volume_ma_200"] = data_row_volume.rolling(window=200).mean()
+        #x["volume_volatility"] = data_row_volume.rolling(window=20).std() / data_row_volume.mean()
+
+        # VWAP (Volume Weighted Average Price)
+        x["vwap_diff"] = (data_row_vwap - data_row) / data_row
+
+        # Transaction-based Indicators
+        #x["transactions_ma_10"] = data_row_transactions.rolling(window=10).mean()
+        #x["transactions_ma_50"] = data_row_transactions.rolling(window=50).mean()
+        #x["transactions_volatility"] = data_row_transactions.rolling(window=20).std() / data_row_transactions.mean()
+
+        # Add ticker information to the results
+        x["tic"] = tic
+        return x
+
+    # Parallel processing of tickers with progress bar
+    tickers = data['tic'].unique()
+    results = []
+    with tqdm(total=len(tickers), desc="Processing tickers") as pbar:
+        for group, tic in Parallel(n_jobs=-1)(
+            delayed(lambda g, t: (g, t))(group, tic) for tic, group in data.groupby('tic')
+        ):
+            results.append(process_ticker(group, tic))
+            pbar.update(1)
+
+    # Combine all results into a single DataFrame
+    final_result = pd.concat(results)
+    final_result = final_result.reindex(data.index)
+
+    return final_result.fillna(0)
+
