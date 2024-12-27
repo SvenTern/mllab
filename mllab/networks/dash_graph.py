@@ -17,7 +17,7 @@ import dash_html_components as html
 from dash import Dash
 from dash.dependencies import Input, Output
 from jupyter_dash import JupyterDash
-from networkx import nx
+import networkx as nx
 
 
 class DashGraph:
