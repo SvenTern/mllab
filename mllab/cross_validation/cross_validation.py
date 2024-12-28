@@ -294,10 +294,10 @@ def plot_roc_multiclass(actual, prediction):
 
     for cls in classes:
         # Binarize the actual values for the current class
-        actual_bin = (actual == cls).astype(int)
+        actual_bin = - actual if actual < 0 else actual
 
         # Predicted probabilities for the current class (assumes probabilities are scaled for each class)
-        pred_class = (prediction == cls).astype(float)
+        pred_class = - prediction if prediction < 0 else prediction
 
         # Compute ROC curve and AUC
         fpr, tpr, _ = roc_curve(actual_bin, pred_class, pos_label=1)
