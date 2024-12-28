@@ -274,6 +274,11 @@ def _stacked_score_model(classifier, X_dict, y_dict, train, test, sample_weight_
     pass
 
 
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+import numpy as np
+
+
 def plot_roc_multiclass(actual, prediction):
     """
     Calculate and plot the Receiver Operating Characteristic (ROC) curve and
@@ -281,23 +286,26 @@ def plot_roc_multiclass(actual, prediction):
 
     Parameters:
         actual (array-like): Ground truth values (-1, 0, or 1).
-        prediction (array-like): Predicted probabilities or scores for each class (-1, 0, 1) as a 1D array.
+        prediction (array-like): Predicted scores or probabilities as a 1D array corresponding to the actual values.
 
     Returns:
         None: Displays the ROC plot and prints average AUC.
     """
+    # Ensure prediction values are non-negative by flipping the sign of negative values
+    prediction = np.abs(prediction)
+
     # Classes to evaluate (-1 and 1 only, skipping 0 in this example)
-    classes = [-1, 1]
+    classes = [-1, 1, 0]
     roc_aucs = {}
 
     plt.figure(figsize=(8, 6))
 
     for cls in classes:
         # Binarize the actual values for the current class
-        actual_bin = - actual if actual < 0 else actual
+        actual_bin = (actual == cls).astype(int)
 
-        # Predicted probabilities for the current class (assumes probabilities are scaled for each class)
-        pred_class = - prediction if prediction < 0 else prediction
+        # Predicted probabilities/scores for the current class
+        pred_class = prediction
 
         # Compute ROC curve and AUC
         fpr, tpr, _ = roc_curve(actual_bin, pred_class, pos_label=1)
