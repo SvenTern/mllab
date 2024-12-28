@@ -274,7 +274,7 @@ def _stacked_score_model(classifier, X_dict, y_dict, train, test, sample_weight_
     pass
 
 
-def plot_roc_multiclass(actual, prediction_auc):
+def plot_roc_multiclass(actual, prediction):
     """
     Calculate and plot the Receiver Operating Characteristic (ROC) curve and
     the Area Under the Curve (AUC) for a multi-class classification problem.
