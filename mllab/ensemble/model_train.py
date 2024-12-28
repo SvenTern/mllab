@@ -178,7 +178,7 @@ class ensemble_models():
             return mapped_predictions, averaged_predictions
 
     # Train and Evaluate Model on Train/Test Split
-    def train_and_evaluate_ensemble(self, test_size=0.2, batch_size=32, n_estimators=1, epochs=20,
+    def train_and_evaluate_ensemble(self, test_size=0.2, batch_size=32, n_estimators=5, epochs=20,
                                     use_saved_weights=False):
         # Split the data
         X_train, X_test, y_train, y_test = train_test_split(self.X, self.y, test_size=test_size, random_state=42,
