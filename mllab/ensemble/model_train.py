@@ -150,9 +150,9 @@ class ensemble_models():
                 try:
                     os.makedirs("ensemble_weights", exist_ok=True)
                     model.save_weights(f"ensemble_weights/model_{model_type}_weights.h5")
-                    print(f"Saveed weights for model {model_type}")
+                    print(f"Saved weights for model {model_type}")
                 except FileNotFoundError:
-                    print(f"Didnt save for model {model_type}, training from scratch.")
+                    print(f"Didn't save model {model_type}, weights.")
 
         return ensemble_models
 
