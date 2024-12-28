@@ -15,7 +15,7 @@ from sklearn.metrics import log_loss
 from sklearn.model_selection import KFold
 from sklearn.base import ClassifierMixin, clone
 from sklearn.model_selection import BaseCrossValidator
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report, roc_curve, auc
 import matplotlib.pyplot as plt
 
 
@@ -273,6 +273,53 @@ def _stacked_score_model(classifier, X_dict, y_dict, train, test, sample_weight_
 
     pass
 
+
+
+def plot_roc_multiclass(actual, prediction):
+    """
+    Calculate and plot the Receiver Operating Characteristic (ROC) curve and the Area Under the Curve (AUC) for a multi-class classification problem.
+
+    Parameters:
+        actual (array-like): Ground truth values (-1, 0, or 1).
+        prediction (array-like): Predicted probabilities or scores for each class (-1, 0, 1).
+
+    Returns:
+        None: Displays the ROC plot.
+    """
+    # Binarize actual values for classes -1 and 1
+    actual_bin_1 = (actual == 1).astype(int)
+    actual_bin_minus1 = (actual == -1).astype(int)
+
+    # Extract predicted probabilities for classes -1 and 1
+    pred_class_1 = prediction[:, 2]  # Assuming column 2 corresponds to class 1
+    pred_class_minus1 = prediction[:, 0]  # Assuming column 0 corresponds to class -1
+
+    # Compute ROC curve and AUC for class 1
+    fpr_1, tpr_1, _ = roc_curve(actual_bin_1, pred_class_1, pos_label=1)
+    roc_auc_1 = auc(fpr_1, tpr_1)
+
+    # Compute ROC curve and AUC for class -1
+    fpr_minus1, tpr_minus1, _ = roc_curve(actual_bin_minus1, pred_class_minus1, pos_label=1)
+    roc_auc_minus1 = auc(fpr_minus1, tpr_minus1)
+
+    # Average AUC for classes -1 and 1
+    avg_roc_auc = (roc_auc_1 + roc_auc_minus1) / 2
+
+    # Plot ROC curves
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr_1, tpr_1, color='darkorange', lw=2, label='Class 1 ROC (AUC = %0.2f)' % roc_auc_1)
+    plt.plot(fpr_minus1, tpr_minus1, color='green', lw=2, label='Class -1 ROC (AUC = %0.2f)' % roc_auc_minus1)
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Guessing')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (Multi-class)')
+    plt.legend(loc="lower right")
+    plt.show()
+
+    print(f"Average AUC (Classes -1 and 1): {avg_roc_auc:.2f}")
+
 def score_confusion_matrix(y_test, y_pred):
     """
     вывод точности предсказания модели классификации
@@ -315,3 +362,5 @@ def score_confusion_matrix(y_test, y_pred):
     disp.plot(cmap=plt.cm.Blues)
     plt.title("Confusion Matrix")
     plt.show()
+
+    plot_roc_multiclass(y_test, y_pred)
