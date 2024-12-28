@@ -274,7 +274,7 @@ def _stacked_score_model(classifier, X_dict, y_dict, train, test, sample_weight_
     pass
 
 
-def plot_roc_multiclass(actual, prediction):
+def plot_roc_multiclass(actual, prediction_auc):
     """
     Calculate and plot the Receiver Operating Characteristic (ROC) curve and
     the Area Under the Curve (AUC) for a multi-class classification problem.
@@ -323,7 +323,7 @@ def plot_roc_multiclass(actual, prediction):
     print(f"Average AUC (Classes {classes}): {avg_roc_auc:.2f}")
 
 
-def score_confusion_matrix(y_test, y_pred):
+def score_confusion_matrix(y_test, y_pred, y_pred_auc = None):
     """
     вывод точности предсказания модели классификации
     """
@@ -366,4 +366,7 @@ def score_confusion_matrix(y_test, y_pred):
     plt.title("Confusion Matrix")
     plt.show()
 
-    plot_roc_multiclass(y_test, y_pred)
+    if y_pred_auc is None:
+        plot_roc_multiclass(y_test, y_pred)
+    else:
+        plot_roc_multiclass(y_test, y_pred_auc)
