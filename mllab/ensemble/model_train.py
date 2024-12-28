@@ -32,8 +32,8 @@ class ensemble_models():
         self.X = pd.DataFrame(self.scaler.fit_transform(self.X), columns=self.X.columns).values
         self.all_classes = np.unique(self.y)
         self.class_weights = compute_class_weight('balanced', classes=np.unique(self.y), y=self.y)
-        self.class_weights_dict = {cls: weight for cls, weight in zip(np.unique(y), class_weights)}
-        self.class_weights_dict = {cls: max(1.0, weight) for cls, weight in class_weights_dict.items()}
+        self.class_weights_dict = {cls: weight for cls, weight in zip(np.unique(self.y), self.class_weights)}
+        self.class_weights_dict = {cls: max(1.0, weight) for cls, weight in self.class_weights_dict.items()}
 
     # Custom Data Generator
     class DataGenerator(Sequence):
@@ -118,15 +118,15 @@ class ensemble_models():
             X_resampled, y_resampled = resample(np.array(X_train), np.array(y_train))
 
             # Calculate sample weights
-            sample_weights = np.array([class_weights_dict[label] for label in y_resampled])
+            sample_weights = np.array([self.class_weights_dict[label] for label in y_resampled])
 
             # Randomly select model type
             model_type = random.choice(['dense', 'lstm'])
             if model_type == 'dense':
-                model = create_dense_model(X_train.shape[1])
+                model = self.create_dense_model(X_train.shape[1])
             elif model_type == 'lstm':
                 X_resampled = X_resampled.reshape(X_resampled.shape[0], X_resampled.shape[1], 1)  # Reshape for LSTM
-                model = create_lstm_model(X_resampled.shape[1])
+                model = self.create_lstm_model(X_resampled.shape[1])
             else:
                 raise ValueError("Unsupported model_type. Use 'dense' or 'lstm'.")
 
