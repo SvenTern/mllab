@@ -294,7 +294,7 @@ def calculate_indicators(data,
 
         return x
 
-    data = data.set_index(['tic', 'date']).sort_index()
+    data = data.set_index(['tic', 'timestamp']).sort_index()
 
     # --- Параллельная обработка тикеров ---
     tickers = data['tic'].unique()
