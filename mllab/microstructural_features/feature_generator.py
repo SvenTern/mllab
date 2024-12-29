@@ -177,10 +177,10 @@ def calculate_indicators(data):
         # Log-returns volumes
         group["log_ret_volumes"] = np.log(data_row_volume).diff()
 
-        # Volatility
-        #x["volatility_50"] = group["log_ret"].rolling(window=50, min_periods=50, center=False).std()
-        #x["volatility_31"] = group["log_ret"].rolling(window=31, min_periods=31, center=False).std()
-        #x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15, center=False).std()
+         #Volatility
+        x["volatility_5"] = group["log_ret"].rolling(window=50, min_periods=50, center=False).std()
+        x["volatility_10"] = group["log_ret"].rolling(window=31, min_periods=31, center=False).std()
+        x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15, center=False).std()
 
         # Autocorrelation
         #window_autocorr = 10
