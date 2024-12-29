@@ -132,6 +132,10 @@ class MicrostructuralFeaturesGenerator:
         """
         pass
 
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from joblib import Parallel, delayed
 
 def calculate_indicators(data,
                          sp500_data=None,
@@ -153,7 +157,8 @@ def calculate_indicators(data,
     Parameters
     ----------
     data : pd.DataFrame
-        Данные цен, объёмов и т. д. (должен содержать колонки ['tic', 'close', 'volume', 'vwap', 'transactions'])
+        Данные цен, объёмов и т. д. (должен содержать колонки
+        ['tic', 'timestamp', 'close', 'volume', 'vwap', 'transactions']).
     sp500_data : pd.DataFrame or None
         Данные для индекса S&P 500 (или любого другого бенчмарка).
         Должен содержать колонку 'close' и те же даты, что и в data.
@@ -167,12 +172,13 @@ def calculate_indicators(data,
     Returns
     -------
     pd.DataFrame
-        Финальный DataFrame с вычисленными фичами.
+        Финальный DataFrame с вычисленными фичами,
+        индексом (tic, timestamp). При желании можно сбросить индекс.
     """
 
     def process_ticker(group, tic):
         """
-        Вычисляет фичи для отдельного тикера.
+        Вычисляет фичи для одного тикера (группа строк).
         """
         group = group.copy()
         x = pd.DataFrame(index=group.index)
@@ -195,13 +201,15 @@ def calculate_indicators(data,
         x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15).std()
 
         # --- Автокорреляция log_ret ---
-        #    (пример: вы можете менять окно и лаги под свои нужды)
         window_autocorr = 10
         autocorrs = (
             group["log_ret"]
             .rolling(window=window_autocorr, min_periods=window_autocorr)
-            .apply(lambda series: np.corrcoef(series[:-1], series[1:])[0, 1]
-                   if len(series) > 1 else np.nan, raw=True)
+            .apply(
+                lambda series: np.corrcoef(series[:-1], series[1:])[0, 1]
+                if len(series) > 1 else np.nan,
+                raw=True
+            )
         )
         for lag in range(1, 6):
             x[f"autocorr_{lag}"] = autocorrs.shift(lag - 1)
@@ -241,19 +249,11 @@ def calculate_indicators(data,
         for lag in range(1, 6):
             x[f"rsi_log_t{lag}"] = x["rsi"].shift(lag)
 
-        # --- Объёмные фичи ---
-        # x["volume_ma_10"] = data_row_volume.rolling(window=10).mean()
-        # x["volume_ma_50"] = data_row_volume.rolling(window=50).mean()
-
         # --- VWAP (Volume Weighted Average Price) ---
         x["vwap_diff"] = (data_row_vwap - data_row) / data_row
 
         # --- Корреляции с бенчмарком (SP500), отраслью (sector), макро (macro) ---
-        # Предположим, что во входном data уже лежат соответствующие close-цены или индексы.
-        # Если нет — вы можете приджойнить sp500_data/sector_data/macro_data по индексу.
-
         if sp500_data is not None and 'close' in sp500_data.columns:
-            # Получаем сопоставимый ряд для S&P500
             sp500_close = sp500_data.loc[group.index, 'close'].shift(1)
             sp500_logret = np.log(sp500_close).diff()
             for window in correlation_windows:
@@ -264,7 +264,6 @@ def calculate_indicators(data,
                 )
 
         if sector_data is not None and 'close' in sector_data.columns:
-            # Аналогично для sector
             sector_close = sector_data.loc[group.index, 'close'].shift(1)
             sector_logret = np.log(sector_close).diff()
             for window in correlation_windows:
@@ -275,13 +274,10 @@ def calculate_indicators(data,
                 )
 
         if macro_data is not None:
-            # Предположим, что macro_data может содержать несколько колонок: например, CPI, IR (interest rate), VIX...
-            # Для каждой такой колонки можно считать корреляцию.
             for col in macro_data.columns:
-                if col not in ['tic', 'close', 'volume']:  # пример фильтрации
+                if col not in ['tic', 'close', 'volume']:  # фильтр примерный
                     macro_series = macro_data.loc[group.index, col].shift(1).fillna(method="ffill")
-                    # Нормализуем или берём темп роста
-                    macro_series_ret = macro_series.pct_change()  # Или log_diff
+                    macro_series_ret = macro_series.pct_change()
                     for window in correlation_windows:
                         x[f"corr_{col}_{window}"] = (
                             group["log_ret"]
@@ -289,24 +285,27 @@ def calculate_indicators(data,
                             .corr(macro_series_ret)
                         )
 
-        # --- Добавляем тикер в результат, чтобы после concat не терять информацию ---
+        # --- Записываем тикер в итоговый DataFrame ---
         x["tic"] = tic
-
         return x
 
+    # --- 1) Делаем мультииндекс по (tic, timestamp), сортируем ---
+    # Убедитесь, что в data есть колонки 'tic' и 'timestamp'
     data = data.set_index(['tic', 'timestamp']).sort_index()
 
-    # --- Параллельная обработка тикеров ---
-    tickers = data['tic'].unique()
+    # --- 2) Получаем список уникальных тикеров из уровня индекса 'tic' ---
+    tickers = data.index.get_level_values('tic').unique()
+
+    # --- 3) Готовим список для результатов ---
     results = []
 
-    with tqdm(total=len(tickers), desc="Processing tickers") as pbar:
-        # Разбиваем data на группы по столбцу 'tic'
-        groups = data.groupby('tic', group_keys=False)
+    # --- 4) Группируем DataFrame по уровню индекса 'tic' ---
+    groups = data.groupby(level='tic', group_keys=False)
 
-        # Запускаем параллельно для каждого тикера
+    # --- 5) Параллельная обработка ---
+    with tqdm(total=len(tickers), desc="Processing tickers") as pbar:
         parallel_results = Parallel(n_jobs=-1)(
-            delayed(lambda grp, name: (process_ticker(grp, name)))(grp, name)
+            delayed(process_ticker)(grp, name)  # process_ticker(group=grp, tic=name)
             for name, grp in groups
         )
 
@@ -314,12 +313,18 @@ def calculate_indicators(data,
             results.append(res)
             pbar.update(1)
 
-    # --- Склеиваем все результаты ---
+    # --- 6) Объединяем все результаты в один DataFrame ---
     final_result = pd.concat(results)
-    # --- Выравниваем индексы, чтобы соответствовать исходным ---
+
+    # --- 7) reindex, чтобы точно сопоставить (tic, timestamp) ---
+    # (Это нужно, если в process_ticker могли появиться пропуски / сдвиги)
     final_result = final_result.reindex(data.index)
 
-    # --- Заполняем NaN ---
+    # --- 8) Заполняем NaN ---
     final_result = final_result.fillna(0)
+
+    # Если вы хотите «вернуть» колонками tic, timestamp, а не иметь их в индексе,
+    # можно сделать:
+    final_result.reset_index(inplace=True)
 
     return final_result
