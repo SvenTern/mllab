@@ -207,8 +207,8 @@ def calculate_indicators(data):
         x["bollinger_lower"] = (x["bollinger_ma"] - 2 * std_dev - data_row) / data_row
 
         # Exponential Moving Averages
-        #x["ema_12"] = (data_row.ewm(span=12, adjust=False).mean() - data_row) / data_row
-        #x["ema_26"] = (data_row.ewm(span=26, adjust=False).mean() - data_row) / data_row
+        x["ema_12"] = (data_row.ewm(span=12, adjust=False).mean() - data_row) / data_row
+        x["ema_26"] = (data_row.ewm(span=26, adjust=False).mean() - data_row) / data_row
 
         # MACD (Moving Average Convergence Divergence)
         x["macd"] = x["ema_12"] - x["ema_26"]
