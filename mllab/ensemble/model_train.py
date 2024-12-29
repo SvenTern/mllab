@@ -19,7 +19,7 @@ import os
 import random
 
 
-class EnsembleModels:
+class EnsembleModels():
     def __init__(self, indicators, labels):
         list_main_indicators = ['log_t1', 'log_t2', 'log_t3', 'log_t4', 'log_t5', 'ma_10', 'ma_50', 'ma_200',
                                 'bollinger_upper', 'bollinger_lower', 'rsi', 'vwap_diff', 'macd_signal']
