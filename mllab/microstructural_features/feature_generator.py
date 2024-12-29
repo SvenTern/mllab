@@ -132,10 +132,6 @@ class MicrostructuralFeaturesGenerator:
         """
         pass
 
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
-from joblib import Parallel, delayed
 
 def calculate_indicators(data,
                          sp500_data=None,
@@ -157,7 +153,7 @@ def calculate_indicators(data,
     Parameters
     ----------
     data : pd.DataFrame
-        Данные цен, объёмов и т. д. (должен содержать колонки
+        Данные цен, объёмов и т. д. (обязательно содержит колонки
         ['tic', 'timestamp', 'close', 'volume', 'vwap', 'transactions']).
     sp500_data : pd.DataFrame or None
         Данные для индекса S&P 500 (или любого другого бенчмарка).
@@ -172,8 +168,9 @@ def calculate_indicators(data,
     Returns
     -------
     pd.DataFrame
-        Финальный DataFrame с вычисленными фичами,
-        индексом (tic, timestamp). При желании можно сбросить индекс.
+        Финальный DataFrame с вычисленными фичами.
+        Изначально индексом будет (tic, timestamp),
+        но при reset_index мы перенесём их в колонки.
     """
 
     def process_ticker(group, tic):
@@ -252,7 +249,7 @@ def calculate_indicators(data,
         # --- VWAP (Volume Weighted Average Price) ---
         x["vwap_diff"] = (data_row_vwap - data_row) / data_row
 
-        # --- Корреляции с бенчмарком (SP500), отраслью (sector), макро (macro) ---
+        # --- Корреляции с бенчмарками / макро ---
         if sp500_data is not None and 'close' in sp500_data.columns:
             sp500_close = sp500_data.loc[group.index, 'close'].shift(1)
             sp500_logret = np.log(sp500_close).diff()
@@ -275,7 +272,7 @@ def calculate_indicators(data,
 
         if macro_data is not None:
             for col in macro_data.columns:
-                if col not in ['tic', 'close', 'volume']:  # фильтр примерный
+                if col not in ['tic', 'close', 'volume']:
                     macro_series = macro_data.loc[group.index, col].shift(1).fillna(method="ffill")
                     macro_series_ret = macro_series.pct_change()
                     for window in correlation_windows:
@@ -285,27 +282,24 @@ def calculate_indicators(data,
                             .corr(macro_series_ret)
                         )
 
-        # --- Записываем тикер в итоговый DataFrame ---
-        x["tic"] = tic
+        # ВАЖНО: не добавляем x["tic"] = tic, т.к. tic у нас уже в индексе.
         return x
 
-    # --- 1) Делаем мультииндекс по (tic, timestamp), сортируем ---
-    # Убедитесь, что в data есть колонки 'tic' и 'timestamp'
+    # --- Устанавливаем (tic, timestamp) как MultiIndex ---
     data = data.set_index(['tic', 'timestamp']).sort_index()
 
-    # --- 2) Получаем список уникальных тикеров из уровня индекса 'tic' ---
+    # Получаем список тикеров из уровня индекса 'tic'
     tickers = data.index.get_level_values('tic').unique()
 
-    # --- 3) Готовим список для результатов ---
     results = []
 
-    # --- 4) Группируем DataFrame по уровню индекса 'tic' ---
+    # Группируем по уровню 'tic'
     groups = data.groupby(level='tic', group_keys=False)
 
-    # --- 5) Параллельная обработка ---
+    # Параллельная обработка
     with tqdm(total=len(tickers), desc="Processing tickers") as pbar:
         parallel_results = Parallel(n_jobs=-1)(
-            delayed(process_ticker)(grp, name)  # process_ticker(group=grp, tic=name)
+            delayed(process_ticker)(grp, name)
             for name, grp in groups
         )
 
@@ -313,18 +307,17 @@ def calculate_indicators(data,
             results.append(res)
             pbar.update(1)
 
-    # --- 6) Объединяем все результаты в один DataFrame ---
+    # Склеиваем все результаты
     final_result = pd.concat(results)
 
-    # --- 7) reindex, чтобы точно сопоставить (tic, timestamp) ---
-    # (Это нужно, если в process_ticker могли появиться пропуски / сдвиги)
+    # Перестраиваем индекс (tic, timestamp), если нужно
     final_result = final_result.reindex(data.index)
 
-    # --- 8) Заполняем NaN ---
-    final_result = final_result.fillna(0)
+    # Заполняем NaN
+    final_result.fillna(0, inplace=True)
 
-    # Если вы хотите «вернуть» колонками tic, timestamp, а не иметь их в индексе,
-    # можно сделать:
+    # Теперь сбрасываем MultiIndex, перенесём 'tic' и 'timestamp' в колонки
     final_result.reset_index(inplace=True)
 
     return final_result
+
