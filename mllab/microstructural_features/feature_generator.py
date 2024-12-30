@@ -6,6 +6,10 @@ import pandas as pd
 import numpy as np
 from joblib import Parallel, delayed
 from tqdm.notebook import tqdm
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
 
 from mllab.microstructural_features.entropy import get_shannon_entropy, get_plug_in_entropy, get_lempel_ziv_entropy, \
     get_konto_entropy
@@ -321,3 +325,64 @@ def calculate_indicators(data,
 
     return final_result
 
+def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_heatmap = True):
+    """
+    Входящий dataframe `labels` имеет index=timestamp
+    и колонки ['tic', 'bin'], где 'bin' — значение цены (или таргет).
+
+    Входящий dataframe `indicators` имеет index=timestamp
+    и колонки ['tic'] + набор признаков (индикаторов).
+
+    Выводит матрицу корреляции (heatmap) и
+    возвращает кортеж (correlation_matrix, high_corr_cols), где:
+      - correlation_matrix — pd.DataFrame с корреляциями
+      - high_corr_cols — список колонок, у которых |corr| > threshold
+        (по умолчанию 3%) к столбцу column_main
+    """
+
+    # Преобразуем index в столбцы, чтобы можно было делать merge
+    labels_merged = labels.reset_index()  # получаем столбец 'timestamp'
+    indicators_merged = indicators.reset_index()
+
+    # Мерджим по ["timestamp", "tic"]
+    merged_data = pd.merge(
+        labels_merged[['timestamp', 'tic', column_main]],
+        indicators_merged,
+        on=["timestamp", "tic"],
+        how="inner"
+    )
+
+    # Считаем матрицу корреляции только по числовым столбцам
+    numeric_cols = merged_data.select_dtypes(include=["number"]).columns
+    correlation_matrix = merged_data[numeric_cols].corr()
+
+    if show_heatmap:
+        # Строим heatmap
+        plt.figure(figsize=(20, 20))
+        sns.heatmap(
+            correlation_matrix,
+            annot=True,
+            fmt='.2f',
+            cmap='coolwarm',
+            cbar=True
+        )
+        plt.title("Correlation Matrix")
+        plt.show()
+
+    # Выбираем признаки, у которых модуль корреляции с column_main больше threshold
+    if column_main in correlation_matrix.columns:
+        main_corr = correlation_matrix[column_main]
+        high_corr = main_corr[abs(main_corr) >= threshold].sort_values(ascending=False)
+
+        # Убираем саму target-колонку (column_main), чтобы она не попадала в список
+        high_corr_cols = [col for col in high_corr.index if col != column_main]
+
+        print(f"\nФичи с корреляцией к '{column_main}' больше {threshold*100:.2f}% (по модулю):")
+        print(high_corr_cols)
+
+    else:
+        print(f"Колонка '{column_main}' не найдена в матрице корреляции.")
+        high_corr_cols = []
+
+    # Возвращаем матрицу корреляции и список колонок с высокой корреляцией
+    return correlation_matrix, high_corr_cols
