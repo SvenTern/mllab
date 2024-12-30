@@ -831,31 +831,51 @@ class FinancePreprocessor:
 
 # Assume `predicted_data` is a pandas DataFrame and `coeff_tp`, `coeff_sl` are predefined constants.
 def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
-    for idx, row in predicted_data.iterrows():
-        # Adjust 'return' based on conditions
-        if row['return'] < 0 and row['bin+1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
-            predicted_data.at[idx, 'return'] = abs(row['return'])
-        elif row['return'] > 0 and row['bin-1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
-            predicted_data.at[idx, 'return'] = -abs(row['return'])
+    # Determine the maximum bin for each row
+    max_bin = predicted_data[['bin-1', 'bin+0', 'bin+1']].idxmax(axis=1)
 
-        # Determine 'vol', 'tp', and 'sl'
-        if row['bin+0'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
-            predicted_data.at[idx, 'vol'] = 0
-            predicted_data.at[idx, 'tp'] = 0
-            predicted_data.at[idx, 'sl'] = 0
-        elif row['bin-1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
-            p = row['bin-1']
-            b = p / (1 - p)
-            vol = 0 if p - (1 - p) / b < 0 else p - (1 - p) / b
-            predicted_data.at[idx, 'vol'] = vol
-            predicted_data.at[idx, 'tp'] = coeff_tp * row['return']
-            predicted_data.at[idx, 'sl'] = coeff_sl * row['return'] / b
-        elif row['bin+1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
-            p = row['bin+1']
-            b = p / (1 - p)
-            vol = 0 if p - (1 - p) / b < 0 else p - (1 - p) / b
-            predicted_data.at[idx, 'vol'] = vol
-            predicted_data.at[idx, 'tp'] = coeff_tp * row['return']
-            predicted_data.at[idx, 'sl'] = coeff_sl * row['return'] / b
+    # Adjust 'return' based on conditions
+    predicted_data['return'] = (
+        predicted_data['return'].where(
+            ~(
+                (predicted_data['return'] < 0) & (max_bin == 'bin+1')
+            ),
+            predicted_data['return'].abs()
+        )
+        .where(
+            ~(
+                (predicted_data['return'] > 0) & (max_bin == 'bin-1')
+            ),
+            -predicted_data['return'].abs()
+        )
+    )
+
+    # Initialize columns
+    predicted_data['vol'] = 0
+    predicted_data['tp'] = 0
+    predicted_data['sl'] = 0
+
+    # Compute for bin-1
+    mask_bin_minus1 = max_bin == 'bin-1'
+    p_minus1 = predicted_data.loc[mask_bin_minus1, 'bin-1']
+    b_minus1 = p_minus1 / (1 - p_minus1)
+    vol_minus1 = p_minus1 - (1 - p_minus1) / b_minus1
+    vol_minus1 = vol_minus1.clip(lower=0)  # Ensure no negative values
+    predicted_data.loc[mask_bin_minus1, 'vol'] = vol_minus1
+    predicted_data.loc[mask_bin_minus1, 'tp'] = coeff_tp * predicted_data.loc[mask_bin_minus1, 'return']
+    predicted_data.loc[mask_bin_minus1, 'sl'] = coeff_sl * predicted_data.loc[mask_bin_minus1, 'return'] / b_minus1
+
+    # Compute for bin+1
+    mask_bin_plus1 = max_bin == 'bin+1'
+    p_plus1 = predicted_data.loc[mask_bin_plus1, 'bin+1']
+    b_plus1 = p_plus1 / (1 - p_plus1)
+    vol_plus1 = p_plus1 - (1 - p_plus1) / b_plus1
+    vol_plus1 = vol_plus1.clip(lower=0)  # Ensure no negative values
+    predicted_data.loc[mask_bin_plus1, 'vol'] = vol_plus1
+    predicted_data.loc[mask_bin_plus1, 'tp'] = coeff_tp * predicted_data.loc[mask_bin_plus1, 'return']
+    predicted_data.loc[mask_bin_plus1, 'sl'] = coeff_sl * predicted_data.loc[mask_bin_plus1, 'return'] / b_plus1
+
+    # Rows where bin+0 is maximum are already handled (vol, tp, sl initialized to 0)
 
     return predicted_data
+
