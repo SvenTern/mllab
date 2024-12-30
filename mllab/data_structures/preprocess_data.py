@@ -827,3 +827,35 @@ class FinancePreprocessor:
         data_normalized.to_csv(self.file_path + '_normalize.csv', index=True)
 
         return data_normalized
+
+
+# Assume `predicted_data` is a pandas DataFrame and `coeff_tp`, `coeff_sl` are predefined constants.
+def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
+    for idx, row in predicted_data.iterrows():
+        # Adjust 'return' based on conditions
+        if row['return'] < 0 and row['bin+1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
+            predicted_data.at[idx, 'return'] = abs(row['return'])
+        elif row['return'] > 0 and row['bin-1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
+            predicted_data.at[idx, 'return'] = -abs(row['return'])
+
+        # Determine 'vol', 'tp', and 'sl'
+        if row['bin+0'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
+            predicted_data.at[idx, 'vol'] = 0
+            predicted_data.at[idx, 'tp'] = 0
+            predicted_data.at[idx, 'sl'] = 0
+        elif row['bin-1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
+            p = row['bin-1']
+            b = p / (1 - p)
+            vol = 0 if p - (1 - p) / b < 0 else p - (1 - p) / b
+            predicted_data.at[idx, 'vol'] = vol
+            predicted_data.at[idx, 'tp'] = coeff_tp * row['return']
+            predicted_data.at[idx, 'sl'] = coeff_sl * row['return'] / b
+        elif row['bin+1'] == max(row['bin-1'], row['bin+0'], row['bin+1']):
+            p = row['bin+1']
+            b = p / (1 - p)
+            vol = 0 if p - (1 - p) / b < 0 else p - (1 - p) / b
+            predicted_data.at[idx, 'vol'] = vol
+            predicted_data.at[idx, 'tp'] = coeff_tp * row['return']
+            predicted_data.at[idx, 'sl'] = coeff_sl * row['return'] / b
+
+    return predicted_data
