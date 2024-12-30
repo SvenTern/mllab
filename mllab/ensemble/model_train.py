@@ -17,6 +17,12 @@ import joblib
 from mllab.cross_validation import score_confusion_matrix
 import os
 import random
+from tensorflow import keras
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import BaggingClassifier
+from sklearn.utils.class_weight import compute_class_weight
+from mllab.cross_validation import score_confusion_matrix
 
 
 class ensemble_models:
@@ -165,4 +171,213 @@ class ensemble_models:
         print(classification_report(y_test, y_pred))
 
         print("Confusion Matrix:")
+        score_confusion_matrix(y_test, y_pred)
+
+
+def train_regression(labels, indicators, list_main_indicators, label, dropout_rate=0.3, base_folder='models_and_scalers', test_size=0.2, random_state = 42 ):
+    """
+    Function to train regression models sequentially for unique tickers in the dataset.
+
+    Args:
+        labels (pd.DataFrame): DataFrame containing target labels.
+        indicators (pd.DataFrame): DataFrame containing features.
+        list_main_indicators (list): List of feature column names.
+        label (str): Name of the target variable.
+        dropout_rate (float): Dropout rate for the model.
+        base_folder (str): Folder to save models and scalers.
+        test_size (float): Proportion of test data.
+        random_state (int): Random state for reproducibility.
+    """
+    try:
+        tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+        print("TPU найден. Адрес:", tpu.master())
+        tf.config.experimental_connect_to_cluster(tpu)
+        tf.tpu.experimental.initialize_tpu_system(tpu)
+        strategy = tf.distribute.TPUStrategy(tpu)
+    except ValueError:
+        print("TPU не найден. Используем стратегию по умолчанию (CPU/GPU).")
+        strategy = tf.distribute.get_strategy()
+
+    print("Используемая стратегия:", strategy)
+
+    def create_complex_model(num_features, dropout_rate):
+        model = keras.Sequential([
+            keras.layers.Dense(256, activation='relu', input_shape=(num_features,)),
+            keras.layers.BatchNormalization(),
+            keras.layers.Dropout(dropout_rate),
+            keras.layers.Dense(128, activation='relu'),
+            keras.layers.BatchNormalization(),
+            keras.layers.Dropout(dropout_rate),
+            keras.layers.Dense(64, activation='relu'),
+            keras.layers.BatchNormalization(),
+            keras.layers.Dropout(dropout_rate),
+            keras.layers.Dense(32, activation='relu'),
+            keras.layers.BatchNormalization(),
+            keras.layers.Dense(1)
+        ])
+        return model
+
+    unique_tickers = indicators['tic'].unique()
+    os.makedirs(base_folder, exist_ok=True)
+
+    previous_ticker_model_path = None
+
+    early_stopping = EarlyStopping(
+        monitor='val_loss',
+        patience=5,
+        restore_best_weights=True,
+        verbose=1
+    )
+
+    for idx, ticker in enumerate(unique_tickers):
+        print(f"\n=== Обработка тикера: {ticker} ===")
+
+        ticker_data = indicators[indicators['tic'] == ticker]
+        ticker_labels = labels[labels['tic'] == ticker]
+
+        X = ticker_data[list_main_indicators]
+        y = ticker_labels[label]
+
+        if len(X) == 0 or len(y) == 0:
+            print(f"    Пропускаем (нет данных) для тикера {ticker}.")
+            continue
+
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        scaler_path = f"{base_folder}/regression_scaler_{ticker}.joblib"
+        joblib.dump(scaler, scaler_path)
+        print(f"    Scaler сохранён в файл: {scaler_path}")
+
+        num_features = X_scaled.shape[1]
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_scaled, y, test_size=test_size, random_state=random_state
+        )
+
+        if len(X_train) < 10:
+            print("    Недостаточно данных для обучения. Пропускаем.")
+            continue
+
+        with strategy.scope():
+            if idx > 0 and previous_ticker_model_path is not None:
+                print(f"    Загрузка полной модели из: {previous_ticker_model_path}")
+                model = joblib.load(previous_ticker_model_path)
+            else:
+                model = create_complex_model(num_features, dropout_rate)
+                model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+        val_split = 0.2
+        val_size = int(len(X_train) * val_split)
+
+        X_val = X_train[:val_size]
+        y_val = y_train[:val_size]
+        X_train_part = X_train[val_size:]
+        y_train_part = y_train[val_size:]
+
+        train_dataset = tf.data.Dataset.from_tensor_slices((X_train_part, y_train_part)).shuffle(buffer_size=len(X_train_part)).batch(32)
+        val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(32)
+        test_dataset = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(32)
+
+        print("    Обучаем новую модель...")
+        history = model.fit(
+            train_dataset,
+            validation_data=val_dataset,
+            epochs=50,
+            verbose=1,
+            callbacks=[early_stopping]
+        )
+
+        test_loss, test_mae = model.evaluate(test_dataset, verbose=0)
+        print(f"    Test MSE = {test_loss:.4f}, Test MAE = {test_mae:.4f}")
+
+        model_path = f"{base_folder}/regression_model_{ticker}.joblib"
+        joblib.dump(model, model_path)
+        print(f"    Полная модель сохранена в файл: {model_path}")
+
+        previous_ticker_model_path = model_path
+
+        if len(X_test) > 3:
+            sample_for_prediction = X_test[:3]
+            sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
+            predictions = model.predict(sample_dataset)
+            print("    Прогноз (первые 3 записи из теста):", predictions.reshape(-1))
+
+
+def train_bagging(labels, indicators, list_main_indicators, label, base_folder='model bagging', test_size=0.2, random_state=42, n_estimators=20):
+
+    # Создание базовой директории, если она не существует
+    os.makedirs(base_folder, exist_ok=True)
+
+    # Допустим, у нас есть список тикеров
+    unique_tickers = indicators['tic'].unique()
+
+    for ticker in unique_tickers:
+        print(f"\nProcessing ticker: {ticker}")
+
+        # Фильтрация данных по тикеру
+        ticker_data = indicators[indicators['tic'] == ticker]
+        ticker_labels = labels[labels['tic'] == ticker]
+
+        # Разделение на признаки и метки
+        X = ticker_data[list_main_indicators]
+        y = ticker_labels[label]
+
+        # Опционально: проверить баланс классов
+        # print("Class distribution:\n", y.value_counts())
+
+        # Получаем все классы и вычисляем веса
+        all_classes = np.unique(y)
+        class_weights = compute_class_weight('balanced', classes=all_classes, y=y)
+        class_weights_dict = {cls: weight for cls, weight in zip(all_classes, class_weights)}
+        # Пример ручного исправления веса для класса 2 (если нужно)
+        class_weights_dict[2] = 1
+
+        print("Class weights:", class_weights_dict)
+
+        # Разделение данных на train/test
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y,
+            test_size=test_size,
+            random_state=random_state
+        )
+
+        # МАСШТАБИРОВАНИЕ после разделения на train/test
+        scaler = StandardScaler()
+        # fit только на обучающей выборке
+        X_train_scaled = pd.DataFrame(
+            scaler.fit_transform(X_train),
+            columns=X_train.columns
+        )
+        # transform на тестовой выборке
+        X_test_scaled = pd.DataFrame(
+            scaler.transform(X_test),
+            columns=X_test.columns
+        )
+
+        # Создание ансамбля Bagging + RandomForest
+        bagging_classifier = BaggingClassifier(
+            estimator=RandomForestClassifier(
+                random_state=random_state,
+                class_weight=class_weights_dict
+            ),
+            n_estimators=n_estimators,
+            bootstrap=True,
+            random_state=random_state
+        )
+
+        # Обучение модели
+        bagging_classifier.fit(X_train_scaled, y_train)
+
+        # Сохранение обученного скейлера и модели
+        model_filename = os.path.join(base_folder, f"classifier_model_{ticker}.pkl")
+        scaler_filename = os.path.join(base_folder, f"classifier_scaler_{ticker}.pkl")
+        joblib.dump(bagging_classifier, model_filename, compress=3)
+        joblib.dump(scaler, scaler_filename)
+        print(f"Сохранены файлы: {model_filename}, {scaler_filename}")
+
+        # Проверка модели на тестовой выборке
+        y_pred = bagging_classifier.predict(X_test_scaled)
+
+        # Оценка качества модели
+        print(f"\nEvaluation for ticker {ticker}:")
         score_confusion_matrix(y_test, y_pred)
