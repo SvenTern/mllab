@@ -52,7 +52,7 @@ class StockPortfolioEnv():
         # Memory for logging and tracking
         self.asset_memory = [self.initial_amount]
         self.portfolio_return_memory = [0]
-        self.actions_memory = [[0] * self.stock_dim]
+        self.actions_memory = [np.zeros((self.stock_dim, 3))]
         self.date_memory = [self.current_timestamp]
         self.share_holdings = np.zeros(self.stock_dim)  # Long/Short positions for each stock
 
@@ -205,18 +205,30 @@ class StockPortfolioEnv():
             stop_loss_price = last_day['close'].values[i] * (1 - stop_loss[i])
             take_profit_price = last_day['close'].values[i] * (1 + take_profit[i])
 
-            if low <= stop_loss_price and self.share_holdings[i] < 0:  # Short stop-loss
+            if high >= stop_loss_price and self.share_holdings[i] < 0:  # Short stop-loss
                 current_return = (stop_loss_price - last_day['close'].values[i]) * self.share_holdings[i]
                 transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
                 current_return -= transaction_cost
+                self.cash += stop_loss_price * abs(self.share_holdings[i])
                 self.share_holdings[i] = 0  # Exit short position
-                self.cash += current_return
-            elif high >= take_profit_price and self.share_holdings[i] < 0:  # Short take-profit
+            elif low <= stop_loss_price and self.share_holdings[i] > 0:  # Long stop-loss
+                current_return = (stop_loss_price - last_day['close'].values[i]) * self.share_holdings[i]
+                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                current_return -= transaction_cost
+                self.cash += stop_loss_price * abs(self.share_holdings[i])
+                self.share_holdings[i] = 0  # Exit long position
+            elif low <= take_profit_price and self.share_holdings[i] < 0:  # Short take-profit
                 current_return = (take_profit_price - last_day['close'].values[i]) * self.share_holdings[i]
                 transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
                 current_return -= transaction_cost
+                self.cash += take_profit_price * abs(self.share_holdings[i])
                 self.share_holdings[i] = 0  # Exit short position
-                self.cash += current_return
+            elif high >= take_profit_price and self.share_holdings[i] > 0:  # Long take-profit
+                current_return = (take_profit_price - last_day['close'].values[i]) * self.share_holdings[i]
+                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                current_return -= transaction_cost
+                self.cash += take_profit_price * abs(self.share_holdings[i])
+                self.share_holdings[i] = 0  # Exit long position
             else:
                 current_return = price_change[i] * self.share_holdings[i]
 
@@ -227,7 +239,10 @@ class StockPortfolioEnv():
 
         # Recalculate weights for portfolio
         for i, share in enumerate(self.share_holdings):
-            updated_weights[i] = share * self.data['close'].values[i] / max(self.portfolio_value, 1e-10)
+            if self.portfolio_value < 1e-10:
+                updated_weights[i] = 0
+            else:
+                updated_weights[i] = share * self.data['close'].values[i] / self.portfolio_value
 
         return portfolio_return, updated_weights
 
