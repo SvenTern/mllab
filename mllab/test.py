@@ -1,85 +1,363 @@
+import numpy as np
 import pandas as pd
+from gym.utils import seeding
+import gym
+from gym import spaces
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
-def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
-    """
-    Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
 
-    Parameters:
-        data (pd.DataFrame): Input DataFrame with columns ['timestamp', 'tic', 'open', 'high', 'low', 'close'] (optional 'tic').
-        short_period (int): Minimum period to evaluate a trend (short-term).
-        long_period (int): Maximum period to accumulate trend data (long-term).
-        threshold (float or dict): Threshold for detecting trend direction change.
-                                If 'tic' is present, it must be a dictionary with keys as 'tic' values.
+class StockPortfolioEnv():
+    metadata = {'render.modes': ['human']}
 
-    Returns:
-        pd.DataFrame: A DataFrame with trend and outlier calculations for each timestamp.
-    """
-    result_list = []
+    def __init__(self,
+                 df,
+                 stock_dim,
+                 hmax,
+                 initial_amount,
+                 transaction_cost_amount,
+                 reward_scaling,
+                 state_space,
+                 action_space,
+                 tech_indicator_list,
+                 turbulence_threshold=None,
+                 lookback=5,
+                 min=0):
+        # Initialization of environment variables
+        self.min = min  # Current time index
+        self.lookback = lookback  # Number of previous steps for state construction
+        self.df = df  # Market data
+        self.stock_dim = stock_dim  # Number of stocks
+        self.hmax = hmax  # Max shares per transaction
+        self.initial_amount = initial_amount  # Starting portfolio cash value
+        self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
+        self.reward_scaling = reward_scaling  # Scaling factor for reward
+        self.state_space = state_space  # Dimensions of state space
+        self.action_space = spaces.Box(low=-1, high=1, shape=(action_space, 3))  # Long/Short/StopLoss/TakeProfit
+        self.tech_indicator_list = tech_indicator_list  # List of technical indicators
 
-    groups = [('', data)] #if not has_tic else data.groupby('tic')
+        # Observation space includes technical indicators, trade history, and predictions
+        self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(
+                self.state_space + len(self.tech_indicator_list) * self.lookback + 2 * self.lookback,
+                self.stock_dim
+            )
+        )
 
-    for tic, group in groups:
-        group_result = pd.DataFrame(index=group.index)
-        group_result['bin'] = 0
-        #group_result['vr_low'] = 0.0
-        #group_result['vr_high'] = 0.0
-        group_result['return'] = 0.0
-        group_result['period_length'] = 0
-        #if has_tic:
-        #    group_result['tic'] = tic
+        # Initialize data, state, and environment variables
+        self.data = self.df.loc[self.min, :]
+        self.covs = self.data['cov_list'].values
+        self.state = self._construct_state()
+        self.terminal = False
+        self.turbulence_threshold = turbulence_threshold
+        self.portfolio_value = self.initial_amount
+        self.cash = self.initial_amount
 
-        group_threshold = threshold if not isinstance(threshold, dict) else threshold.get(tic, threshold)
-        current_bin = None
-        cumulative_return = 0.0
-        start_index = 0
-        start_pred = 0
+        # Memory for logging and tracking
+        self.asset_memory = [self.initial_amount]
+        self.portfolio_return_memory = [0]
+        self.actions_memory = [[0] * self.stock_dim]
+        self.date_memory = [self.data.timestamp.unique()[0]]
+        self.share_holdings = np.zeros(self.stock_dim)  # Long/Short positions for each stock
 
+    def _construct_state(self):
+        """Construct the current state with historical data, trades, and predictions."""
+        historical_data = self.df.loc[max(0, self.min - self.lookback):self.min]
+        historical_tech = [historical_data[tech].values.tolist() for tech in self.tech_indicator_list]
 
-        i = 0
-        while i < len(group):
-            if i < short_period - 1:
-                i += 1
-                continue
+        # Padding if historical data is less than lookback
+        if len(historical_data) < self.lookback:
+            padding = [np.zeros(self.stock_dim) for _ in range(self.lookback - len(historical_data))]
+            historical_tech = padding + historical_tech
 
-            short_return = (group['close'].iloc[i] - group['close'].iloc[start_pred])
-            new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
+        # Include trade and prediction history
+        historical_trade = historical_data['trade_list'].values.tolist()
+        historical_prediction = historical_data['prediction_list'].values.tolist()
 
-            if new_bin != current_bin or (i - start_index + 1) > long_period:
-                if current_bin is not None:
-                    #vr_low = group['low'].iloc[start_index:i].min() / group['close'].iloc[start_index] - 1
-                    #vr_high = group['high'].iloc[start_index:i].max() / group['close'].iloc[start_index] - 1
-                    period_length = i - start_index
-                    group_result.iloc[start_index:i, group_result.columns.get_loc('bin')] = current_bin
-                    #group_result.iloc[start_index:i, group_result.columns.get_loc('vr_low')] = vr_low
-                    #group_result.iloc[start_index:i, group_result.columns.get_loc('vr_high')] = vr_high
-                    group_result.iloc[start_index:i, group_result.columns.get_loc('return')] = cumulative_return
-                    group_result.iloc[start_index:i, group_result.columns.get_loc('period_length')] = period_length
+        if len(historical_trade) < self.lookback:
+            trade_padding = [np.zeros(self.stock_dim) for _ in range(self.lookback - len(historical_trade))]
+            historical_trade = trade_padding + historical_trade
 
-                if current_bin is not None:
-                    start_index = i # должно указывать на начало предыдущего периода !!!
-                    start_pred = start_index - short_period + 1
-                    cumulative_return = 0.0
-                current_bin = new_bin
+        if len(historical_prediction) < self.lookback:
+            prediction_padding = [np.zeros(self.stock_dim) for _ in range(self.lookback - len(historical_prediction))]
+            historical_prediction = prediction_padding + historical_prediction
+
+        # Append data to form the state
+        state = np.append(
+            np.array(self.covs),
+            historical_tech + historical_trade + historical_prediction,
+            axis=0
+        )
+        return state
+
+    def _sell_stock(self, stock_index, sell_amount, current_price):
+        """Sell stock, including handling short positions."""
+        sell_value = sell_amount * current_price
+        transaction_cost = sell_amount * self.transaction_cost_amount
+        sell_value -= transaction_cost
+        self.cash += sell_value
+        self.portfolio_value -= transaction_cost
+        self.share_holdings[stock_index] -= sell_amount  # Update holdings (allows negative for shorts)
+        self.actions_memory[-1][stock_index] -= sell_amount
+
+    def _buy_stock(self, stock_index, buy_amount, current_price):
+        """Buy stock, including closing short positions."""
+        buy_value = buy_amount * current_price
+        transaction_cost = buy_amount * self.transaction_cost_amount
+        buy_value += transaction_cost
+        self.cash -= buy_value
+        self.portfolio_value -= transaction_cost
+        self.share_holdings[stock_index] += buy_amount  # Adjust holdings for both long and short
+        self.actions_memory[-1][stock_index] += buy_amount
+
+    def _sell_all_stocks(self):
+        """Sell all long positions and buy back all short positions."""
+        for i in range(self.stock_dim):
+            current_price = self.data['close'].values[i]
+            if self.share_holdings[i] > 0:  # Long positions
+                self._sell_stock(i, self.share_holdings[i], current_price)
+            elif self.share_holdings[i] < 0:  # Short positions
+                self._buy_stock(i, -self.share_holdings[i], current_price)  # Buy back short shares
+
+    def step(self, actions):
+        """Execute a single step in the environment."""
+        self.terminal = self.min >= len(self.df.index.unique()) - 1
+        last_minute_of_day = self.data['timestamp'].iloc[-1] == self.data['timestamp'].max()
+
+        if self.terminal:
+            self._sell_all_stocks()
+
+            # Log cumulative rewards
+            df = pd.DataFrame(self.portfolio_return_memory)
+            df.columns = ['minutely_return']
+            plt.plot(df.minutely_return.cumsum(), 'r')
+            plt.savefig('results/cumulative_reward.png')
+            plt.close()
+
+            plt.plot(self.portfolio_return_memory, 'r')
+            plt.savefig('results/rewards.png')
+            plt.close()
+
+            # Calculate and save Sharpe ratio
+            total_days = pd.to_datetime(self.df['timestamp']).dt.date.nunique()
+            risk_free_rate = 0.04
+            scaling_factor = 390 * total_days
+            mean_return_annualized = df['minutely_return'].mean() * scaling_factor
+            std_return_annualized = df['minutely_return'].std() * (scaling_factor ** 0.5)
+            sharpe = (mean_return_annualized - risk_free_rate) / std_return_annualized
+
+            with open('results/sharpe_ratio.txt', 'w') as f:
+                f.write(f'Sharpe Ratio: {sharpe}\n')
+
+            return self.state, self.reward, self.terminal, {}
+
+        else:
+            if last_minute_of_day:
+                new_weights = np.zeros_like(actions[:, 0])  # Set all weights to zero
             else:
-                cumulative_return = short_return
-                i += 1
+                new_weights = self.softmax_normalization(actions[:, 0])
 
-        if current_bin is not None:
-            #vr_low = group['low'].iloc[start_index:].min() / group['close'].iloc[start_index] - 1
-            #vr_high = group['high'].iloc[start_index:].max() / group['close'].iloc[start_index] - 1
-            period_length = len(group) - start_index
-            group_result.iloc[start_index:, group_result.columns.get_loc('bin')] = current_bin
-            #group_result.iloc[start_index:, group_result.columns.get_loc('vr_low')] = vr_low
-            #group_result.iloc[start_index:, group_result.columns.get_loc('vr_high')] = vr_high
-            group_result.iloc[start_index:, group_result.columns.get_loc('return')] = cumulative_return
-            group_result.iloc[start_index:, group_result.columns.get_loc('period_length')] = period_length
+            stop_loss = actions[:, 1]
+            take_profit = actions[:, 2]
 
-        result_list.append(group_result.reset_index())
+            # Execute trades based on weight differences
+            previous_weights = np.array(self.actions_memory[-1][:, 0])
+            weight_diff = new_weights - previous_weights
 
-    final_result = pd.concat(result_list, ignore_index=True)
-    return final_result
+            for i, diff in enumerate(weight_diff):
+                current_price = self.data['close'].values[i]
+                if diff > 0:  # Increase weight: Buy shares
+                    buy_amount = int(diff * self.portfolio_value / current_price)
+                    self._buy_stock(i, buy_amount, current_price)
+                elif diff < 0:  # Decrease weight: Sell shares
+                    sell_amount = int(-diff * self.portfolio_value / current_price)
+                    self._sell_stock(i, sell_amount, current_price)
+
+            self.actions_memory.append(np.column_stack((new_weights, stop_loss, take_profit)))
+            last_day_memory = self.data
+
+            # Update state and portfolio values
+            self.min += 1
+            self.data = self.df.loc[self.min, :]
+            self.covs = self.data['cov_list'].values[0]
+            self.state = self._construct_state()
+
+            portfolio_return, updated_weights = self.calculate_portfolio_return(
+                last_day_memory, new_weights, stop_loss, take_profit)
+
+            self.actions_memory[-1][:, 0] = updated_weights
+            self.portfolio_return_memory.append(portfolio_return)
+            self.date_memory.append(self.data.timestamp.unique()[0])
+            self.asset_memory.append(self.portfolio_value)
+
+            self.reward = self.portfolio_value
+
+        return self.state, self.reward, self.terminal, {}
+
+    def calculate_portfolio_return(self, last_day, weights, stop_loss, take_profit):
+        """Calculate returns for the portfolio, including short positions."""
+        price_change = (self.data['close'].values - last_day['close'].values)
+        updated_weights = weights.copy()
+        returns = []
+
+        for i, weight in enumerate(weights):
+            low = self.data['low'].values[i]
+            high = self.data['high'].values[i]
+            close_price = self.data['close'].values[i]
+
+            stop_loss_price = last_day['close'].values[i] * (1 - stop_loss[i])
+            take_profit_price = last_day['close'].values[i] * (1 + take_profit[i])
+
+            if low <= stop_loss_price and self.share_holdings[i] < 0:  # Short stop-loss
+                current_return = (stop_loss_price - last_day['close'].values[i]) * self.share_holdings[i]
+                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                current_return -= transaction_cost
+                self.share_holdings[i] = 0  # Exit short position
+                self.cash += current_return
+            elif high >= take_profit_price and self.share_holdings[i] < 0:  # Short take-profit
+                current_return = (take_profit_price - last_day['close'].values[i]) * self.share_holdings[i]
+                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                current_return -= transaction_cost
+                self.share_holdings[i] = 0  # Exit short position
+                self.cash += current_return
+            else:
+                current_return = price_change[i] * self.share_holdings[i]
+
+            returns.append(current_return)
+
+        portfolio_return = np.sum(returns)
+        self.portfolio_value += portfolio_return
+
+        # Recalculate weights for portfolio
+        for i, share in enumerate(self.share_holdings):
+            updated_weights[i] = share * self.data['close'].values[i] / max(self.portfolio_value, 1e-10)
+
+        return portfolio_return, updated_weights
+
+    def reset(self):
+        """Reset the environment to its initial state."""
+        self.asset_memory = [self.initial_amount]
+        self.min = 0
+        self.data = self.df.loc[self.min, :]
+        self.covs = self.data['cov_list'].values
+        self.state = self._construct_state()
+        self.portfolio_value = self.initial_amount
+        self.cash = self.initial_amount
+        self.terminal = False
+        self.portfolio_return_memory = [0]
+        self.actions_memory = [[0] * self.stock_dim]
+        self.date_memory = [self.data.timestamp.unique()[0]]
+        self.share_holdings = np.zeros(self.stock_dim)
+        return self.state
+
+    def render(self, mode='human'):
+        """Render the current environment state."""
+        return self.state
+
+    def softmax_normalization(self, actions):
+        """Normalize actions for valid weights."""
+        numerator = np.exp(actions)
+        denominator = np.sum(np.exp(actions))
+        softmax_output = numerator / denominator
+        return softmax_output
+
+    def save_asset_memory(self):
+        """Save portfolio values over time."""
+        date_list = self.date_memory
+        portfolio_return = self.portfolio_return_memory
+        df_account_value = pd.DataFrame({'date': date_list, 'minutely_return': portfolio_return})
+        return df_account_value
+
+    def save_action_memory(self):
+        """Save actions taken over time."""
+        date_list = self.date_memory
+        df_date = pd.DataFrame(date_list)
+        df_date.columns = ['timestamp']
+
+        action_list = self.actions_memory
+        df_actions = pd.DataFrame(action_list)
+        df_actions.columns = self.data.tic.values
+        df_actions.index = df_date.timestamp
+        return df_actions
+
+    def _seed(self, seed=None):
+        """Set random seed for reproducibility."""
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    def get_sb_env(self):
+        """Get the stable-baselines environment."""
+        e = DummyVecEnv([lambda: self])
+        obs = e.reset()
+        return e, obs
 
 
-data = pd.DataFrame({'close': [1, 3, 4, 1, 8, 9, 10, 11, 12]})
-print(short_long_box(data, short_period=3, long_period=5, threshold=1))
+# Define timestamps for 10 time steps
+timestamps = [f'2024-01-01 09:30:{str(i).zfill(2)}' for i in range(10)]
+
+# Define the tickers
+tickers = ['AAPL', 'MSFT', 'GOOG']
+
+# Generate repeated data for each ticker at each timestamp
+data = []
+for timestamp in timestamps:
+    for tic in tickers:
+        data.append({
+            'timestamp': timestamp,
+            'tic': tic,
+            'open': np.random.uniform(100, 200),  # Random open price
+            'high': np.random.uniform(200, 300),  # Random high price
+            'low': np.random.uniform(50, 100),   # Random low price
+            'close': np.random.uniform(100, 200),  # Random close price
+            'volume': np.random.randint(1000, 10000),  # Random volume
+            'trade_list': [0, 0, 0],  # Placeholder trade data
+            'prediction_list': [0.3, 0.5, 0.2],  # Placeholder predictions
+            'cov_list': np.eye(len(tickers)).tolist()  # Covariance matrix
+        })
+
+# Generate repeated action data for each ticker at each timestamp
+actions_data = []
+for timestamp in timestamps:
+    for tic in tickers:
+        actions_data.append({
+            'timestamp': timestamp,
+            'tic': tic,
+            'weight': np.random.uniform(-1, 1),  # Random portfolio weight (allows shorts)
+            'stop_loss': np.random.uniform(0.01, 0.1),  # Random stop-loss percentage
+            'take_profit': np.random.uniform(0.1, 0.2)  # Random take-profit percentage
+        })
+
+# Create a DataFrame from the list of dictionaries
+actions = pd.DataFrame(actions_data)
+
+# Create a DataFrame from the list of dictionaries
+train = pd.DataFrame(data)
+
+
+
+stock_dimension = len(train.tic.unique())
+state_space = stock_dimension
+env_kwargs = {
+    "hmax": 100,
+    "initial_amount": 1000000,
+    "transaction_cost_pct": 0.001,
+    "state_space": state_space,
+    "stock_dim": stock_dimension,
+    "tech_indicator_list": config.INDICATORS,
+    "action_space": stock_dimension,
+    "reward_scaling": 1e-4
+}
+
+e_train = StockPortfolioEnv(df = train, **env_kwargs)
+
+e_train.step(actions[0])
+
+
+
+
+
+
