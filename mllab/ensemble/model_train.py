@@ -426,7 +426,8 @@ class StockPortfolioEnv(gym.Env):
         self.initial_amount = initial_amount  # Starting portfolio cash value
         self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
         self.reward_scaling = reward_scaling  # Scaling factor for reward
-        self.state_space = (len(features_list) + len(tech_indicator_list)) * lookback  # Dimensions of state space
+        self.state_space = (calculate_total_length_of_features(df, features_list) + len(
+            tech_indicator_list)) * lookback  # Dimensions of state space
         self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3))  # Long/Short/StopLoss/TakeProfit
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(stock_dim, self.state_space)
@@ -455,7 +456,28 @@ class StockPortfolioEnv(gym.Env):
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.timestamps[0]]
 
-    def get_transaction_cost(self, amount, current_price):
+    def calculate_total_length_of_features(df, features_list):
+        """
+        Calculate the total length of all data elements in the specified columns of the DataFrame.
+
+        Parameters:
+        - df: The input DataFrame containing the data.
+        - features_list: List of column names to calculate lengths for.
+
+        Returns:
+        - total_length: The total length of all data elements in the specified columns.
+        """
+        total_length = 0
+
+        for feature in features_list:
+            if feature in df.columns:
+                total_length += df[feature].apply(
+                    lambda x: len(x) if isinstance(x, (list, np.ndarray, str)) else 1).sum()
+
+        return total_length
+
+
+def get_transaction_cost(self, amount, current_price):
         """
         Calculate the transaction cost for a deal.
 
