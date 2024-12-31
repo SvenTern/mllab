@@ -53,7 +53,7 @@ class StockPortfolioEnv():
         self.asset_memory = [self.initial_amount]
         self.portfolio_return_memory = [0]
         self.actions_memory = [[0] * self.stock_dim]
-        self.date_memory = [current_timestamp]
+        self.date_memory = [self.current_timestamp]
         self.share_holdings = np.zeros(self.stock_dim)  # Long/Short positions for each stock
 
     def _construct_state(self):
@@ -174,7 +174,8 @@ class StockPortfolioEnv():
 
             # Update state and portfolio values
             self.min += 1
-            self.data = self.df.loc[self.min, :]
+            self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
+            self.data = self.df[self.df['timestamp'] == self.current_timestamp]
             self.covs = self.data['cov_list'].values[0]
             self.state = self._construct_state()
 
@@ -183,7 +184,7 @@ class StockPortfolioEnv():
 
             self.actions_memory[-1][:, 0] = updated_weights
             self.portfolio_return_memory.append(portfolio_return)
-            self.date_memory.append(self.data.timestamp.unique()[0])
+            self.date_memory.append(self.current_timestamp)
             self.asset_memory.append(self.portfolio_value)
 
             self.reward = self.portfolio_value
@@ -236,14 +237,14 @@ class StockPortfolioEnv():
         self.min = 0
         self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
         self.data = self.df[self.df['timestamp'] == self.current_timestamp]
-        self.covs = self.data['cov_list'].values
+        self.covs = self.data['cov_list'].values[0]
         self.state = self._construct_state()
         self.portfolio_value = self.initial_amount
         self.cash = self.initial_amount
         self.terminal = False
         self.portfolio_return_memory = [0]
         self.actions_memory = [[0] * self.stock_dim]
-        self.date_memory = [self.data.timestamp.unique()[0]]
+        self.date_memory = [self.current_timestamp]
         self.share_holdings = np.zeros(self.stock_dim)
         return self.state
 
