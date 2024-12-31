@@ -3,4 +3,4 @@ Implementation of Sequentially Bootstrapped Bagging Classifier using sklearn's l
 """
 
 from mllab.ensemble.sb_bagging import (SequentiallyBootstrappedBaggingClassifier, SequentiallyBootstrappedBaggingRegressor)
-from mllab.ensemble.model_train import ensemble_models, train_regression, train_bagging
+from mllab.ensemble.model_train import ensemble_models, train_regression, train_bagging, StockPortfolioEnv

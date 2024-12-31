@@ -13,6 +13,7 @@ class StockPortfolioEnv():
                  df,
                  stock_dim,
                  hmax,
+                 risk_volume,
                  initial_amount,
                  transaction_cost_amount,
                  reward_scaling,
@@ -41,6 +42,7 @@ class StockPortfolioEnv():
         self.df = df  # Market data
         self.stock_dim = stock_dim  # Number of stocks
         self.hmax = hmax  # Max shares per transaction
+        self.risk_volume = risk_volume # уровень риска по каждому пакету акций в %
         self.initial_amount = initial_amount  # Starting portfolio cash value
         self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
         self.reward_scaling = reward_scaling  # Scaling factor for reward
@@ -93,38 +95,46 @@ class StockPortfolioEnv():
 
         return np.concatenate(state_data)
 
+    def get_transaction_cost(self, amount, current_price):
+        """
+        Calculate the transaction cost for a deal.
+
+        Parameters:
+        - amount: The number of shares to buy or sell.
+        - current_price: The current price of the stock.
+
+        Returns:
+        - transaction_cost: The calculated transaction cost.
+        """
+        value_deal = abs(amount) * current_price
+        base_cost = value_deal * self.transaction_cost_amount['base']
+        minimal_cost = self.transaction_cost_amount['minimal']
+        maximal_cost = self.transaction_cost_amount['maximal'] * value_deal
+
+        # Apply cost boundaries
+        transaction_cost = max(minimal_cost, min(base_cost, maximal_cost))
+
+        return transaction_cost
+
     def _sell_stock(self, stock_index, amount, current_price):
         """
         Sell stock and handle cash and holdings, accounting for long and short positions.
 
         Parameters:
         - stock_index: Index of the stock to sell.
-        - sell_amount: Amount of stock to sell (positive for selling long, negative for short).
+        - amount: Amount of stock to sell (positive for selling long, negative for short).
         - current_price: Current price of the stock.
         """
-        # изменение стоимости пакета акций на столько стоимость пакета уменьшилась, соответственно на столько же увеличилось количество денег
-        delta = ( self.share_holdings[stock_index] - amount ) * current_price
-        transaction_cost = abs(amount) * self.transaction_cost_amount
+        if amount == 0:
+            return
 
+        # Calculate transaction cost
+        transaction_cost = self.get_transaction_cost(amount, current_price)
+
+        # Update portfolio and cash
+        sell_value = amount * current_price
+        self.cash += sell_value - transaction_cost
         self.portfolio_value -= transaction_cost
-        self.cash += delta - transaction_cost
-        self.share_holdings[stock_index] -= amount
-
-    def _buy_stock(self, stock_index, amount, current_price):
-        """
-        Buy stock and handle cash and holdings, accounting for long and short positions.
-
-        Parameters:
-        - stock_index: Index of the stock to buy.
-        - buy_amount: Amount of stock to buy (positive for long, negative for reducing short).
-        - current_price: Current price of the stock.
-        """
-        # изменение стоимости пакета акций на столько стоимость пакета уменьшилась, соответственно на столько же увеличилось количество денег
-        delta = (self.share_holdings[stock_index] - amount ) *current_price
-        transaction_cost = abs(amount) * self.transaction_cost_amount
-
-        self.portfolio_value -= transaction_cost
-        self.cash += delta - transaction_cost
         self.share_holdings[stock_index] -= amount
 
     def _sell_all_stocks(self):
@@ -169,10 +179,8 @@ class StockPortfolioEnv():
 
         for i, diff in enumerate(weight_diff):
             current_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
-            if diff > 0:
-                self._buy_stock(i, int(diff * self.portfolio_value / current_price), current_price)
-            elif diff < 0:
-                self._sell_stock(i, int(-diff * self.portfolio_value / current_price), current_price)
+            self._sell_stock(i, int(diff * self.portfolio_value / current_price), current_price)
+
 
         self.min += 1
         self.state = self._construct_state()
@@ -207,25 +215,25 @@ class StockPortfolioEnv():
             # Handle stop-loss and take-profit for long and short positions
             if low <= stop_loss_price and holding > 0:  # Long stop-loss
                 current_return = (stop_loss_price - last_close) * holding
-                transaction_cost = holding * self.transaction_cost_amount
+                transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
                 self.share_holdings[i] = 0
-            elif low <= stop_loss_price and holding < 0:  # Short stop-loss
+            elif high >= stop_loss_price and holding < 0:  # Short stop-loss
                 current_return = (stop_loss_price - last_close) * holding
-                transaction_cost = abs(holding) * self.transaction_cost_amount
+                transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
                 self.share_holdings[i] = 0
             elif high >= take_profit_price and holding > 0:  # Long take-profit
                 current_return = (take_profit_price - last_close) * holding
-                transaction_cost = holding * self.transaction_cost_amount
+                transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - - transaction_cost
                 self.share_holdings[i] = 0
-            elif high >= take_profit_price and holding < 0:  # Short take-profit
+            elif low <= take_profit_price and holding < 0:  # Short take-profit
                 current_return = (take_profit_price - last_close) * holding
-                transaction_cost = abs(holding) * self.transaction_cost_amount
+                transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - transaction_cost
                 self.share_holdings[i] = 0
@@ -248,13 +256,34 @@ class StockPortfolioEnv():
 
     def softmax_normalization(self, actions):
         """
-        Normalize actions to valid weights where the sum of absolute weights equals 1.
-        Supports both positive and negative values for weights.
+        Normalize actions to valid weights where the sum of absolute weights equals 1,
+        and each weight does not exceed self.risk_volume.
+
+        Parameters:
+        - actions: Array of raw action weights.
+
+        Returns:
+        - normalized_weights: Array of weights balanced and capped by self.risk_volume.
         """
         abs_sum = np.sum(np.abs(actions))
+
+        # Handle the edge case where all actions are zero
         if abs_sum == 0:
-            return np.zeros_like(actions)  # Handle the edge case where all actions are zero
-        return actions / abs_sum
+            return np.zeros_like(actions)
+
+        # Normalize actions to make the sum of absolute values equal 1
+        normalized_actions = actions / abs_sum
+
+        # Cap each normalized action to self.risk_volume
+        capped_actions = np.clip(normalized_actions, -self.risk_volume, self.risk_volume)
+
+        # Re-normalize to ensure the sum of absolute weights equals 1 after capping
+        abs_capped_sum = np.sum(np.abs(capped_actions))
+        if abs_capped_sum == 0:
+            return np.zeros_like(actions)  # Handle the case where all weights are capped to zero
+        final_weights = capped_actions / abs_capped_sum
+
+        return final_weights
 
     def reset(self):
         """
@@ -327,8 +356,9 @@ stock_dimension = len(train.tic.unique())
 state_space = stock_dimension
 env_kwargs = {
     "hmax": 100,
+    'risk_volume': 0.2
     "initial_amount": 1000000,
-    "transaction_cost_amount": 0.0035,
+    "transaction_cost_amount": {'base':0.0035, 'minimal':0.35, 'maximal':0.01},
     "stock_dim": stock_dimension,
     "tech_indicator_list": [],
     'features_list': ['prediction_list', 'trade_list'],
