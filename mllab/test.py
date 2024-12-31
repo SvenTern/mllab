@@ -21,10 +21,9 @@ class StockPortfolioEnv():
                  action_space,
                  tech_indicator_list,
                  turbulence_threshold=None,
-                 lookback=5,
-                 min=0):
+                 lookback=5):
         # Initialization of environment variables
-        self.min = min  # Current time index
+        self.min = 0  # Current time index
         self.lookback = lookback  # Number of previous steps for state construction
         self.df = df  # Market data
         self.stock_dim = stock_dim  # Number of stocks
@@ -33,246 +32,173 @@ class StockPortfolioEnv():
         self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
         self.reward_scaling = reward_scaling  # Scaling factor for reward
         self.state_space = state_space  # Dimensions of state space
-        self.action_space = 0  # Long/Short/StopLoss/TakeProfit
+        self.action_space = 0 #spaces.Box(low=-1, high=1, shape=(action_space, 3))  # Long/Short/StopLoss/TakeProfit
         self.tech_indicator_list = tech_indicator_list  # List of technical indicators
 
-        # Observation space includes technical indicators, trade history, and predictions
-        self.observation_space = 0
-
-        # Initialize data, state, and environment variables
-        self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
-        self.data = self.df[self.df['timestamp'] == self.current_timestamp]
-        self.covs = self.data['cov_list'].values[0]
+        # Precompute timestamps and data mapping
+        self.timestamps = df['timestamp'].sort_values().unique()
+        self.data_map = {ts: df[df['timestamp'] == ts] for ts in self.timestamps}
         self.state = self._construct_state()
         self.terminal = False
-        self.turbulence_threshold = turbulence_threshold
         self.portfolio_value = self.initial_amount
         self.cash = self.initial_amount
 
-        # Memory for logging and tracking
+        # Memory for tracking and logging
         self.asset_memory = [self.initial_amount]
         self.portfolio_return_memory = [0]
-        self.actions_memory = [np.zeros((self.stock_dim, 3))]
-        self.date_memory = [self.current_timestamp]
+        self.actions_memory = [[[0]] * self.stock_dim]
+        self.date_memory = [self.timestamps[0]]
         self.share_holdings = np.zeros(self.stock_dim)  # Long/Short positions for each stock
 
     def _construct_state(self):
-        """Construct the current state with historical data, trades, and predictions."""
-        historical_data = self.df.loc[max(0, self.min - self.lookback):self.min]
-        historical_tech = [historical_data[tech].values.tolist() for tech in self.tech_indicator_list]
+        """Construct the current state with historical data."""
+        start_index = max(0, self.min - self.lookback + 1)
+        historical_data = self.df.iloc[start_index:self.min + 1]
 
-        # Padding if historical data is less than lookback
-        if len(historical_data) < self.lookback:
-            padding = [np.zeros(self.stock_dim) for _ in range(self.lookback - len(historical_data))]
-            historical_tech = padding + historical_tech
+        # Collect technical indicators
+        state_data = []
+        for tech in self.tech_indicator_list:
+            tech_values = historical_data[tech].values[-self.lookback:] if len(historical_data) >= self.lookback else np.zeros(self.lookback)
+            state_data.append(tech_values)
 
-        # Include trade and prediction history
-        historical_trade = historical_data['trade_list'].values.tolist()
-        historical_prediction = historical_data['prediction_list'].values.tolist()
-
-        if len(historical_trade) < self.lookback:
-            trade_padding = [np.zeros(self.stock_dim) for _ in range(self.lookback - len(historical_trade))]
-            historical_trade = trade_padding + historical_trade
-
-        if len(historical_prediction) < self.lookback:
-            prediction_padding = [np.zeros(self.stock_dim) for _ in range(self.lookback - len(historical_prediction))]
-            historical_prediction = prediction_padding + historical_prediction
-
-        # Append data to form the state
-        state = np.append(
-            np.array(self.covs),
-            historical_tech + historical_trade + historical_prediction,
-            axis=0
-        )
-        return state
+        return np.concatenate(state_data)
 
     def _sell_stock(self, stock_index, sell_amount, current_price):
-        """Sell stock, including handling short positions."""
+        """Sell stock and handle cash and holdings."""
         sell_value = sell_amount * current_price
-        transaction_cost = sell_amount * self.transaction_cost_amount
-        sell_value -= transaction_cost
-        self.cash += sell_value
-        self.portfolio_value -= transaction_cost
-        self.share_holdings[stock_index] -= sell_amount  # Update holdings (allows negative for shorts)
-        self.actions_memory[-1][stock_index] -= sell_amount
+        transaction_cost = abs(sell_amount) * self.transaction_cost_amount
+        self.cash += sell_value - transaction_cost
+        self.share_holdings[stock_index] -= sell_amount
 
     def _buy_stock(self, stock_index, buy_amount, current_price):
-        """Buy stock, including closing short positions."""
+        """Buy stock and handle cash and holdings."""
         buy_value = buy_amount * current_price
-        transaction_cost = buy_amount * self.transaction_cost_amount
-        buy_value += transaction_cost
-        self.cash -= buy_value
-        self.portfolio_value -= transaction_cost
-        self.share_holdings[stock_index] += buy_amount  # Adjust holdings for both long and short
-        self.actions_memory[-1][stock_index] += buy_amount
+        transaction_cost = abs(buy_amount) * self.transaction_cost_amount
+        self.cash -= buy_value - transaction_cost
+        self.share_holdings[stock_index] += buy_amount
 
     def _sell_all_stocks(self):
-        """Sell all long positions and buy back all short positions."""
-        for i in range(self.stock_dim):
-            current_price = self.data['close'].values[i]
-            if self.share_holdings[i] > 0:  # Long positions
-                self._sell_stock(i, self.share_holdings[i], current_price)
-            elif self.share_holdings[i] < 0:  # Short positions
-                self._buy_stock(i, -self.share_holdings[i], current_price)  # Buy back short shares
+        """Sell all long and short positions."""
+        for i, holding in enumerate(self.share_holdings):
+            current_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
+            if holding > 0:
+                self._sell_stock(i, holding, current_price)
+            elif holding < 0:
+                self._buy_stock(i, -holding, current_price)
 
     def step(self, actions):
-        """Execute a single step in the environment."""
-        self.terminal = self.min >= len(self.df.timestamp.unique()) - 1
-        last_minute_of_day = self.current_timestamp == self.df[self.df['timestamp'].dt.date == self.data.timestamp.dt.date[0]]['timestamp'].max()
+        """Execute one step in the environment."""
+        self.terminal = self.min >= len(self.timestamps) - 1
+        last_minute_of_day = self.min < len(self.timestamps) - 1 and self.timestamps[self.min].date() != self.timestamps[self.min + 1].date()
 
         if self.terminal:
             self._sell_all_stocks()
-
-            # Log cumulative rewards
-            df = pd.DataFrame(self.portfolio_return_memory)
-            df.columns = ['minutely_return']
-            plt.plot(df.minutely_return.cumsum(), 'r')
-            plt.savefig('results/cumulative_reward.png')
+            df = pd.DataFrame(self.portfolio_return_memory, columns=['return'])
+            plt.plot(df['return'].cumsum())
+            plt.savefig('cumulative_reward.png')
             plt.close()
-
-            plt.plot(self.portfolio_return_memory, 'r')
-            plt.savefig('results/rewards.png')
-            plt.close()
-
-            # Calculate and save Sharpe ratio
-            total_days = pd.to_datetime(self.df['timestamp']).dt.date.nunique()
-            risk_free_rate = 0.04
-            scaling_factor = 390 * total_days
-            mean_return_annualized = df['minutely_return'].mean() * scaling_factor
-            std_return_annualized = df['minutely_return'].std() * (scaling_factor ** 0.5)
-            sharpe = (mean_return_annualized - risk_free_rate) / std_return_annualized
-
-            with open('results/sharpe_ratio.txt', 'w') as f:
-                f.write(f'Sharpe Ratio: {sharpe}\n')
 
             return self.state, self.reward, self.terminal, {}
 
-        else:
-            if last_minute_of_day:
-                new_weights = np.zeros_like(actions[:, 0])  # Set all weights to zero
-            else:
-                new_weights = self.softmax_normalization(actions[:, 0])
+        # Normalize weights for non-terminal, non-last-minute steps
+        new_weights = np.zeros_like(actions[:, 0]) if last_minute_of_day else self.softmax_normalization(actions[:, 0])
+        stop_loss = actions[:, 1]
+        take_profit = actions[:, 2]
+        weight_diff = new_weights - np.array(self.actions_memory[-1])
 
-            stop_loss = actions[:, 1]
-            take_profit = actions[:, 2]
+        for i, diff in enumerate(weight_diff):
+            current_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
+            if diff > 0:
+                self._buy_stock(i, int(diff * self.portfolio_value / current_price), current_price)
+            elif diff < 0:
+                self._sell_stock(i, int(-diff * self.portfolio_value / current_price), current_price)
 
-            # Execute trades based on weight differences
-            previous_weights = np.array(self.actions_memory[-1][:, 0])
-            weight_diff = new_weights - previous_weights
+        self.actions_memory.append(np.column_stack((new_weights, stop_loss, take_profit)))
+        self.min += 1
+        self.state = self._construct_state()
 
-            for i, diff in enumerate(weight_diff):
-                current_price = self.data['close'].values[i]
-                if diff > 0:  # Increase weight: Buy shares
-                    buy_amount = int(diff * self.portfolio_value / current_price)
-                    self._buy_stock(i, buy_amount, current_price)
-                elif diff < 0:  # Decrease weight: Sell shares
-                    sell_amount = int(-diff * self.portfolio_value / current_price)
-                    self._sell_stock(i, sell_amount, current_price)
+        portfolio_return, updated_weights = self.calculate_portfolio_return(stop_loss, take_profit)
+        self.actions_memory[-1][:, 0] = updated_weights  # Update weights in action memory
+        self.portfolio_return_memory.append(portfolio_return)
+        self.asset_memory.append(self.portfolio_value)
 
-            self.actions_memory.append(np.column_stack((new_weights, stop_loss, take_profit)))
-            last_day_memory = self.data
-
-            # Update state and portfolio values
-            self.min += 1
-            self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
-            self.data = self.df[self.df['timestamp'] == self.current_timestamp]
-            self.covs = self.data['cov_list'].values[0]
-            self.state = self._construct_state()
-
-            portfolio_return, updated_weights = self.calculate_portfolio_return(
-                last_day_memory, new_weights, stop_loss, take_profit)
-
-            self.actions_memory[-1][:, 0] = updated_weights
-            self.portfolio_return_memory.append(portfolio_return)
-            self.date_memory.append(self.current_timestamp)
-            self.asset_memory.append(self.portfolio_value)
-
-            self.reward = self.portfolio_value
-
+        self.reward = self.portfolio_value
         return self.state, self.reward, self.terminal, {}
 
-    def calculate_portfolio_return(self, last_day, weights, stop_loss, take_profit):
-        """Calculate returns for the portfolio, including short positions."""
-        price_change = (self.data['close'].values - last_day['close'].values)
-        updated_weights = weights.copy()
+    def calculate_portfolio_return(self, stop_loss, take_profit):
+        """Calculate returns for the portfolio, including stop-loss and take-profit handling."""
+        portfolio_value = self.cash
+        updated_weights = np.zeros_like(self.share_holdings)
         returns = []
 
-        for i, weight in enumerate(weights):
-            low = self.data['low'].values[i]
-            high = self.data['high'].values[i]
-            close_price = self.data['close'].values[i]
+        for i, holding in enumerate(self.share_holdings):
+            low = self.data_map[self.timestamps[self.min]]['low'].values[i]
+            high = self.data_map[self.timestamps[self.min]]['high'].values[i]
+            close_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
+            open_price = self.data_map[self.timestamps[self.min]]['open'].values[i]
+            last_close = self.data_map[self.timestamps[self.min - 1]]['close'].values[i]
 
-            stop_loss_price = last_day['close'].values[i] * (1 - stop_loss[i])
-            take_profit_price = last_day['close'].values[i] * (1 + take_profit[i])
+            stop_loss_price = last_close * (1 - stop_loss[i])
+            take_profit_price = last_close * (1 + take_profit[i])
 
-            if high >= stop_loss_price and self.share_holdings[i] < 0:  # Short stop-loss
-                current_return = (stop_loss_price - last_day['close'].values[i]) * self.share_holdings[i]
-                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+            # Handle stop-loss and take-profit for long and short positions
+            if low <= stop_loss_price and holding > 0:  # Long stop-loss
+                current_return = (stop_loss_price - open_price) * holding
+                transaction_cost = holding * self.transaction_cost_amount
                 current_return -= transaction_cost
-                self.cash += stop_loss_price * abs(self.share_holdings[i])
-                self.share_holdings[i] = 0  # Exit short position
-            elif low <= stop_loss_price and self.share_holdings[i] > 0:  # Long stop-loss
-                current_return = (stop_loss_price - last_day['close'].values[i]) * self.share_holdings[i]
-                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                portfolio_value += stop_loss_price * holding
+                self.share_holdings[i] = 0
+            elif low <= stop_loss_price and holding < 0:  # Short stop-loss
+                current_return = (stop_loss_price - open_price) * holding
+                transaction_cost = abs(holding) * self.transaction_cost_amount
                 current_return -= transaction_cost
-                self.cash += stop_loss_price * abs(self.share_holdings[i])
-                self.share_holdings[i] = 0  # Exit long position
-            elif low <= take_profit_price and self.share_holdings[i] < 0:  # Short take-profit
-                current_return = (take_profit_price - last_day['close'].values[i]) * self.share_holdings[i]
-                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                portfolio_value += stop_loss_price * abs(holding)
+                self.share_holdings[i] = 0
+            elif high >= take_profit_price and holding > 0:  # Long take-profit
+                current_return = (take_profit_price - open_price) * holding
+                transaction_cost = holding * self.transaction_cost_amount
                 current_return -= transaction_cost
-                self.cash += take_profit_price * abs(self.share_holdings[i])
-                self.share_holdings[i] = 0  # Exit short position
-            elif high >= take_profit_price and self.share_holdings[i] > 0:  # Long take-profit
-                current_return = (take_profit_price - last_day['close'].values[i]) * self.share_holdings[i]
-                transaction_cost = abs(self.share_holdings[i]) * self.transaction_cost_amount
+                portfolio_value += take_profit_price * holding
+                self.share_holdings[i] = 0
+            elif high >= take_profit_price and holding < 0:  # Short take-profit
+                current_return = (take_profit_price - open_price) * holding
+                transaction_cost = abs(holding) * self.transaction_cost_amount
                 current_return -= transaction_cost
-                self.cash += take_profit_price * abs(self.share_holdings[i])
-                self.share_holdings[i] = 0  # Exit long position
-            else:
-                current_return = price_change[i] * self.share_holdings[i]
+                portfolio_value += take_profit_price * abs(holding)
+                self.share_holdings[i] = 0
+            else:  # Regular price change
+                current_return = (close_price - open_price) * holding
 
+            # Append return
             returns.append(current_return)
 
-        portfolio_return = np.sum(returns)
-        self.portfolio_value += portfolio_return
+        # Calculate portfolio return
+        portfolio_return = sum(returns) / self.portfolio_value
+        self.portfolio_value = portfolio_value
 
-        # Recalculate weights for portfolio
-        for i, share in enumerate(self.share_holdings):
-            if self.portfolio_value < 1e-10:
-                updated_weights[i] = 0
-            else:
-                updated_weights[i] = share * self.data['close'].values[i] / self.portfolio_value
+        # Update portfolio weights based on new holdings
+        for i, holding in enumerate(self.share_holdings):
+            updated_weights[i] = (holding * self.data_map[self.timestamps[self.min]]['close'].values[i]) / self.portfolio_value if self.portfolio_value > 0 else 0
 
         return portfolio_return, updated_weights
 
+    def softmax_normalization(self, actions):
+        """Normalize actions to valid weights."""
+        actions_exp = np.exp(actions - np.max(actions))
+        return actions_exp / np.sum(actions_exp)
+
     def reset(self):
         """Reset the environment to its initial state."""
-        self.asset_memory = [self.initial_amount]
         self.min = 0
-        self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
-        self.data = self.df[self.df['timestamp'] == self.current_timestamp]
-        self.covs = self.data['cov_list'].values[0]
         self.state = self._construct_state()
         self.portfolio_value = self.initial_amount
         self.cash = self.initial_amount
-        self.terminal = False
-        self.portfolio_return_memory = [0]
-        self.actions_memory = [[0] * self.stock_dim]
-        self.date_memory = [self.current_timestamp]
         self.share_holdings = np.zeros(self.stock_dim)
+        self.asset_memory = [self.initial_amount]
+        self.portfolio_return_memory = [0]
+        self.actions_memory = [[[0]] * self.stock_dim]
+        self.date_memory = [self.timestamps[0]]
         return self.state
-
-    def render(self, mode='human'):
-        """Render the current environment state."""
-        return self.state
-
-    def softmax_normalization(self, actions):
-        """Normalize actions for valid weights."""
-        numerator = np.exp(actions)
-        denominator = np.sum(np.exp(actions))
-        softmax_output = numerator / denominator
-        return softmax_output
 
     def save_asset_memory(self):
         """Save portfolio values over time."""
@@ -289,9 +215,13 @@ class StockPortfolioEnv():
 
         action_list = self.actions_memory
         df_actions = pd.DataFrame(action_list)
-        df_actions.columns = self.data.tic.values
+        df_actions.columns = self.data_map[self.timestamps[self.min]]['tic'].values
         df_actions.index = df_date.timestamp
         return df_actions
+
+    def render(self, mode='human'):
+        """Render the current environment state."""
+        return self.state
 
     def _seed(self, seed=None):
         """Set random seed for reproducibility."""
@@ -300,9 +230,10 @@ class StockPortfolioEnv():
 
     def get_sb_env(self):
         """Get the stable-baselines environment."""
-        e = 0 #DummyVecEnv([lambda: self])
+        e = DummyVecEnv([lambda: self])
         obs = e.reset()
         return e, obs
+
 
 
 # Define timestamps for 10 time steps
