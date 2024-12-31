@@ -477,7 +477,7 @@ class StockPortfolioEnv(gym.Env):
         return total_length
 
 
-def get_transaction_cost(self, amount, current_price):
+    def get_transaction_cost(self, amount, current_price):
         """
         Calculate the transaction cost for a deal.
 
