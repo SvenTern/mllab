@@ -1,11 +1,9 @@
 import numpy as np
 import pandas as pd
-from gym.utils import seeding
-import gym
-from gym import spaces
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 
 
@@ -35,22 +33,16 @@ class StockPortfolioEnv():
         self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
         self.reward_scaling = reward_scaling  # Scaling factor for reward
         self.state_space = state_space  # Dimensions of state space
-        self.action_space = spaces.Box(low=-1, high=1, shape=(action_space, 3))  # Long/Short/StopLoss/TakeProfit
+        self.action_space = 0  # Long/Short/StopLoss/TakeProfit
         self.tech_indicator_list = tech_indicator_list  # List of technical indicators
 
         # Observation space includes technical indicators, trade history, and predictions
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(
-                self.state_space + len(self.tech_indicator_list) * self.lookback + 2 * self.lookback,
-                self.stock_dim
-            )
-        )
+        self.observation_space = 0
 
         # Initialize data, state, and environment variables
-        self.data = self.df.loc[self.min, :]
-        self.covs = self.data['cov_list'].values
+        self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
+        self.data = self.df[self.df['timestamp'] == self.current_timestamp]
+        self.covs = self.data['cov_list'].values[0]
         self.state = self._construct_state()
         self.terminal = False
         self.turbulence_threshold = turbulence_threshold
@@ -61,7 +53,7 @@ class StockPortfolioEnv():
         self.asset_memory = [self.initial_amount]
         self.portfolio_return_memory = [0]
         self.actions_memory = [[0] * self.stock_dim]
-        self.date_memory = [self.data.timestamp.unique()[0]]
+        self.date_memory = [current_timestamp]
         self.share_holdings = np.zeros(self.stock_dim)  # Long/Short positions for each stock
 
     def _construct_state(self):
@@ -125,8 +117,8 @@ class StockPortfolioEnv():
 
     def step(self, actions):
         """Execute a single step in the environment."""
-        self.terminal = self.min >= len(self.df.index.unique()) - 1
-        last_minute_of_day = self.data['timestamp'].iloc[-1] == self.data['timestamp'].max()
+        self.terminal = self.min >= len(self.df.timestamp.unique()) - 1
+        last_minute_of_day = self.current_timestamp == self.df[self.df['timestamp'].dt.date == self.data.timestamp.dt.date[0]]['timestamp'].max()
 
         if self.terminal:
             self._sell_all_stocks()
@@ -242,7 +234,8 @@ class StockPortfolioEnv():
         """Reset the environment to its initial state."""
         self.asset_memory = [self.initial_amount]
         self.min = 0
-        self.data = self.df.loc[self.min, :]
+        self.current_timestamp = self.df['timestamp'].sort_values().unique()[self.min]
+        self.data = self.df[self.df['timestamp'] == self.current_timestamp]
         self.covs = self.data['cov_list'].values
         self.state = self._construct_state()
         self.portfolio_value = self.initial_amount
@@ -291,13 +284,15 @@ class StockPortfolioEnv():
 
     def get_sb_env(self):
         """Get the stable-baselines environment."""
-        e = DummyVecEnv([lambda: self])
+        e = 0 #DummyVecEnv([lambda: self])
         obs = e.reset()
         return e, obs
 
 
 # Define timestamps for 10 time steps
-timestamps = [f'2024-01-01 09:30:{str(i).zfill(2)}' for i in range(10)]
+# Define timestamps as datetime objects for 10 time steps
+timestamps = [datetime.strptime(f'2024-01-01 09:30:{str(i).zfill(2)}', '%Y-%m-%d %H:%M:%S') for i in range(10)]
+
 
 # Define the tickers
 tickers = ['AAPL', 'MSFT', 'GOOG']
@@ -332,7 +327,7 @@ for timestamp in timestamps:
         })
 
 # Create a DataFrame from the list of dictionaries
-actions = pd.DataFrame(actions_data)
+df_actions = pd.DataFrame(actions_data)
 
 # Create a DataFrame from the list of dictionaries
 train = pd.DataFrame(data)
@@ -344,17 +339,36 @@ state_space = stock_dimension
 env_kwargs = {
     "hmax": 100,
     "initial_amount": 1000000,
-    "transaction_cost_pct": 0.001,
+    "transaction_cost_amount": 0.0035,
     "state_space": state_space,
     "stock_dim": stock_dimension,
-    "tech_indicator_list": config.INDICATORS,
+    "tech_indicator_list": [],
     "action_space": stock_dimension,
     "reward_scaling": 1e-4
 }
 
 e_train = StockPortfolioEnv(df = train, **env_kwargs)
 
-e_train.step(actions[0])
+for i in range(10):
+
+    # Filter actions for the i timestamp
+    second_timestamp = df_actions['timestamp'].sort_values().unique()[i]  # Get the second timestamp
+    second_actions = df_actions[df_actions['timestamp'] == second_timestamp]
+
+    # Prepare the actions as a NumPy array for the environment
+    actions = second_actions[['weight', 'stop_loss', 'take_profit']].to_numpy()
+
+    # Execute the second step
+    state, reward, terminal, info = e_train.step(actions)
+
+    # Print the results
+    print("State after second step:")
+    print(state)
+    print("\nReward after second step:", reward)
+    print("\nTerminal status:", terminal)
+    print("\nAdditional info:", info)
+
+
 
 
 
