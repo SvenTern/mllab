@@ -261,8 +261,6 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
     return out
 
 
-import pandas as pd
-import numpy as np
 
 @njit
 def calculate_segments(group_close, group_low, group_high, short_period, long_period, group_threshold):
@@ -348,7 +346,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
             group = data[data['tic'] == tic]
             mean_deal = 0.02 * 400000
             commission = 0.0035
-            tic_threshold = 2 * commission * int(mean_deal / group['close'].mean()) / group['close'].mean()
+            minimal = 0.35
+            cost_transaction = commission * int(mean_deal / group['close'].mean())
+            if cost_transaction < minimal:
+                cost_transaction = minimal
+            tic_threshold = 2 * cost_transaction / group['close'].mean()
             calculated_threshold[tic] = tic_threshold
     else:
         calculated_threshold = {"default": threshold}
