@@ -829,53 +829,79 @@ class FinancePreprocessor:
         return data_normalized
 
 
-# Assume `predicted_data` is a pandas DataFrame and `coeff_tp`, `coeff_sl` are predefined constants.
-def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
-    # Determine the maximum bin for each row
-    max_bin = predicted_data[['bin-1', 'bin+0', 'bin+1']].idxmax(axis=1)
+import numpy as np
+import pandas as pd
 
-    # Adjust 'return' based on conditions
-    predicted_data['return'] = (
-        predicted_data['return'].where(
-            ~(
-                (predicted_data['return'] < 0) & (max_bin == 'bin+1')
-            ),
-            predicted_data['return'].abs()
-        )
-        .where(
-            ~(
-                (predicted_data['return'] > 0) & (max_bin == 'bin-1')
-            ),
-            -predicted_data['return'].abs()
-        )
+def add_takeprofit_stoploss_volume_tpu(predicted_data, coeff_tp=1, coeff_sl=1):
+    """
+    Оптимизирует массивы в колонке 'prediction' для работы на TPU.
+    Обновляет 4-й элемент (return) и добавляет vol, tp, sl в конец массива.
+
+    Parameters:
+    predicted_data (pd.DataFrame): DataFrame с колонкой 'prediction', содержащей массивы.
+    coeff_tp (float): Коэффициент для расчета take-profit.
+    coeff_sl (float): Коэффициент для расчета stop-loss.
+
+    Returns:
+    pd.DataFrame: Обновленный DataFrame с модифицированными массивами в 'prediction'.
+    """
+    # Преобразуем prediction в NumPy массив для эффективной обработки
+    predictions = np.array(predicted_data['prediction'].tolist(), dtype=object)
+
+    # Извлекаем основные данные
+    first_three = np.vstack(predictions[:, :3])  # Первые три элемента
+    fourth_element = np.array([x[3] if len(x) > 3 else None for x in predictions])
+
+    # Определяем max_bin и корректируем return
+    max_bin = np.argmax(first_three, axis=1) + 1
+    return_value = np.copy(fourth_element)
+
+    # Условная корректировка return_value
+    return_value = np.where(
+        (return_value < 0) & (max_bin == 3),
+        np.abs(return_value),
+        return_value
+    )
+    return_value = np.where(
+        (return_value > 0) & (max_bin == 1),
+        -np.abs(return_value),
+        return_value
     )
 
-    # Initialize columns
-    predicted_data['vol'] = 0
-    predicted_data['tp'] = 0
-    predicted_data['sl'] = 0
+    # Инициализация vol, tp, sl
+    vol = np.zeros(len(predictions))
+    tp = np.zeros(len(predictions))
+    sl = np.zeros(len(predictions))
 
-    # Compute for bin-1
-    mask_bin_minus1 = max_bin == 'bin-1'
-    p_minus1 = predicted_data.loc[mask_bin_minus1, 'bin-1']
+    # Обработка bin-1
+    mask_bin_minus1 = max_bin == 1
+    p_minus1 = first_three[mask_bin_minus1, 0]
     b_minus1 = p_minus1 / (1 - p_minus1)
-    vol_minus1 = p_minus1 - (1 - p_minus1) / b_minus1
-    vol_minus1 = vol_minus1.clip(lower=0)  # Ensure no negative values
-    predicted_data.loc[mask_bin_minus1, 'vol'] = vol_minus1
-    predicted_data.loc[mask_bin_minus1, 'tp'] = coeff_tp * predicted_data.loc[mask_bin_minus1, 'return']
-    predicted_data.loc[mask_bin_minus1, 'sl'] = coeff_sl * predicted_data.loc[mask_bin_minus1, 'return'] / b_minus1
+    vol[mask_bin_minus1] = np.maximum(0, p_minus1 - (1 - p_minus1) / b_minus1)
+    tp[mask_bin_minus1] = coeff_tp * return_value[mask_bin_minus1]
+    sl[mask_bin_minus1] = coeff_sl * return_value[mask_bin_minus1] / b_minus1
 
-    # Compute for bin+1
-    mask_bin_plus1 = max_bin == 'bin+1'
-    p_plus1 = predicted_data.loc[mask_bin_plus1, 'bin+1']
+    # Обработка bin+1
+    mask_bin_plus1 = max_bin == 3
+    p_plus1 = first_three[mask_bin_plus1, 2]
     b_plus1 = p_plus1 / (1 - p_plus1)
-    vol_plus1 = p_plus1 - (1 - p_plus1) / b_plus1
-    vol_plus1 = vol_plus1.clip(lower=0)  # Ensure no negative values
-    predicted_data.loc[mask_bin_plus1, 'vol'] = vol_plus1
-    predicted_data.loc[mask_bin_plus1, 'tp'] = coeff_tp * predicted_data.loc[mask_bin_plus1, 'return']
-    predicted_data.loc[mask_bin_plus1, 'sl'] = coeff_sl * predicted_data.loc[mask_bin_plus1, 'return'] / b_plus1
+    vol[mask_bin_plus1] = np.maximum(0, p_plus1 - (1 - p_plus1) / b_plus1)
+    tp[mask_bin_plus1] = coeff_tp * return_value[mask_bin_plus1]
+    sl[mask_bin_plus1] = coeff_sl * return_value[mask_bin_plus1] / b_plus1
 
-    # Rows where bin+0 is maximum are already handled (vol, tp, sl initialized to 0)
+    # Обновляем массив prediction: заменяем 4-й элемент и добавляем vol, tp, sl
+    updated_predictions = []
+    for i in range(len(predictions)):
+        pred = list(predictions[i])
+        if len(pred) > 3:
+            pred[3] = return_value[i]
+        pred.extend([vol[i], tp[i], sl[i]])
+        updated_predictions.append(pred)
+
+    # Обновляем DataFrame
+    predicted_data['prediction'] = updated_predictions
 
     return predicted_data
+
+
 
