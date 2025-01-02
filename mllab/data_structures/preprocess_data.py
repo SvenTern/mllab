@@ -86,6 +86,8 @@ class FinancePreprocessor:
         # Determine index column
         if 'timestamp' in data_return.columns:
             index_name = 'timestamp'
+        elif 'date' in data_return.columns:
+            index_name = 'date'
         elif 'Unnamed: 0' in data_return.columns:
             # Rename column to 'timestamp'
             data_return.rename(columns={'Unnamed: 0': 'timestamp'}, inplace=True)
