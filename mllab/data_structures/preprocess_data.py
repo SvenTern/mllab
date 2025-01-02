@@ -829,10 +829,7 @@ class FinancePreprocessor:
         return data_normalized
 
 
-import numpy as np
-import pandas as pd
-
-def add_takeprofit_stoploss_volume_tpu(predicted_data, coeff_tp=1, coeff_sl=1):
+def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
     """
     Оптимизирует массивы в колонке 'prediction' для работы на TPU.
     Обновляет 4-й элемент (return) и добавляет vol, tp, sl в конец массива.
