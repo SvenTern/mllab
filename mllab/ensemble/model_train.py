@@ -912,3 +912,34 @@ class StockPortfolioEnv(gym.Env):
         e = DummyVecEnv([lambda: self])
         obs = e.reset()
         return e, obs
+
+    # проскальзывание
+    def simulate_stop_loss_slippage_dynamic(entry_price, stop_loss_price, low_price, max_slippage_percent=5):
+        """
+        Моделирование проскальзывания при срабатывании стоп-лосса с динамическим диапазоном проскальзывания.
+
+        :param entry_price: float, цена открытия позиции.
+        :param stop_loss_price: float, заданная цена стоп-лосса.
+        :param low_price: float, минимальная цена свечи (low).
+        :param max_slippage_percent: float, максимальный процент дополнительного проскальзывания.
+        :return: float, итоговая цена закрытия позиции с учетом проскальзывания.
+        """
+        if low_price > stop_loss_price:
+            # Если low выше стоп-лосса, проскальзывание отсутствует
+            return stop_loss_price
+
+        # Разница между стоп-лоссом и уровнем low
+        distance_to_low = stop_loss_price - low_price
+
+        # Динамический диапазон проскальзывания (в зависимости от расстояния до low)
+        dynamic_slippage_percent = max_slippage_percent * (distance_to_low / stop_loss_price)
+        dynamic_slippage_range = (-dynamic_slippage_percent, dynamic_slippage_percent)
+
+        # Генерация случайного дополнительного проскальзывания
+        additional_slippage_percent = random.uniform(dynamic_slippage_range[0], dynamic_slippage_range[1])
+        additional_slippage = low_price * additional_slippage_percent / 100
+
+        # Итоговая цена с учетом low и дополнительного проскальзывания
+        final_price = low_price + additional_slippage
+
+        return final_price
