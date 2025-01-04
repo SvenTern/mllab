@@ -403,7 +403,7 @@ class FinancePreprocessor:
             )
         else:
             raise ValueError("Unsupported time interval for data cleaning.")
-        print('times', times)
+        print('times', times.shape)
 
         # Подготовка нового DataFrame с полным временным индексом
         data_frames = []
