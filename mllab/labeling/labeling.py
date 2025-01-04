@@ -327,6 +327,14 @@ def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int =
     Returns:
         pd.DataFrame: A DataFrame with trend and outlier calculations for each timestamp.
     """
+    # Если уже индексировано по timestamp, то data.index.name == 'timestamp'.
+    # Если нет — пробуем установить из столбца.
+    if data.index.name != 'timestamp':
+        if 'timestamp' in data.columns:
+            data = data.set_index('timestamp').copy()
+        else:
+            raise ValueError("DataFrame не индексирован по 'timestamp' и не содержит столбец 'timestamp'.")
+
     has_tic = 'tic' in data.columns
     result_list = []
 
