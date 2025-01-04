@@ -36,7 +36,7 @@ class FinancePreprocessor:
     Yahoo Finance API
     """
 
-    def __init__(self, source : str = 'Yahoo', start_date : str = None, end_date : str = None, ticker_list : list[str] = None, time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
+    def __init__(self, source : str = 'Yahoo', ticker_list : list[str] = None, time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
         self.ticker_list = ticker_list
         self.start = start_date
         self.end = end_date
@@ -48,6 +48,9 @@ class FinancePreprocessor:
         self.clean = False
         self.source = source
         self.extended_interval = extended_interval
+        self.fill_dates()
+        self.start = self.TRAIN_START_DATE
+        self.end = self.TEST_END_DATE
 
         if self.source == "polygon":
             file_path = '/content/drive/My Drive/DataTrading/polygon_api_keys.txt'
@@ -612,6 +615,21 @@ class FinancePreprocessor:
                 )
         #        print("Successfully transformed into array")
         return price_array, tech_array, turbulence_array
+
+    def fill_dates(self):
+        self.TRAIN_START_DATE = '2024-01-01'
+        self.current_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Get trading days from the start of the year to the current date
+        trading_days = get_trading_days(TRAIN_START_DATE, current_date)
+
+        # Ensure TEST_END_DATE is the last trading day up to the current date
+        self.TEST_END_DATE = trading_days[-1]
+
+        # Determine TEST_START_DATE (14 trading days back) and TRAIN_END_DATE (previous trading day)
+        test_end_index = trading_days.index(self.TEST_END_DATE)
+        self.TEST_START_DATE = trading_days[max(0, test_end_index - 14)]
+        self.TRAIN_END_DATE = trading_days[max(0, test_end_index - 15)]
 
     def get_trading_days(self) -> list[str]:
         nyse = tc.get_calendar("NYSE")
