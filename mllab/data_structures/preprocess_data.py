@@ -162,6 +162,9 @@ class FinancePreprocessor:
                         current_tic_start_date += delta
                         continue
                     temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('America/New_York')
+                    # Фильтрация по времени
+                    temp_df = temp_df[(temp_df['timestamp'].dt.time >= pd.Timestamp("09:30:00").time()) &
+                                      (temp_df['timestamp'].dt.time <= pd.Timestamp("16:00:00").time())]
                     print("Загружено % ", 100 * (current_tic_start_date -  start_date) / (end_date - start_date) / total_tickers + 100 * (idx - 1) / total_tickers )
                     #break
 
