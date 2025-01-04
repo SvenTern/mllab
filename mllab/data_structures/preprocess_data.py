@@ -617,11 +617,11 @@ class FinancePreprocessor:
 
     def fill_dates(self):
         self.TRAIN_START_DATE = '2024-01-01'
-        self.current_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        current_date = datetime.datetime.now().strftime('%Y-%m-%d')
 
 
         # Get trading days from the start of the year to the current date
-        trading_days = self.get_trading_days(TRAIN_START_DATE, current_date)
+        trading_days = self.get_trading_days(self.TRAIN_START_DATE, current_date)
 
         # Ensure TEST_END_DATE is the last trading day up to the current date
         self.TEST_END_DATE = trading_days[-1]
