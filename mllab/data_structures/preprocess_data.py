@@ -358,6 +358,8 @@ class FinancePreprocessor:
 
     # required_columns - список обязательных колонок
     # timestamp, tic - основные колонки
+    # required_columns - список обязательных колонок
+    # timestamp, tic - основные колонки
     def clean_data(self, df: pd.DataFrame, required_columns: list, clean: bool = None) -> pd.DataFrame:
         if clean is not None:
             self.clean = clean
@@ -369,8 +371,16 @@ class FinancePreprocessor:
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
 
+        # Если 'timestamp' это индекс, делаем ее колонкой
+        if df.index.name == 'timestamp':
+            df = df.reset_index()
+
+        # Проверяем наличие ключевых колонок 'timestamp' и 'tic'
+        if 'timestamp' not in df.columns or 'tic' not in df.columns:
+            raise KeyError("DataFrame must contain 'timestamp' and 'tic' columns.")
+
         # Оставляем только необходимые колонки
-        df = df[required_columns]
+        df = df[required_columns + ['tic', 'timestamp']]
 
         tic_list = df['tic'].unique()
         NY = "America/New_York"
@@ -386,11 +396,6 @@ class FinancePreprocessor:
                 start=pd.Timestamp(f"{trading_days[0]} 09:30:00"),
                 end=pd.Timestamp(f"{trading_days[-1]} 16:00:00"),
                 freq='T'
-            ).intersection(
-                [
-                    self.convert_local_time(pd.Timestamp(day + " 09:30:00"), NY) + pd.Timedelta(minutes=i)
-                    for day in trading_days for i in range(390)
-                ]
             )
         else:
             raise ValueError("Unsupported time interval for data cleaning.")
@@ -398,12 +403,14 @@ class FinancePreprocessor:
         # Подготовка нового DataFrame с полным временным индексом
         data_frames = []
 
-        for tic in tic_list:
+        df_grouped = df.groupby('tic')
+
+        for tic, tic_df in df_grouped:
             # Инициализируем DataFrame для текущего тикера
             tmp_df = pd.DataFrame(index=times, columns=required_columns)
-            tic_df = df[df['tic'] == tic].set_index("timestamp")
 
             # Объединяем временные ряды
+            tic_df = tic_df.set_index("timestamp")
             tmp_df.update(tic_df)
 
             # Заполняем NaN-значения
@@ -432,6 +439,7 @@ class FinancePreprocessor:
             raise ValueError(f"NaN values remain in data for ticker {tic} in columns {required_columns}")
 
         return df
+
 
     def add_technical_indicator(
         self, data: pd.DataFrame, tech_indicator_list: list[str]
