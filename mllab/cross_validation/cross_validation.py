@@ -439,4 +439,7 @@ def score_confusion_matrix(y_test, y_pred, y_pred_auc = None):
     else:
         plot_roc_multiclass(y_test, y_pred_auc)
 
-    return cost_metric_3class(cm)
+    cost_metric = cost_metric_3class(cm)
+    print(f"Cost metric: {cost_metric:.2f}")
+
+    return cost_metric
