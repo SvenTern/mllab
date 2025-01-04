@@ -36,7 +36,7 @@ class FinancePreprocessor:
     Yahoo Finance API
     """
 
-    def __init__(self, source : str = 'Yahoo', start_date : str = None, end_date : str = None, ticker_list : list[str] = None, time_interval : str = "1d", file_path:str = None, proxy: str | dict = None):
+    def __init__(self, source : str = 'Yahoo', start_date : str = None, end_date : str = None, ticker_list : list[str] = None, time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
         self.ticker_list = ticker_list
         self.start = start_date
         self.end = end_date
@@ -47,6 +47,7 @@ class FinancePreprocessor:
         self.file_path = os.path.join(folder_path, file_path)
         self.clean = False
         self.source = source
+        self.extended_interval = extended_interval
 
         if self.source == "polygon":
             file_path = '/content/drive/My Drive/DataTrading/polygon_api_keys.txt'
@@ -163,8 +164,13 @@ class FinancePreprocessor:
                         continue
                     temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('America/New_York')
                     # Фильтрация по времени
-                    temp_df = temp_df[(temp_df['timestamp'].dt.time >= pd.Timestamp("09:30:00").time()) &
-                                      (temp_df['timestamp'].dt.time <= pd.Timestamp("16:00:00").time())]
+                    if self.extended_interval:
+                        temp_df = temp_df[(temp_df['timestamp'].dt.time >= pd.Timestamp("04:00:00").time()) &
+                                          (temp_df['timestamp'].dt.time <= pd.Timestamp("20:00:00").time())]
+                    else:
+                        temp_df = temp_df[(temp_df['timestamp'].dt.time >= pd.Timestamp("09:30:00").time()) &
+                                          (temp_df['timestamp'].dt.time <= pd.Timestamp("16:00:00").time())]
+
                     print("Загружено % ", 100 * (current_tic_start_date -  start_date) / (end_date - start_date) / total_tickers + 100 * (idx - 1) / total_tickers )
                     #break
 
@@ -399,14 +405,21 @@ class FinancePreprocessor:
         elif self.time_interval == "1m":
             times = []
             for day in trading_days:
-                day_times = pd.date_range(
-                    start=pd.Timestamp(f"{day} 09:30:00", tz=tz),
-                    end=pd.Timestamp(f"{day} 16:00:00", tz=tz),
-                    freq='T'
-                )
+
+                if self.extended_interval:
+                    day_times = pd.date_range(
+                        start=pd.Timestamp(f"{day} 04:00:00", tz=tz),
+                        end=pd.Timestamp(f"{day} 20:00:00", tz=tz),
+                        freq='T'
+                    )
+                else:
+                    day_times = pd.date_range(
+                        start=pd.Timestamp(f"{day} 09:30:00", tz=tz),
+                        end=pd.Timestamp(f"{day} 16:00:00", tz=tz),
+                        freq='T'
+                    )
                 times.extend(day_times)
             times = pd.Index(times)  # Преобразуем в Index для дальнейшего использования
-            print('times', times.shape)
         else:
             raise ValueError("Unsupported time interval for data cleaning.")
 
