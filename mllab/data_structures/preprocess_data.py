@@ -393,17 +393,22 @@ class FinancePreprocessor:
         trading_days = self.get_trading_days()
 
         # Генерируем полный индекс времени
+        # Генерируем полный индекс времени для каждого дня
         if self.time_interval == "1d":
             times = pd.Index(trading_days)
         elif self.time_interval == "1m":
-            times = pd.date_range(
-                start=pd.Timestamp(f"{trading_days[0]} 09:30:00", tz=tz),
-                end=pd.Timestamp(f"{trading_days[-1]} 16:00:00", tz=tz),
-                freq='T'
-            )
+            times = []
+            for day in trading_days:
+                day_times = pd.date_range(
+                    start=pd.Timestamp(f"{day} 09:30:00", tz=tz),
+                    end=pd.Timestamp(f"{day} 16:00:00", tz=tz),
+                    freq='T'
+                )
+                times.extend(day_times)
+            times = pd.Index(times)  # Преобразуем в Index для дальнейшего использования
+            print('times', times.shape)
         else:
             raise ValueError("Unsupported time interval for data cleaning.")
-        print('times', times.shape)
 
         # Подготовка нового DataFrame с полным временным индексом
         data_frames = []
