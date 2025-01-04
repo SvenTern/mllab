@@ -38,8 +38,7 @@ class FinancePreprocessor:
 
     def __init__(self, source : str = 'Yahoo', ticker_list : list[str] = None, time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
         self.ticker_list = ticker_list
-        self.start = start_date
-        self.end = end_date
+
         self.time_interval = self.convert_interval(time_interval)
         self.proxy = proxy
         folder_path = '/content/drive/My Drive/DataTrading'
