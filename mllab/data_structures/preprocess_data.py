@@ -431,7 +431,6 @@ class FinancePreprocessor:
         for tic, tic_df in df_grouped:
             # Удаляем дубликаты по индексу 'timestamp' для предотвращения ошибок
             tic_df = tic_df[~tic_df['timestamp'].duplicated(keep='first')]
-            print('tic_df', tic_df.shape)
 
             # Инициализируем DataFrame для текущего тикера
             tmp_df = pd.DataFrame(index=times, columns=required_columns)
@@ -439,11 +438,9 @@ class FinancePreprocessor:
             # Объединяем временные ряды
             tic_df = tic_df.set_index("timestamp")
             tmp_df.update(tic_df)
-            print('tmp_df', tmp_df.shape)
 
             # Заполняем NaN-значения
             tmp_df = self.fill_missing_data(tmp_df, required_columns, tic)
-            print('tmp_df', tmp_df.shape)
 
             # Добавляем тикер в итоговый DataFrame
             tmp_df["tic"] = tic
