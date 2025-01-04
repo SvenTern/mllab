@@ -330,6 +330,66 @@ def plot_roc_multiclass(actual, prediction):
     avg_roc_auc = np.mean(list(roc_aucs.values()))
     print(f"Average AUC (Classes {classes}): {avg_roc_auc:.2f}")
 
+def cost_metric_3class(confusion_matrix: np.ndarray):
+    """
+    Функция рассчитывает:
+      1) Общую стоимость (Cost) классификации по заданной confusion matrix.
+      2) Максимально возможную стоимость (Cost_max).
+      3) Итоговый cost-based accuracy = 1 - Cost / Cost_max.
+
+    Порядок классов:
+      - индекс 0 = класс -1
+      - индекс 1 = класс  0
+      - индекс 2 = класс  1
+
+    Параметры:
+    ----------
+    confusion_matrix : np.ndarray (shape=(3,3))
+        Матрица неточностей по классам, где
+        confusion_matrix[i, j] = количество случаев,
+        когда истинный класс i предсказан как j.
+
+    Возвращает:
+    -----------
+    (cost, cost_max, cost_based_accuracy) : (float, float, float)
+    """
+
+    # Задаём матрицу стоимостей C(i->j).
+    # Индексы [0 -> -1, 1 -> 0, 2 -> 1].
+    # cost_matrix[i, j] = штраф за предсказание класса j,
+    # когда истинный класс i.
+    cost_matrix = np.array([
+        [0, 1, 3],  # Реальный класс -1
+        [1, 0, 1],  # Реальный класс  0
+        [3, 1, 0]   # Реальный класс  1
+    ])
+
+    # 1) Считаем фактическую суммарную стоимость (Cost)
+    cost = 0.0
+    for i in range(3):
+        for j in range(3):
+            cost += confusion_matrix[i, j] * cost_matrix[i, j]
+
+    # 2) Считаем максимально возможную стоимость (Cost_max).
+    #    Предположим, что "худшая" ошибка для каждого класса i —
+    #    это предсказывать тот класс j, который даёт максимальный штраф cost_matrix[i, j].
+    cost_max = 0.0
+    for i in range(3):
+        row_sum = np.sum(confusion_matrix[i, :])   # общее кол-во примеров реального класса i
+        # Максимальный штраф в строке i (не обязательно на позиции j!=i,
+        # ведь cost_matrix[i,i] = 0, а нам нужен худший вариант).
+        costliest = np.max(cost_matrix[i, :])
+        cost_max += row_sum * costliest
+
+    # 3) Cost-based Accuracy
+    #    Если cost_max = 0 (например, пустая матрица), чтобы избежать деления на ноль,
+    #    зададим результат 0.0 или 1.0 (по ситуации).
+    if cost_max > 0:
+        cost_based_accuracy = 1 - (cost / cost_max)
+    else:
+        cost_based_accuracy = 0.0
+
+    return cost_based_accuracy
 
 def score_confusion_matrix(y_test, y_pred, y_pred_auc = None):
     """
@@ -378,3 +438,5 @@ def score_confusion_matrix(y_test, y_pred, y_pred_auc = None):
         plot_roc_multiclass(y_test, y_pred)
     else:
         plot_roc_multiclass(y_test, y_pred_auc)
+
+    return cost_metric_3class(cm)

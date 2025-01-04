@@ -320,6 +320,7 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
     # Допустим, у нас есть список тикеров
     unique_tickers = indicators['tic'].unique()
 
+    total_score = []
     for ticker in unique_tickers:
         print(f"\nProcessing ticker: {ticker}")
 
@@ -392,7 +393,12 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
 
         # Оценка качества модели
         print(f"\nEvaluation for ticker {ticker}:")
-        score_confusion_matrix(y_test, y_pred)
+        score = score_confusion_matrix(y_test, y_pred)
+        total_score.append((f'{tic} accuaracy', score))
+
+    total_score.append((f'total accuaracy', mean([i[1] for i in total_score])))
+    score_file_name = os.path.join(base_folder, f"classifire_score.txt")
+    joblib.dump(total_score, score_file_name)
 
 def update_indicators(labels, indicators, type='bagging'):
     # Extract list of tickers
@@ -517,6 +523,12 @@ class StockPortfolioEnv(gym.Env):
         - turbulence_threshold: Optional threshold for turbulence, unused in this version.
         - lookback: Number of historical time steps for constructing the state.
         """
+        self.annual_risk_free_rate = 0.04
+        self.trading_days_per_year = 252
+        self.minutes_per_day = 390
+        self.minutes_per_year = self.trading_days_per_year * self.minutes_per_day
+        self.risk_free_rate_per_min = (1 + self.annual_risk_free_rate) ** (1 / (self.minutes_per_year)) - 1
+
         self.min = 0  # Current time index
         self.lookback = lookback  # Number of previous steps for state construction
         self.df = df  # Market data
@@ -525,7 +537,7 @@ class StockPortfolioEnv(gym.Env):
         self.initial_amount = initial_amount  # Starting portfolio cash value
         self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
         self.reward_scaling = reward_scaling  # Scaling factor for reward
-        self.state_space = (calculate_total_length_of_features(df, features_list) + len(
+        self.state_space = (self.calculate_total_length_of_features(df, features_list) + len(
             tech_indicator_list)) * lookback  # Dimensions of state space
         self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3))  # Long/Short/StopLoss/TakeProfit
         self.observation_space = spaces.Box(
@@ -554,6 +566,51 @@ class StockPortfolioEnv(gym.Env):
         self.portfolio_return_memory = [0]
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.timestamps[0]]
+
+    def sharpe_ratio_minutely(
+            self
+
+    ) -> float:
+        """
+        Рассчитывает годовой Sharpe Ratio на основе МИНУТНЫХ доходностей портфеля.
+
+        Параметры
+        ---------
+        self.portfolio_return_memory : np.ndarray
+            Последовательность минутных доходностей (например, r_t = (P(t) - P(t-1)) / P(t-1)).
+        self.annual_risk_free_rate : float
+            Годовая безрисковая ставка в долях (по умолчанию 2% = 0.02).
+
+        Возвращает
+        ---------
+        float
+            Годовой Sharpe Ratio. Если стандартное отклонение 0 (нет волатильности),
+            функция вернёт 0.0.
+        """
+
+        # Преобразуем входные данные в numpy-массив
+        returns = np.asarray(self.portfolio_return_memory, dtype=float)
+        if len(returns) < 2:
+            raise ValueError("Массив минутных доходностей должен содержать как минимум 2 значения.")
+
+        # Средняя доходность за 1 минуту
+        mean_return_per_min = np.mean(returns)
+
+        # Стандартное отклонение минутных доходностей
+        std_return_per_min = np.std(returns, ddof=1)
+
+        # Защита от деления на ноль
+        if std_return_per_min == 0:
+            return 0.0
+
+        # Sharpe Ratio за минуту
+        sharpe_per_min = (mean_return_per_min - self.risk_free_rate_per_min) / std_return_per_min
+
+        # Годовой Sharpe Ratio
+        sharpe_annual = sharpe_per_min * np.sqrt(self.minutes_per_year)
+
+        return sharpe_annual
+
 
     def calculate_total_length_of_features(df, features_list):
         """
@@ -667,10 +724,15 @@ class StockPortfolioEnv(gym.Env):
 
         if self.terminal:
             self._sell_all_stocks()
+
             df = pd.DataFrame(self.portfolio_return_memory, columns=['return'])
             plt.plot(df['return'].cumsum())
+
             plt.savefig('cumulative_reward.png')
             plt.close()
+
+            self.reward = self.sharpe_ratio_minutely()
+            print('sharp ratio', self.reward)
 
             return self.state, self.reward, self.terminal, {}
 
@@ -694,7 +756,9 @@ class StockPortfolioEnv(gym.Env):
         self.asset_memory.append(
             {'cash': self.cash, 'portfolio_value': self.portfolio_value, 'holdings': self.share_holdings.copy()})
 
-        self.reward = self.portfolio_value * self.reward_scaling
+        self.reward = self.sharpe_ratio_minutely()
+        #self.portfolio_value * self.reward_scaling
+
         return self.state, self.reward, self.terminal, {}
 
     def calculate_portfolio_return(self, stop_loss, take_profit):
@@ -744,6 +808,10 @@ class StockPortfolioEnv(gym.Env):
 
             # Append return
             returns.append(current_return)
+
+        # дополнительный профит от кэша
+        current_return = self.cash * self.annual_risk_free_rate /
+        returns.append(current_return)
 
         # Calculate portfolio return
         portfolio_return = sum(returns) / self.portfolio_value
