@@ -406,6 +406,9 @@ class FinancePreprocessor:
         df_grouped = df.groupby('tic')
 
         for tic, tic_df in df_grouped:
+            # Удаляем дубликаты по индексу 'timestamp' для предотвращения ошибок
+            tic_df = tic_df[~tic_df['timestamp'].duplicated(keep='first')]
+
             # Инициализируем DataFrame для текущего тикера
             tmp_df = pd.DataFrame(index=times, columns=required_columns)
 
