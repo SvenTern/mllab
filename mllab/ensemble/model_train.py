@@ -30,6 +30,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 from concurrent.futures import ThreadPoolExecutor
 from mllab.microstructural_features.feature_generator import get_correlation
+from scipy.stats import pearsonr, spearmanr
 
 
 class ensemble_models:
@@ -235,6 +236,7 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         restore_best_weights=True,
         verbose=1
     )
+    total_score = []
 
     for idx, ticker in enumerate(unique_tickers):
         print(f"\n=== Обработка тикера: {ticker} ===")
@@ -305,11 +307,25 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
 
         previous_ticker_model_path = model_path
 
-        if len(X_test) > 3:
-            sample_for_prediction = X_test[:3]
-            sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
-            predictions = model.predict(sample_dataset)
-            print("    Прогноз (первые 3 записи из теста):", predictions.reshape(-1))
+        sample_for_prediction = X_test
+        sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
+        predictions = model.predict(sample_dataset)
+
+        # 1. Коэффициент Пирсона (Pearson)
+        pearson_corr, pearson_pval = pearsonr(y_test, predictions)
+        print(f"Pearson correlation: {pearson_corr:.4f}")
+        print(f"Pearson p-value: {pearson_pval:.6f}")
+
+        # 2. Коэффициент Спирмена (Spearman)
+        spearman_corr, spearman_pval = spearmanr(y_test, predictions)
+        print(f"Spearman correlation: {spearman_corr:.4f}")
+        print(f"Spearman p-value: {spearman_pval:.6f}")
+
+        total_score.append((f'Pearson correlation {ticker}', pearson_corr))
+
+    total_score.append((f'total accuaracy', np.mean([i[1] for i in total_score])))
+    score_file_name = os.path.join(base_folder, f"regression_score.txt")
+    joblib.dump(total_score, score_file_name)
 
 
 def train_bagging(labels, indicators, list_main_indicators, label, base_folder='model bagging', test_size=0.2, random_state=42, n_estimators=20):
@@ -394,9 +410,9 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         # Оценка качества модели
         print(f"\nEvaluation for ticker {ticker}:")
         score = score_confusion_matrix(y_test, y_pred)
-        total_score.append((f'{tic} accuaracy', score))
+        total_score.append((f'{ticker} accuaracy', score))
 
-    total_score.append((f'total accuaracy', mean([i[1] for i in total_score])))
+    total_score.append((f'total accuaracy', np.mean([i[1] for i in total_score])))
     score_file_name = os.path.join(base_folder, f"classifire_score.txt")
     joblib.dump(total_score, score_file_name)
 
