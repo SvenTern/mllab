@@ -387,6 +387,7 @@ class FinancePreprocessor:
 
         tic_list = df['tic'].unique()
         NY = "America/New_York"
+        tz = pytz.timezone(NY)
 
         # Получаем список торговых дней
         trading_days = self.get_trading_days()
@@ -396,12 +397,13 @@ class FinancePreprocessor:
             times = pd.Index(trading_days)
         elif self.time_interval == "1m":
             times = pd.date_range(
-                start=pd.Timestamp(f"{trading_days[0]} 09:30:00"),
-                end=pd.Timestamp(f"{trading_days[-1]} 16:00:00"),
+                start=pd.Timestamp(f"{trading_days[0]} 09:30:00", tz=tz),
+                end=pd.Timestamp(f"{trading_days[-1]} 16:00:00", tz=tz),
                 freq='T'
             )
         else:
             raise ValueError("Unsupported time interval for data cleaning.")
+
 
         # Подготовка нового DataFrame с полным временным индексом
         data_frames = []
