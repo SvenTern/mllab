@@ -28,6 +28,9 @@ import gym
 from gym import spaces
 from stable_baselines3.common.vec_env import DummyVecEnv
 
+from concurrent.futures import ThreadPoolExecutor
+from mllab.microstructural_features.feature_generator import get_correlation
+
 
 class ensemble_models:
     def __init__(self, indicators, labels):
@@ -385,6 +388,107 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         # Оценка качества модели
         print(f"\nEvaluation for ticker {ticker}:")
         score_confusion_matrix(y_test, y_pred)
+
+def update_indicators(data, labels, indicators, type='bagging'):
+    # Load models
+    basefolder = '/content/drive/My Drive/DataTrading/'
+    folder_bagging = 'model bagging/'
+    folder_regression = 'model regression/'
+    models = {}
+
+    for tic in list_tickers:
+        try:
+            if type == 'bagging':
+                models[f'classifier_model_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_model_{tic}.pkl')
+                models[f'classifier_scaler_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_scaler_{tic}.pkl')
+            elif type == 'regression':
+                models[f'regression_model_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_model_{tic}.joblib')
+                models[f'regression_scaler_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_scaler_{tic}.joblib')
+        except Exception as e:
+            print(f"Error loading model or scaler for ticker {tic}: {e}")
+            continue
+
+    # Set label keys
+    if type == 'bagging':
+        models['label_classifire'] = 'bin'
+        try:
+            _, models['list_classifire_indicators'] = get_correlation(labels, indicators,
+                                                                      column_main=models['label_classifire'],
+                                                                      show_heatmap=False)
+        except Exception as e:
+            print(f"Error determining indicators: {e}")
+            return indicators
+    elif type == 'regression':
+        models['label_regression'] = 'return'
+        try:
+            _, models['list_regression_indicators'] = get_correlation(labels, indicators,
+                                                                      column_main=models['label_regression'],
+                                                                      show_heatmap=False)
+        except Exception as e:
+            print(f"Error determining indicators: {e}")
+            return indicators
+
+    # Prepare data for prediction
+    data_for_prediction = indicators
+
+    def process_ticker(tic):
+        try:
+            # Filter data for the current ticker
+            filtered_data = data_for_prediction[data_for_prediction['tic'] == tic]
+
+            if type == 'bagging':
+                # Scale data for prediction
+                scale_data_classifire = models[f'classifier_scaler_{tic}'].transform(
+                    filtered_data[models['list_classifire_indicators']])
+
+                # Generate predictions
+                predicted_classifire = models[f'classifier_model_{tic}'].predict_proba(scale_data_classifire)
+
+                # Combine predictions into DataFrame
+                return pd.DataFrame({
+                    'timestamp': filtered_data.index,
+                    'tic': tic,
+                    'bin-1': [predicted_classifire[i, 0] for i in range(len(filtered_data.index))],
+                    'bin-0': [predicted_classifire[i, 1] for i in range(len(filtered_data.index))],
+                    'bin+1': [predicted_classifire[i, 2] for i in range(len(filtered_data.index))]
+                })
+            elif type == 'regression':
+                # Scale data for prediction
+                scale_data_regression = models[f'regression_scaler_{tic}'].transform(
+                    filtered_data[models['list_regression_indicators']])
+
+                # Generate predictions
+                predicted_regression = models[f'regression_model_{tic}'].predict(scale_data_regression).flatten()
+
+                # Combine predictions into DataFrame
+                return pd.DataFrame({
+                    'timestamp': filtered_data.index,
+                    'tic': tic,
+                    'regression': [predicted_regression[i] for i in range(len(filtered_data.index))]
+                })
+        except Exception as e:
+            print(f"Error processing ticker {tic}: {e}")
+            return pd.DataFrame()
+
+    # Parallel processing of tickers
+    try:
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(process_ticker, list_tickers))
+
+        # Concatenate results
+        predicted_data = pd.concat(results, ignore_index=True)
+
+        # Merge predicted data back into indicators DataFrame
+        indicators = indicators.reset_index()
+        indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+        indicators = indicators.set_index('timestamp')
+
+        return indicators
+
+    except Exception as e:
+        print(f"Error during parallel processing: {e}")
+        return indicators
+
 
 
 
