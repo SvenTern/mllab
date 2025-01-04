@@ -390,6 +390,9 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         score_confusion_matrix(y_test, y_pred)
 
 def update_indicators(labels, indicators, type='bagging'):
+    # Extract list of tickers
+    list_tickers = indicators['tic'].unique()
+
     # Load models
     basefolder = '/content/drive/My Drive/DataTrading/'
     folder_bagging = 'model bagging/'
