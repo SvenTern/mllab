@@ -161,7 +161,7 @@ class FinancePreprocessor:
                     if temp_df.empty:
                         current_tic_start_date += delta
                         continue
-                    temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms')
+                    temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms').dt.tz_convert('America/New_York')
                     print("Загружено % ", 100 * (current_tic_start_date -  start_date) / (end_date - start_date) / total_tickers + 100 * (idx - 1) / total_tickers )
                     #break
 
