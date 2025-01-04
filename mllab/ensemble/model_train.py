@@ -389,7 +389,7 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         print(f"\nEvaluation for ticker {ticker}:")
         score_confusion_matrix(y_test, y_pred)
 
-def update_indicators(data, labels, indicators, type='bagging'):
+def update_indicators(labels, indicators, type='bagging'):
     # Load models
     basefolder = '/content/drive/My Drive/DataTrading/'
     folder_bagging = 'model bagging/'
@@ -482,6 +482,8 @@ def update_indicators(data, labels, indicators, type='bagging'):
         indicators = indicators.reset_index()
         indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
         indicators = indicators.set_index('timestamp')
+
+        # нужно перезаписать индикаторы на диск
 
         return indicators
 
