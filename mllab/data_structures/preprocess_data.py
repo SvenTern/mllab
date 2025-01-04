@@ -356,109 +356,82 @@ class FinancePreprocessor:
 
         return all_dollar_bars_df
 
-
-
-
-    def clean_data(self, df: pd.DataFrame, clean : bool = None) -> pd.DataFrame:
+    # required_columns - список обязательных колонок
+    # timestamp, tic - основные колонки
+    def clean_data(self, df: pd.DataFrame, required_columns: list, clean: bool = None) -> pd.DataFrame:
         if clean is not None:
-          self.clean = clean
+            self.clean = clean
         if self.clean:
             return self.read_csv('_clean.csv')
-        tic_list = np.unique(df.tic.values)
+
+        # Проверяем обязательные колонки
+        missing_columns = set(required_columns) - set(df.columns)
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+
+        # Оставляем только необходимые колонки
+        df = df[required_columns]
+
+        tic_list = df['tic'].unique()
         NY = "America/New_York"
 
+        # Получаем список торговых дней
         trading_days = self.get_trading_days()
-        # produce full timestamp index
+
+        # Генерируем полный индекс времени
         if self.time_interval == "1d":
-            times = trading_days
+            times = pd.Index(trading_days)
         elif self.time_interval == "1m":
-            times = []
-            for day in trading_days:
-                current_time = self.convert_local_time(pd.Timestamp(day + " 09:30:00"), NY)
-                for i in range(390):  # 390 minutes in trading day
-                    times.append(current_time)
-                    current_time += pd.Timedelta(minutes=1)
-        else:
-            raise ValueError(
-                "Data clean at given time interval is not supported for YahooFinance data."
-            )
-        # create a new dataframe with full timestamp series
-        print('Cleaning data, recheck for nan, recheck for empty start/end date replacing for previous/next data')
-        new_df = pd.DataFrame()
-        for tic in tic_list:
-            tmp_df = pd.DataFrame(
-                columns=["open", "high", "low", "close", "volume"], index=times
-            )
-            tic_df = df[
-                df.tic == tic
-            ]  # extract just the rows from downloaded data relating to this tic
-            for i in range(tic_df.shape[0]):  # fill empty DataFrame using original data
-                #tmp_df.loc[self.convert_local_time(tic_df.iloc[i]["timestamp"], NY)] = tic_df.iloc[i][["open", "high", "low", "close", "volume"]]
-                tmp_df.loc[times[i]] = tic_df.iloc[i][["open", "high", "low", "close", "volume"]]
-            # print("(9) tmp_df\n", tmp_df.to_string()) # print ALL dataframe to check for missing rows from download
-
-            # if close on start date is NaN, fill data with first valid close
-            # and set volume to 0.
-            if str(tmp_df.iloc[0]["close"]) == "nan":
-                print("NaN data on start date, fill using first valid data.")
-                for i in range(tmp_df.shape[0]):
-                    if str(tmp_df.iloc[i]["close"]) != "nan":
-                        first_valid_close = tmp_df.iloc[i]["close"]
-                        tmp_df.iloc[0] = [
-                            first_valid_close,
-                            first_valid_close,
-                            first_valid_close,
-                            first_valid_close,
-                            0.0,
-                        ]
-                        break
-
-            # if the close price of the first row is still NaN (All the prices are NaN in this case)
-            if str(tmp_df.iloc[0]["close"]) == "nan":
-                print(
-                    "Missing data for ticker: ",
-                    tic,
-                    " . The prices are all NaN. Fill with 0.",
-                )
-                tmp_df.iloc[0] = [
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
+            times = pd.date_range(
+                start=pd.Timestamp(f"{trading_days[0]} 09:30:00"),
+                end=pd.Timestamp(f"{trading_days[-1]} 16:00:00"),
+                freq='T'
+            ).intersection(
+                [
+                    self.convert_local_time(pd.Timestamp(day + " 09:30:00"), NY) + pd.Timedelta(minutes=i)
+                    for day in trading_days for i in range(390)
                 ]
+            )
+        else:
+            raise ValueError("Unsupported time interval for data cleaning.")
 
-            # fill NaN data with previous close and set volume to 0.
-            for i in range(tmp_df.shape[0]):
-                if str(tmp_df.iloc[i]["close"]) == "nan":
-                    previous_close = tmp_df.iloc[i - 1]["close"]
-                    if str(previous_close) == "nan":
-                        raise ValueError
-                    tmp_df.iloc[i] = [
-                        previous_close,
-                        previous_close,
-                        previous_close,
-                        previous_close,
-                        0.0,
-                    ]
-                    # print(tmp_df.iloc[i], " Filled NaN data with previous close and set volume to 0. ticker: ", tic)
+        # Подготовка нового DataFrame с полным временным индексом
+        data_frames = []
 
-            # merge single ticker data to new DataFrame
-            tmp_df = tmp_df.astype(float)
+        for tic in tic_list:
+            # Инициализируем DataFrame для текущего тикера
+            tmp_df = pd.DataFrame(index=times, columns=required_columns)
+            tic_df = df[df['tic'] == tic].set_index("timestamp")
+
+            # Объединяем временные ряды
+            tmp_df.update(tic_df)
+
+            # Заполняем NaN-значения
+            tmp_df = self.fill_missing_data(tmp_df, required_columns, tic)
+
+            # Добавляем тикер в итоговый DataFrame
             tmp_df["tic"] = tic
-            new_df = pd.concat([new_df, tmp_df])
+            data_frames.append(tmp_df)
 
-            print(("Data clean for ") + tic + (" is finished."))
+        # Сбрасываем индекс и сортируем
+        new_df = pd.concat(data_frames).reset_index().rename(columns={"index": "timestamp"})
+        new_df = new_df.sort_values(['timestamp', 'tic'], ignore_index=True)
 
-        # reset index and rename columns
-        new_df = new_df.reset_index()
-        new_df = new_df.rename(columns={"index": "timestamp"})
-
-        new_df.sort_values(['timestamp','tic'],ignore_index=True)
-        #        print("Data clean all finished!")
-        new_df.to_csv(self.file_path+ '_clean.csv', index=False)
+        # Сохраняем очищенные данные
+        new_df.to_csv(self.file_path + '_clean.csv', index=False)
         self.clean = True
         return new_df
+
+    def fill_missing_data(self, df: pd.DataFrame, required_columns: list, tic: str) -> pd.DataFrame:
+        # Если первая строка содержит NaN, заполняем первым доступным значением для всех обязательных колонок
+        df.ffill(inplace=True)
+        df.bfill(inplace=True)
+
+        # Проверка остатков NaN
+        if df[required_columns].isna().any().any():
+            raise ValueError(f"NaN values remain in data for ticker {tic} in columns {required_columns}")
+
+        return df
 
     def add_technical_indicator(
         self, data: pd.DataFrame, tech_indicator_list: list[str]
