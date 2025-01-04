@@ -289,6 +289,9 @@ def calculate_indicators(data,
         # ВАЖНО: не добавляем x["tic"] = tic, т.к. tic у нас уже в индексе.
         return x
 
+    if 'timestamp' in data.index.names:
+        data = data.reset_index()  # Сбрасываем индекс, чтобы преобразовать 'timestamp'
+
     # --- Устанавливаем (tic, timestamp) как MultiIndex ---
     data = data.set_index(['tic', 'timestamp']).sort_index()
 
