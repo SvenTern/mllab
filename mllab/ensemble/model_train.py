@@ -544,10 +544,10 @@ class StockPortfolioEnv(gym.Env):
                  risk_volume,
                  initial_amount,
                  transaction_cost_amount,
-                 reward_scaling=100,
                  tech_indicator_list,
                  features_list,
                  turbulence_threshold=None,
+                 reward_scaling=100,
                  lookback=5,
                  initial=True,
                  previous_state=[]
