@@ -918,6 +918,7 @@ def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
     # Обработка bin-1
     mask_bin_minus1 = max_bin == 1
     p_minus1 = first_three[mask_bin_minus1, 0]
+    print('p_minus1', p_minus1)
     b_minus1 = p_minus1 / (1 - p_minus1)
     vol[mask_bin_minus1] = np.maximum(0, p_minus1 - (1 - p_minus1) / b_minus1)
     tp[mask_bin_minus1] = coeff_tp * return_value[mask_bin_minus1]
@@ -926,6 +927,7 @@ def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
     # Обработка bin+1
     mask_bin_plus1 = max_bin == 3
     p_plus1 = first_three[mask_bin_plus1, 2]
+    print('p_plus1', p_plus1)
     b_plus1 = p_plus1 / (1 - p_plus1)
     vol[mask_bin_plus1] = np.maximum(0, p_plus1 - (1 - p_plus1) / b_plus1)
     tp[mask_bin_plus1] = coeff_tp * return_value[mask_bin_plus1]
