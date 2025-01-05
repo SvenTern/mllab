@@ -509,6 +509,17 @@ def update_indicators(labels, indicators, type='bagging'):
         # Concatenate results
         predicted_data = pd.concat(results, ignore_index=True)
 
+        if type == 'bagging':
+            # Удалить колонки bin+1, bin-0, bin-1, если они есть в indicators
+            columns_to_remove = ['bin+1', 'bin-0', 'bin-1']
+            indicators = indicators.drop(
+                columns=[col for col in columns_to_remove if col in indicators.columns]
+            )
+        elif type == 'regression':
+            # Удалить колонку 'regression', если она есть
+            if 'regression' in indicators.columns:
+                indicators = indicators.drop('regression', axis=1)
+
         # Merge predicted data back into indicators DataFrame
         indicators = indicators.reset_index()
         indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
