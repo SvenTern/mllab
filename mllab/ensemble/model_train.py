@@ -233,7 +233,7 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
 
     early_stopping = EarlyStopping(
         monitor='val_loss',
-        patience=5,
+        patience=10,
         restore_best_weights=True,
         verbose=1
     )
