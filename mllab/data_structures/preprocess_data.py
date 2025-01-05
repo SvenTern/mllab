@@ -29,6 +29,7 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import json
 
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
@@ -128,6 +129,9 @@ class FinancePreprocessor:
             end = data_return.index.max().strftime('%Y-%m-%d')
             self.fill_dates(start, end)
 
+        # Восстанавливаем np.array из JSON строк
+        data_return = data_return.applymap(
+            lambda x: np.array(json.loads(x)) if isinstance(x, str) and x.startswith('[') else x)
 
         return data_return
 
