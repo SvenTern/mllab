@@ -371,15 +371,19 @@ def cost_metric_3class(confusion_matrix: np.ndarray):
     ])
 
     # 1) Считаем фактическую суммарную стоимость (Cost)
-    cost = 0.0
-    for i in range(3):
-        for j in range(3):
-            cost += confusion_matrix[i, j] * cost_matrix[i, j]
+    cost = np.sum(confusion_matrix * cost_matrix)
+    cost_max = np.sum(confusion_matrix * cost_max)
 
-    cost_max = 0.0
-    for i in range(3):
-        for j in range(3):
-            cost_max += confusion_matrix[i, j] * cost_max[i, j]
+    #cost = 0.0
+    #for i in range(3):
+    #    for j in range(3):
+    #        cost += confusion_matrix[i, j] * cost_matrix[i, j]
+
+    # 2) Считаем максимально возможную стоимость (Cost_max).
+    #cost_max = 0.0
+    #for i in range(3):
+    #    for j in range(3):
+    #        cost_max += confusion_matrix[i, j] * cost_max[i, j]
 
     # 2) Считаем максимально возможную стоимость (Cost_max).
     #    Предположим, что "худшая" ошибка для каждого класса i —
