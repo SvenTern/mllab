@@ -226,6 +226,7 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         return model
 
     unique_tickers = indicators['tic'].unique()
+    #base_folder = os.path.join('/content/drive/My Drive/DataTrading', base_folder)
     os.makedirs(base_folder, exist_ok=True)
 
     previous_ticker_model_path = None
@@ -330,6 +331,8 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
 
 def train_bagging(labels, indicators, list_main_indicators, label, base_folder='model bagging', test_size=0.2, random_state=42, n_estimators=20):
 
+
+    #base_folder = os.path.join('/content/drive/My Drive/DataTrading', base_folder)
     # Создание базовой директории, если она не существует
     os.makedirs(base_folder, exist_ok=True)
 
