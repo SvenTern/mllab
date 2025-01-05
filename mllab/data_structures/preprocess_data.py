@@ -30,7 +30,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
-
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
     Yahoo Finance API
@@ -81,6 +80,27 @@ class FinancePreprocessor:
     3	2009-01-02	BA	    42.799999	45.560001	42.779999	33.941093	7010200.0
     ...
     """
+
+    def convert_to_ny_time(self, date_str):
+        """
+        Конвертирует строку даты в формате '%Y-%m-%d' в локализованное время Нью-Йорка.
+
+        :param date_str: Строка даты в формате '%Y-%m-%d'
+        :return: Локализованное время Нью-Йорка в формате datetime
+        """
+        try:
+            # Преобразуем строку в объект datetime
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+
+            # Устанавливаем таймзону Нью-Йорка
+            ny_timezone = pytz.timezone('America/New_York')
+
+            # Локализуем дату
+            localized_date = ny_timezone.localize(date_obj)
+
+            return localized_date
+        except ValueError as e:
+            raise ValueError(f"Неверный формат даты: {e}")
 
     def read_csv(self, file_name: str = "", udate_dates = False):
         data_return = pd.read_csv(self.file_path + file_name)
