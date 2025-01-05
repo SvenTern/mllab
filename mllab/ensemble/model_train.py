@@ -669,11 +669,14 @@ class StockPortfolioEnv(gym.Env):
 
         return sharpe_annual
 
-    def get_data_by_date(self):
+    def get_data_by_date(self, min = None):
         """
         Получить данные за конкретную дату.
         """
-        date = self.dates[self.min]
+        if min is None
+            date = self.dates[self.min]
+        else:
+            date = self.dates[min]
         if date in self.grouped_data.groups:
             return self.grouped_data.get_group(date)
         else:
@@ -837,11 +840,11 @@ class StockPortfolioEnv(gym.Env):
         returns = []
 
         for i, holding in enumerate(self.share_holdings):
-            low = self.data_map[self.dates[self.min]]['low'].values[i]
-            high = self.data_map[self.dates[self.min]]['high'].values[i]
-            close_price = self.data_map[self.dates[self.min]]['close'].values[i]
-            open_price = self.data_map[self.dates[self.min]]['open'].values[i]
-            last_close = self.data_map[self.dates[self.min - 1]]['close'].values[i]
+            low = self.data['low'].values[i]
+            high = self.data['high'].values[i]
+            close_price = self.data['close'].values[i]
+            open_price = self.data['open'].values[i]
+            last_close = self.get_data_by_date(self.min - 1)['close'].values[i]
 
             stop_loss_price = last_close * (1 - stop_loss[i])
             take_profit_price = last_close * (1 + take_profit[i])
@@ -887,7 +890,7 @@ class StockPortfolioEnv(gym.Env):
 
         # Update portfolio weights based on new holdings
         for i, holding in enumerate(self.share_holdings):
-            updated_weights[i] = (holding * self.data_map[self.dates[self.min]]['close'].values[
+            updated_weights[i] = (holding * self.data['close'].values[
                 i]) / self.portfolio_value if self.portfolio_value > 0 else 0
 
         return portfolio_return, updated_weights
