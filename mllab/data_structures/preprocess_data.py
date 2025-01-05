@@ -874,78 +874,156 @@ class FinancePreprocessor:
         return data_normalized
 
 
-def add_takeprofit_stoploss_volume(predicted_data, coeff_tp=1, coeff_sl=1):
+import numpy as np
+import pandas as pd
+
+
+def add_takeprofit_stoploss_volume(
+        predicted_data: pd.DataFrame,
+        coeff_tp: float = 1.0,
+        coeff_sl: float = 1.0,
+        eps: float = 1e-6
+) -> pd.DataFrame:
     """
-    Оптимизирует массивы в колонке 'prediction' для работы на TPU.
+    Оптимизирует массивы в колонке 'prediction' DataFrame для работы на TPU.
     Обновляет 4-й элемент (return) и добавляет vol, tp, sl в конец массива.
 
-    Parameters:
-    predicted_data (pd.DataFrame): DataFrame с колонкой 'prediction', содержащей массивы.
-    coeff_tp (float): Коэффициент для расчета take-profit.
-    coeff_sl (float): Коэффициент для расчета stop-loss.
+    Порядок действий:
+      1. Вычисляется max_bin = argmax из первых трёх элементов (bin = 1, 2, 3).
+      2. При несовпадении знака 'return' с направлением сделки (bin=1 => short, bin=3 => long)
+         меняется знак этого 'return'.
+      3. Рассчитываются vol, tp, sl на основе коэффициентов и приведённого соотношения.
 
-    Returns:
-    pd.DataFrame: Обновленный DataFrame с модифицированными массивами в 'prediction'.
+    Parameters
+    ----------
+    predicted_data : pd.DataFrame
+        DataFrame с колонкой 'prediction', содержащей массивы вида [p(-1), p(0), p(+1), return, ...].
+    coeff_tp : float, optional
+        Коэффициент для расчёта take-profit, по умолчанию 1.
+    coeff_sl : float, optional
+        Коэффициент для расчёта stop-loss, по умолчанию 1.
+    eps : float, optional
+        Небольшой зазор для избежания деления на 0 (clip вероятностей).
+
+    Returns
+    -------
+    pd.DataFrame
+        Обновлённый DataFrame, где в каждом элементе 'prediction':
+          * 4-й элемент заменён скорректированным return
+          * добавлены элементы vol, tp, sl
     """
-    # Преобразуем prediction в NumPy массив для эффективной обработки
+
+    # Предполагаем, что колонка 'prediction' существует
+    if 'prediction' not in predicted_data.columns:
+        raise KeyError("В DataFrame отсутствует колонка 'prediction'.")
+
+    # Конвертируем prediction в объект типа np.ndarray (список списков -> 2D-массив dtype=object)
     predictions = np.array(predicted_data['prediction'].tolist(), dtype=object)
 
-    # Извлекаем основные данные
-    first_three = np.vstack(predictions[:, :3])  # Первые три элемента
-    fourth_element = np.array([x[3] if len(x) > 3 else None for x in predictions])
+    # Если нет данных, сразу возвращаем
+    if len(predictions) == 0:
+        return predicted_data
 
-    # Определяем max_bin и корректируем return
+    # Извлекаем первые три элемента (вероятности) и четвёртый элемент (return)
+    # Обратите внимание, что у некоторых строк может не быть 4-го элемента -> обрабатываем это
+    first_three = []
+    fourth_element = []
+
+    for row in predictions:
+        # row[:3] — это p(-1), p(0), p(+1); если меньше трёх, то дополним нулями
+        if len(row) >= 3:
+            first_three.append(row[:3])
+        else:
+            # Если почему-то меньше трёх элементов, дополним нулями
+            first_three.append([0.0, 0.0, 0.0])
+
+        if len(row) >= 4 and row[3] is not None:
+            fourth_element.append(row[3])
+        else:
+            # Если нет 4-го элемента, можно выставить 0 или пропустить
+            fourth_element.append(0.0)
+
+    first_three = np.array(first_three, dtype=float)
+    return_value = np.array(fourth_element, dtype=float)
+
+    # Находим bin = argmax(first_three) + 1  => 1,2,3
     max_bin = np.argmax(first_three, axis=1) + 1
-    return_value = np.copy(fourth_element)
 
-    # Условная корректировка return_value
-    return_value = np.where(
-        (return_value < 0) & (max_bin == 3),
-        np.abs(return_value),
-        return_value
-    )
-    return_value = np.where(
-        (return_value > 0) & (max_bin == 1),
-        -np.abs(return_value),
-        return_value
-    )
+    # Корректируем знак return_value в соответствии с bin:
+    #   - Если bin=3 (long), но return < 0, берем модуль
+    #   - Если bin=1 (short), но return > 0, берем отрицательный модуль
+    cond_long_negative = (max_bin == 3) & (return_value < 0)
+    return_value[cond_long_negative] = np.abs(return_value[cond_long_negative])
 
-    # Инициализация vol, tp, sl
-    vol = np.zeros(len(predictions))
-    tp = np.zeros(len(predictions))
-    sl = np.zeros(len(predictions))
+    cond_short_positive = (max_bin == 1) & (return_value > 0)
+    return_value[cond_short_positive] = -np.abs(return_value[cond_short_positive])
 
-    # Обработка bin-1
-    mask_bin_minus1 = max_bin == 1
+    # Заготовим vol, tp, sl (векторно) - по умолчанию 0
+    vol = np.zeros_like(return_value, dtype=float)
+    tp = np.zeros_like(return_value, dtype=float)
+    sl = np.zeros_like(return_value, dtype=float)
+
+    # --- Обработка bin=1 (short) ---
+    mask_bin_minus1 = (max_bin == 1)
     p_minus1 = first_three[mask_bin_minus1, 0]
-    print('p_minus1', p_minus1)
-    b_minus1 = p_minus1 / (1 - p_minus1)
-    vol[mask_bin_minus1] = np.maximum(0, p_minus1 - (1 - p_minus1) / b_minus1)
-    tp[mask_bin_minus1] = coeff_tp * return_value[mask_bin_minus1]
-    sl[mask_bin_minus1] = coeff_sl * return_value[mask_bin_minus1] / b_minus1
 
-    # Обработка bin+1
-    mask_bin_plus1 = max_bin == 3
+    # Зажимаем значения p, чтобы избежать деления на 0 или бесконечности
+    p_minus1 = np.clip(p_minus1, eps, 1 - eps)
+    b_minus1 = p_minus1 / (1.0 - p_minus1)
+
+    # vol
+    # Ниже формула: p(-1) - (1 - p(-1))/b(-1). Поскольку b(-1) = p(-1)/(1 - p(-1)),
+    # (1 - p(-1))/b(-1) = (1 - p(-1)) * (1 - p(-1)) / p(-1) = (1 - p(-1))^2 / p(-1).
+    # Оставляем как есть в коде, если логика "vol = max(0, ...)" нужна именно такая.
+    raw_vol_minus1 = p_minus1 - (1 - p_minus1) / b_minus1
+    vol[mask_bin_minus1] = np.maximum(0.0, raw_vol_minus1)
+
+    # tp, sl
+    return_minus1 = return_value[mask_bin_minus1]
+    tp[mask_bin_minus1] = coeff_tp * return_minus1
+    sl[mask_bin_minus1] = coeff_sl * return_minus1 / b_minus1
+
+    # --- Обработка bin=3 (long) ---
+    mask_bin_plus1 = (max_bin == 3)
     p_plus1 = first_three[mask_bin_plus1, 2]
-    print('p_plus1', p_plus1)
-    b_plus1 = p_plus1 / (1 - p_plus1)
-    vol[mask_bin_plus1] = np.maximum(0, p_plus1 - (1 - p_plus1) / b_plus1)
-    tp[mask_bin_plus1] = coeff_tp * return_value[mask_bin_plus1]
-    sl[mask_bin_plus1] = coeff_sl * return_value[mask_bin_plus1] / b_plus1
 
-    # Обновляем массив prediction: заменяем 4-й элемент и добавляем vol, tp, sl
+    # Аналогично зажимаем
+    p_plus1 = np.clip(p_plus1, eps, 1 - eps)
+    b_plus1 = p_plus1 / (1.0 - p_plus1)
+
+    raw_vol_plus1 = p_plus1 - (1 - p_plus1) / b_plus1
+    vol[mask_bin_plus1] = np.maximum(0.0, raw_vol_plus1)
+
+    return_plus1 = return_value[mask_bin_plus1]
+    tp[mask_bin_plus1] = coeff_tp * return_plus1
+    sl[mask_bin_plus1] = coeff_sl * return_plus1 / b_plus1
+
+    # Собираем обратно данные в нужный формат:
     updated_predictions = []
-    for i in range(len(predictions)):
-        pred = list(predictions[i])
-        if len(pred) > 3:
-            pred[3] = return_value[i]
-        pred.extend([vol[i], tp[i], sl[i]])
-        updated_predictions.append(pred)
+    for i, row in enumerate(predictions):
+        # Преобразуем в список, чтобы дописать нужные значения
+        row_list = list(row)
 
-    # Обновляем DataFrame
+        # Обновляем 4-й элемент (return), если он есть
+        if len(row_list) >= 4:
+            row_list[3] = return_value[i]
+        else:
+            # Если вдруг по каким-то причинам нет 4-го элемента,
+            # докидываем его (для целостности данных)
+            while len(row_list) < 3:
+                row_list.append(0.0)
+            row_list.append(return_value[i])
+
+        # Добавляем vol, tp, sl
+        row_list.extend([vol[i], tp[i], sl[i]])
+
+        updated_predictions.append(row_list)
+
+    # Записываем обновлённую колонку обратно в DataFrame
     predicted_data['prediction'] = updated_predictions
 
     return predicted_data
+
 
 
 
