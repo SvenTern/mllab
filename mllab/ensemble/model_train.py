@@ -322,8 +322,8 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         #sample_for_prediction = X_test
         #sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
         predictions = model.predict(X_test_scaled)
-        #print('predictions',predictions)
-        #print('y_test',y_test)
+        print('predictions',predictions, len(predictions))
+        print('y_test',y_test, len(y_test))
 
         # 1. Коэффициент Пирсона (Pearson)
         pearson_corr, pearson_pval = pearsonr(y_test, predictions)
