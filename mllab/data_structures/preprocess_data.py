@@ -82,7 +82,7 @@ class FinancePreprocessor:
     ...
     """
 
-    def read_csv(self, file_name: str = ""):
+    def read_csv(self, file_name: str = "", udate_dates = False):
         data_return = pd.read_csv(self.file_path + file_name)
 
         index_name = None
@@ -100,6 +100,14 @@ class FinancePreprocessor:
             # Set the determined index and convert to datetime
             data_return.set_index(index_name, inplace=True)
             data_return.index = pd.to_datetime(data_return.index)
+
+        # нужно определить начальную дату в датаесете и конечную дату
+        if udate_dates:
+            # Определяем минимальную и максимальную дату в индексе
+            start = data_return.index.min().strftime('%Y-%m-%d')
+            end = data_return.index.max().strftime('%Y-%m-%d')
+            self.fill_dates(start, end)
+
 
         return data_return
 
@@ -133,7 +141,7 @@ class FinancePreprocessor:
         if clean_data:
             self.clean = True
         if download_from_disk:
-          return self.read_csv('.csv')
+          return self.read_csv('.csv', udate_dates = True)
 
         # Download and save the data in a pandas DataFrame
         start_date = pd.Timestamp(self.start)
@@ -615,12 +623,20 @@ class FinancePreprocessor:
         #        print("Successfully transformed into array")
         return price_array, tech_array, turbulence_array
 
-    def fill_dates(self):
-        self.TRAIN_START_DATE = '2024-01-01'
+    def fill_dates(self, start = None, end = None):
+        if start is None:
+            self.TRAIN_START_DATE = '2024-01-01'
+        else:
+            self.TRAIN_START_DATE = start
+
         current_date = datetime.datetime.now().strftime('%Y-%m-%d')
 
         self.start = self.TRAIN_START_DATE
-        self.end = current_date
+
+        if end is None:
+            self.end = current_date
+        else:
+            self.end = end
 
         # Get trading days from the start of the year to the current date
         trading_days = self.get_trading_days()
