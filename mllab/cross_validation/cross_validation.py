@@ -364,22 +364,33 @@ def cost_metric_3class(confusion_matrix: np.ndarray):
         [3, 1, 0]   # Реальный класс  1
     ])
 
+    cost_max = np.array([
+        [1, 1, 3],  # Реальный класс -1
+        [1, 0, 1],  # Реальный класс  0
+        [3, 1, 1]  # Реальный класс  1
+    ])
+
     # 1) Считаем фактическую суммарную стоимость (Cost)
     cost = 0.0
     for i in range(3):
         for j in range(3):
             cost += confusion_matrix[i, j] * cost_matrix[i, j]
 
+    cost_max = 0.0
+    for i in range(3):
+        for j in range(3):
+            cost_max += confusion_matrix[i, j] * cost_max[i, j]
+
     # 2) Считаем максимально возможную стоимость (Cost_max).
     #    Предположим, что "худшая" ошибка для каждого класса i —
     #    это предсказывать тот класс j, который даёт максимальный штраф cost_matrix[i, j].
-    cost_max = 0.0
-    for i in range(3):
-        row_sum = np.sum(confusion_matrix[i, :])   # общее кол-во примеров реального класса i
-        # Максимальный штраф в строке i (не обязательно на позиции j!=i,
-        # ведь cost_matrix[i,i] = 0, а нам нужен худший вариант).
-        costliest = np.max(cost_matrix[i, :])
-        cost_max += row_sum * costliest
+    #cost_max = 0.0
+    #for i in range(3):
+    #    row_sum = np.sum(confusion_matrix[i, :])   # общее кол-во примеров реального класса i
+    #    # Максимальный штраф в строке i (не обязательно на позиции j!=i,
+    #    # ведь cost_matrix[i,i] = 0, а нам нужен худший вариант).
+    #    costliest = np.max(cost_matrix[i, :])
+    #    cost_max += row_sum * costliest
 
     # 3) Cost-based Accuracy
     #    Если cost_max = 0 (например, пустая матрица), чтобы избежать деления на ноль,
