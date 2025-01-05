@@ -252,8 +252,12 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
             print(f"    Пропускаем (нет данных) для тикера {ticker}.")
             continue
 
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_scaled, y, test_size=test_size, random_state=random_state
+        )
+
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+        X_scaled = scaler.fit_transform(X_train)
         scaler_path = f"{base_folder}/regression_scaler_{ticker}.joblib"
         list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}.lst")
         joblib.dump(scaler, scaler_path)
@@ -261,10 +265,6 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         print(f"    Scaler сохранён в файл: {scaler_path}")
 
         num_features = X_scaled.shape[1]
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y, test_size=test_size, random_state=random_state
-        )
 
         if len(X_train) < 10:
             print("    Недостаточно данных для обучения. Пропускаем.")
@@ -281,14 +281,16 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         val_split = 0.2
         val_size = int(len(X_train) * val_split)
 
-        X_val = X_train[:val_size]
+        X_val = X_scaled[:val_size]
         y_val = y_train[:val_size]
-        X_train_part = X_train[val_size:]
+        X_train_part = X_scaled[val_size:]
         y_train_part = y_train[val_size:]
 
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train_part, y_train_part)).shuffle(buffer_size=len(X_train_part)).batch(32)
         val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(32)
-        test_dataset = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(32)
+
+        X_test_scaled = scaler.transform(X_test)
+        test_dataset = tf.data.Dataset.from_tensor_slices((X_test_scaled, y_test)).batch(32)
 
         print("    Обучаем новую модель...")
         history = model.fit(
@@ -308,9 +310,11 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
 
         previous_ticker_model_path = model_path
 
-        sample_for_prediction = X_test
-        sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
-        predictions = model.predict(sample_dataset)
+        #sample_for_prediction = X_test
+        #sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
+        predictions = model.predict(X_test_scaled)
+        print('predictions',predictions)
+        print('y_test',y_test)
 
         # 1. Коэффициент Пирсона (Pearson)
         pearson_corr, pearson_pval = pearsonr(y_test, predictions)
