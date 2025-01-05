@@ -623,6 +623,7 @@ class StockPortfolioEnv(gym.Env):
         self.portfolio_return_memory = [0]
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
+        self.data = self.get_data_by_date()
 
     def sharpe_ratio_minutely(
             self
