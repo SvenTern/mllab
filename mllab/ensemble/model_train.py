@@ -453,7 +453,7 @@ def update_indicators(labels, indicators, type='bagging'):
                 models[f'regression_model_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_model_{tic}.joblib')
                 models[f'regression_scaler_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_scaler_{tic}.joblib')
                 models[f'classifier_indicators_{tic}'] = joblib.load(
-                    basefolder + folder_bagging + f'classifier_indicators_{tic}.lst')
+                    basefolder + folder_regression + f'classifier_indicators_{tic}.lst')
         except Exception as e:
             print(f"Error loading model or scaler for ticker {tic}: {e}")
             continue
