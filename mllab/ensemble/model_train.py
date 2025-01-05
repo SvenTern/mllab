@@ -881,7 +881,7 @@ class StockPortfolioEnv(gym.Env):
         Sell all long and short positions.
         """
         for i, holding in enumerate(self.share_holdings):
-            current_price = self.data_map[self.dates[self.min]]['close'].values[i]
+            current_price = self.data['close'].values[i]
             self._sell_stock(i, holding, current_price)
 
     def step(self, actions):
