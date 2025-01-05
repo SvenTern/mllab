@@ -673,7 +673,7 @@ class StockPortfolioEnv(gym.Env):
         """
         Получить данные за конкретную дату.
         """
-        if min is None
+        if min is None:
             date = self.dates[self.min]
         else:
             date = self.dates[min]
