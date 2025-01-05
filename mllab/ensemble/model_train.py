@@ -257,16 +257,25 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         )
 
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_train)
+        X_train_scaled = pd.DataFrame(
+            scaler.fit_transform(X_train),
+            columns=X_train.columns
+        )
+        # transform на тестовой выборке
+        X_test_scaled = pd.DataFrame(
+            scaler.transform(X_test),
+            columns=X_test.columns
+        )
+
         scaler_path = f"{base_folder}/regression_scaler_{ticker}.joblib"
         list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}.lst")
         joblib.dump(scaler, scaler_path)
         joblib.dump(list_main_indicators, list_main_indicators_name)
         print(f"    Scaler сохранён в файл: {scaler_path}")
 
-        num_features = X_scaled.shape[1]
+        num_features = X_train_scaled.shape[1]
 
-        if len(X_train) < 10:
+        if len(X_train_scaled) < 10:
             print("    Недостаточно данных для обучения. Пропускаем.")
             continue
 
@@ -279,17 +288,17 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
                 model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
         val_split = 0.2
-        val_size = int(len(X_train) * val_split)
+        val_size = int(len(X_train_scaled) * val_split)
 
-        X_val = X_scaled[:val_size]
+        X_val = X_train_scaled[:val_size]
         y_val = y_train[:val_size]
-        X_train_part = X_scaled[val_size:]
+        X_train_part = X_train_scaled[val_size:]
         y_train_part = y_train[val_size:]
 
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train_part, y_train_part)).shuffle(buffer_size=len(X_train_part)).batch(32)
         val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(32)
 
-        X_test_scaled = scaler.transform(X_test)
+
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test_scaled, y_test)).batch(32)
 
         print("    Обучаем новую модель...")
