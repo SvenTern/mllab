@@ -90,7 +90,7 @@ class FinancePreprocessor:
         """
         try:
             # Преобразуем строку в объект datetime
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
 
             # Устанавливаем таймзону Нью-Йорка
             ny_timezone = pytz.timezone('America/New_York')
