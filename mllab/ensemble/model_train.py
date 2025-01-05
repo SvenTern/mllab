@@ -534,7 +534,7 @@ def update_indicators(labels, indicators, type='bagging'):
         return indicators
 
 
-class StockPortfolioEnv():
+class StockPortfolioEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self,
@@ -1064,6 +1064,17 @@ class StockPortfolioEnv():
     def render(self, mode='human'):
         """Render the current environment state."""
         return self.state
+
+    def _seed(self, seed=None):
+        """Set random seed for reproducibility."""
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    def get_sb_env(self):
+        """Get the stable-baselines environment."""
+        e = DummyVecEnv([lambda: self])
+        obs = e.reset()
+        return e, obs
 
     # проскальзывание
     def simulate_stop_loss_slippage_dynamic(entry_price, stop_loss_price, low_price, max_slippage_percent=5):
