@@ -808,7 +808,7 @@ class StockPortfolioEnv(gym.Env):
             weight_diff = new_weights - np.array(self.actions_memory[-1][0])
 
             for i, diff in enumerate(weight_diff):
-                current_price = self.data_map[self.dates[self.min]]['close'].values[i]
+                current_price = self.data['close'].values[i]
                 self._sell_stock(i, int(diff * self.portfolio_value / current_price), current_price)
 
         self.min += 1
