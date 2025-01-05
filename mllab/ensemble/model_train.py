@@ -534,22 +534,24 @@ def update_indicators(labels, indicators, type='bagging'):
         return indicators
 
 
-
-
-class StockPortfolioEnv(gym.Env):
+class StockPortfolioEnv():
     metadata = {'render.modes': ['human']}
 
     def __init__(self,
                  df,
                  stock_dim,
                  hmax,
+                 risk_volume,
                  initial_amount,
                  transaction_cost_amount,
                  reward_scaling,
                  tech_indicator_list,
                  features_list,
                  turbulence_threshold=None,
-                 lookback=5):
+                 lookback=5,
+                 initial=True,
+                 previous_state=[]
+                 ):
         """
         Initialize the environment with the given parameters.
 
@@ -580,24 +582,36 @@ class StockPortfolioEnv(gym.Env):
         self.initial_amount = initial_amount  # Starting portfolio cash value
         self.transaction_cost_amount = transaction_cost_amount  # Cost per share transaction
         self.reward_scaling = reward_scaling  # Scaling factor for reward
-        self.state_space = (self.calculate_total_length_of_features(df, features_list) + len(
-            tech_indicator_list)) * lookback  # Dimensions of state space
-        self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3))  # Long/Short/StopLoss/TakeProfit
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(stock_dim, self.state_space)
-        )
+        self.risk_volume = risk_volume  # Risk volume for portfolio
+        # state_dim = (self.calculate_total_length_of_features(df, features_list) + len(tech_indicator_list)) * lookback
+        self.initial = initial
+        self.previous_state = previous_state
+
         self.tech_indicator_list = tech_indicator_list  # List of technical indicators
         self.features_list = features_list  # List of features
 
         # Precompute timestamps and data mapping
-        self.timestamps = df['timestamp'].sort_values().unique()
-        self.data_map = {ts: df[df['timestamp'] == ts] for ts in self.timestamps}
-        self.state = self._construct_state()
+        self.dates = np.sort(df['date'].unique())
+
+        # Преобразуем DataFrame в формат numpy для более быстрой обработки на TPU
+        self.df_numpy = df.to_numpy()
+        self.columns = df.columns.tolist()  # Сохраняем порядок колонок для доступа к данным
+
+        # Группируем данные по дате
+        self.grouped_data = df.groupby('date')
+
+        # self.data_map = {ts: df[df['date'] == ts] for ts in self.dates}
         self.terminal = False
         self.portfolio_value = self.initial_amount  # Portfolio value
         self.cash = self.initial_amount  # Cash is now
         self.share_holdings = np.zeros(self.stock_dim)  # Share holdings
-
+        # initalize state
+        self.state = self._initiate_state()
+        self.state_space = (len(self.state),)  # Dimensions of state space
+        # self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3))  # Long/Short/StopLoss/TakeProfit
+        # self.observation_space = spaces.Box(
+        #    low=-np.inf, high=np.inf, shape=(self.state_space, )
+        # )
         # Memory for tracking and logging
         self.asset_memory = [
             {
@@ -608,7 +622,7 @@ class StockPortfolioEnv(gym.Env):
         ]
         self.portfolio_return_memory = [0]
         self.actions_memory = [[[0]] * self.stock_dim]
-        self.date_memory = [self.timestamps[0]]
+        self.date_memory = [self.dates[0]]
 
     def sharpe_ratio_minutely(
             self
@@ -654,27 +668,15 @@ class StockPortfolioEnv(gym.Env):
 
         return sharpe_annual
 
-
-    def calculate_total_length_of_features(df, features_list):
+    def get_data_by_date(self):
         """
-        Calculate the total length of all data elements in the specified columns of the DataFrame.
-
-        Parameters:
-        - df: The input DataFrame containing the data.
-        - features_list: List of column names to calculate lengths for.
-
-        Returns:
-        - total_length: The total length of all data elements in the specified columns.
+        Получить данные за конкретную дату.
         """
-        total_length = 0
-
-        for feature in features_list:
-            if feature in df.columns:
-                total_length += df[feature].apply(
-                    lambda x: len(x) if isinstance(x, (list, np.ndarray, str)) else 1).sum()
-
-        return total_length
-
+        date = self.dates[self.min]
+        if date in self.grouped_data.groups:
+            return self.grouped_data.get_group(date)
+        else:
+            return None
 
     def get_transaction_cost(self, amount, current_price):
         """
@@ -697,26 +699,43 @@ class StockPortfolioEnv(gym.Env):
 
         return transaction_cost
 
-    def _construct_state(self):
+    def _update_state(self, weights):
         """
-        Construct the current state with historical data.
+        Construct the current state with historical data, handling multiple tickers.
         """
+        state_data = (
+                [self.portfolio_value]  # Портфельная стоимость
+                + weights  # Веса активов
+                + [self.cash]  # Денежные средства
+        )
+
+        # Вычисляем стартовый индекс для lookback
         start_index = max(0, self.min - self.lookback + 1)
         historical_data = self.df.iloc[start_index:self.min + 1]
 
-        # Collect features
-        state_data = []
-        for feature in self.features_list:
-            feature_values = historical_data[feature].values[-self.lookback:] if len(
-                historical_data) >= self.lookback else np.zeros(self.lookback)
-            state_data.append(feature_values)
+        # Обрабатываем данные по каждому тикеру
+        for tic in self.df['tic'].unique():
+            tic_data = historical_data[historical_data['tic'] == tic]
 
-        # Collect technical indicators
-        for tech in self.tech_indicator_list:
-            tech_values = historical_data[tech].values[-self.lookback:] if len(
-                historical_data) >= self.lookback else np.zeros(self.lookback)
-            state_data.append(tech_values)
+            # Добавляем рыночные признаки
+            for feature in self.features_list:
+                if feature in tic_data.columns:
+                    feature_values = tic_data[feature].values[-self.lookback:] if len(
+                        tic_data) >= self.lookback else np.zeros(self.lookback)
+                else:
+                    feature_values = np.zeros(self.lookback)
+                state_data.append(feature_values)
 
+            # Добавляем технические индикаторы
+            for tech in self.tech_indicator_list:
+                if tech in tic_data.columns:
+                    tech_values = tic_data[tech].values[-self.lookback:] if len(
+                        tic_data) >= self.lookback else np.zeros(self.lookback)
+                else:
+                    tech_values = np.zeros(self.lookback)
+                state_data.append(tech_values)
+
+        # Объединяем все данные в единый вектор
         return np.concatenate(state_data)
 
     def _sell_stock(self, stock_index, amount, current_price):
@@ -745,7 +764,7 @@ class StockPortfolioEnv(gym.Env):
         Sell all long and short positions.
         """
         for i, holding in enumerate(self.share_holdings):
-            current_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
+            current_price = self.data_map[self.dates[self.min]]['close'].values[i]
             self._sell_stock(i, holding, current_price)
 
     def step(self, actions):
@@ -761,23 +780,23 @@ class StockPortfolioEnv(gym.Env):
         - terminal: Boolean indicating if the episode is finished.
         - info: Additional information (currently empty).
         """
-        self.terminal = self.min >= len(self.timestamps) - 1
-        last_minute_of_day = self.min < len(self.timestamps) - 1 and self.timestamps[self.min].date() != \
-                             self.timestamps[self.min + 1].date()
+        self.terminal = self.min >= len(self.dates) - 1
 
         if self.terminal:
             self._sell_all_stocks()
-
             df = pd.DataFrame(self.portfolio_return_memory, columns=['return'])
             plt.plot(df['return'].cumsum())
-
             plt.savefig('cumulative_reward.png')
             plt.close()
-
             self.reward = self.sharpe_ratio_minutely()
             print('sharp ratio', self.reward)
-
             return self.state, self.reward, self.terminal, {}
+
+        last_minute_of_day = (
+                self.dates[self.min].astype('datetime64[D]') != self.dates[self.min + 1].astype('datetime64[D]')
+        )
+        if last_minute_of_day:
+            self._sell_all_stocks()
 
         # Normalize weights for non-terminal, non-last-minute steps
         new_weights = np.zeros_like(actions[:, 0]) if last_minute_of_day else self.softmax_normalization(actions[:, 0])
@@ -786,11 +805,12 @@ class StockPortfolioEnv(gym.Env):
         weight_diff = new_weights - np.array(self.actions_memory[-1][0])
 
         for i, diff in enumerate(weight_diff):
-            current_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
+            current_price = self.data_map[self.dates[self.min]]['close'].values[i]
             self._sell_stock(i, int(diff * self.portfolio_value / current_price), current_price)
 
         self.min += 1
-        self.state = self._construct_state()
+        self.data = self.get_data_by_date()
+        self.state = self._update_state()
 
         portfolio_return, updated_weights = self.calculate_portfolio_return(stop_loss, take_profit)
         self.actions_memory.append(
@@ -799,9 +819,11 @@ class StockPortfolioEnv(gym.Env):
         self.asset_memory.append(
             {'cash': self.cash, 'portfolio_value': self.portfolio_value, 'holdings': self.share_holdings.copy()})
 
-        self.reward = self.sharpe_ratio_minutely()
-        #self.portfolio_value * self.reward_scaling
+        self.date_memory.append(self.dates[self.min])
 
+        self.state = self._update_state(updated_weights)
+
+        self.reward = self.sharpe_ratio_minutely() * self.reward_scaling
         return self.state, self.reward, self.terminal, {}
 
     def calculate_portfolio_return(self, stop_loss, take_profit):
@@ -812,11 +834,11 @@ class StockPortfolioEnv(gym.Env):
         returns = []
 
         for i, holding in enumerate(self.share_holdings):
-            low = self.data_map[self.timestamps[self.min]]['low'].values[i]
-            high = self.data_map[self.timestamps[self.min]]['high'].values[i]
-            close_price = self.data_map[self.timestamps[self.min]]['close'].values[i]
-            open_price = self.data_map[self.timestamps[self.min]]['open'].values[i]
-            last_close = self.data_map[self.timestamps[self.min - 1]]['close'].values[i]
+            low = self.data_map[self.dates[self.min]]['low'].values[i]
+            high = self.data_map[self.dates[self.min]]['high'].values[i]
+            close_price = self.data_map[self.dates[self.min]]['close'].values[i]
+            open_price = self.data_map[self.dates[self.min]]['open'].values[i]
+            last_close = self.data_map[self.dates[self.min - 1]]['close'].values[i]
 
             stop_loss_price = last_close * (1 - stop_loss[i])
             take_profit_price = last_close * (1 + take_profit[i])
@@ -862,10 +884,107 @@ class StockPortfolioEnv(gym.Env):
 
         # Update portfolio weights based on new holdings
         for i, holding in enumerate(self.share_holdings):
-            updated_weights[i] = (holding * self.data_map[self.timestamps[self.min]]['close'].values[
+            updated_weights[i] = (holding * self.data_map[self.dates[self.min]]['close'].values[
                 i]) / self.portfolio_value if self.portfolio_value > 0 else 0
 
         return portfolio_return, updated_weights
+
+    # структура state
+    # текущий размер портфеля
+    # объемы портфеля по акциям и в кэше
+    # все future list вместе с loopback
+    def _initiate_state(self):
+        if self.initial:
+            # For Initial State
+            # for multiple stock
+            state_data = [
+                np.array([self.initial_amount]),  # Преобразовать в массив
+                np.zeros(self.stock_dim),  # Массив нулей для акций
+                np.array([self.initial_amount]),  # Преобразовать в массив
+            ]
+
+            # Вычисляем стартовый индекс для lookback
+            start_index = 0
+            historical_data = self.df.iloc[start_index:self.min + 1]
+
+            # Обрабатываем данные по каждому тикеру
+            for tic in self.df['tic'].unique():
+                tic_data = historical_data[historical_data['tic'] == tic]
+
+                # Добавляем рыночные признаки
+                for feature in self.features_list:
+                    if feature in tic_data.columns:
+                        feature_values = tic_data[feature].values[-self.lookback:] if len(
+                            tic_data) >= self.lookback else np.zeros(self.lookback)
+                    else:
+                        feature_values = np.zeros(self.lookback)
+                    state_data.append(feature_values)
+
+                # Добавляем технические индикаторы
+                for tech in self.tech_indicator_list:
+                    if tech in tic_data.columns:
+                        tech_values = tic_data[tech].values[-self.lookback:] if len(
+                            tic_data) >= self.lookback else np.zeros(self.lookback)
+                    else:
+                        tech_values = np.zeros(self.lookback)
+                    state_data.append(tech_values)
+            print('state_data', state_data)
+            # Объединяем все данные в единый вектор
+            state = np.concatenate(state_data)
+
+        else:
+            # Using Previous State
+            # for multiple stock
+            state_data = (
+                    [self.previous_state[0]]
+                    + self.previous_state[
+                      (self.stock_dim + 1): (self.stock_dim * 2 + 2)
+                      ]
+                    + sum(
+                [
+                    self.df[feature].values if np.issubdtype(self.df[feature].dtype, np.number) else self.df[
+                        feature].tolist()
+                    for feature in self.features_list
+                ],
+            )
+                    + sum(
+                [
+                    self.data[tech].values.tolist()
+                    for tech in self.tech_indicator_list
+                ],
+            )
+            )
+
+            # Вычисляем стартовый индекс для lookback
+            start_index = 0
+            historical_data = self.df.iloc[start_index:1]
+
+            # Обрабатываем данные по каждому тикеру
+            for tic in self.df['tic'].unique():
+                tic_data = historical_data[historical_data['tic'] == tic]
+
+                # Добавляем рыночные признаки
+                for feature in self.features_list:
+                    if feature in tic_data.columns:
+                        feature_values = tic_data[feature].values[-self.lookback:] if len(
+                            tic_data) >= self.lookback else np.zeros(self.lookback)
+                    else:
+                        feature_values = np.zeros(self.lookback)
+                    state_data.append(feature_values)
+
+                # Добавляем технические индикаторы
+                for tech in self.tech_indicator_list:
+                    if tech in tic_data.columns:
+                        tech_values = tic_data[tech].values[-self.lookback:] if len(
+                            tic_data) >= self.lookback else np.zeros(self.lookback)
+                    else:
+                        tech_values = np.zeros(self.lookback)
+                    state_data.append(tech_values)
+
+            # Объединяем все данные в единый вектор
+            return np.concatenate(state_data)
+
+        return state
 
     def softmax_normalization(self, actions):
         """
@@ -903,10 +1022,11 @@ class StockPortfolioEnv(gym.Env):
         Reset the environment to its initial state.
         """
         self.min = 0
-        self.state = self._construct_state()
+        self.data = self.get_data_by_date()
         self.portfolio_value = self.initial_amount  # Reset portfolio
         self.cash = self.initial_amount  # Reset cash
         self.share_holdings = np.zeros(self.stock_dim)  # Reset share holdings
+        self.state = self._initiate_state()
         self.asset_memory = [
             {
                 'cash': self.initial_amount,
@@ -916,7 +1036,7 @@ class StockPortfolioEnv(gym.Env):
         ]
         self.portfolio_return_memory = [0]
         self.actions_memory = [[[0]] * self.stock_dim]
-        self.date_memory = [self.timestamps[0]]
+        self.date_memory = [self.dates[0]]
         return self.state
 
     def save_asset_memory(self):
@@ -934,27 +1054,16 @@ class StockPortfolioEnv(gym.Env):
         """
         date_list = self.date_memory
         df_date = pd.DataFrame(date_list)
-        df_date.columns = ['timestamp']
+        df_date.columns = ['date']
         action_list = self.actions_memory
         df_actions = pd.DataFrame(action_list)
-        df_actions.columns = self.data_map[self.timestamps[self.min]]['tic'].values
-        df_actions.index = df_date.timestamp
+        df_actions.columns = self.data_map[self.dates[self.min]]['tic'].values
+        df_actions.index = df_date.date
         return df_actions
 
     def render(self, mode='human'):
         """Render the current environment state."""
         return self.state
-
-    def _seed(self, seed=None):
-        """Set random seed for reproducibility."""
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def get_sb_env(self):
-        """Get the stable-baselines environment."""
-        e = DummyVecEnv([lambda: self])
-        obs = e.reset()
-        return e, obs
 
     # проскальзывание
     def simulate_stop_loss_slippage_dynamic(entry_price, stop_loss_price, low_price, max_slippage_percent=5):
@@ -986,3 +1095,6 @@ class StockPortfolioEnv(gym.Env):
         final_price = low_price + additional_slippage
 
         return final_price
+
+
+
