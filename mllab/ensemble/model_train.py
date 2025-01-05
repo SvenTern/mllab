@@ -31,6 +31,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from concurrent.futures import ThreadPoolExecutor
 from mllab.microstructural_features.feature_generator import get_correlation
 from scipy.stats import pearsonr, spearmanr
+import ast
 
 
 class ensemble_models:
@@ -705,73 +706,103 @@ class StockPortfolioEnv(gym.Env):
 
     import numpy as np
 
+    import numpy as np
+    import ast
+
+    def parse_to_1d_array(value):
+        """
+        Преобразует строку/число/список в numpy-массив float.
+        Если на входе строка вида '[0.049, 0.8265, 0.1245]',
+        то с помощью ast.literal_eval превращаем её в список float.
+        Если одиночное число - делаем массив из одного элемента.
+        """
+        if isinstance(value, str):
+            # Парсим строку как Python-объект (список и т.д.)
+            value = ast.literal_eval(value)  # теперь value должен стать list/float
+        if isinstance(value, list) or isinstance(value, np.ndarray):
+            return np.array(value, dtype=np.float32)
+        else:
+            # Если это одиночное число (float/int), сделаем массив из одного элемента
+            return np.array([value], dtype=np.float32)
+
     def _update_state(self, weights):
         """
-        Обновляем state, используя np.concatenate для формирования массива.
-        Недостающие данные (len(tic_data) < self.lookback) частично дополняются нулями.
+        Пример: собираем ВСЕ числа из столбца feature (по текущему tik_data)
+        в один большой массив и заполняем недостающие значения нулями,
+        если len < lookback.
         """
-
-        # Инициализируем пустой NumPy-массив
-        # dtype берём float32, если нужно более компактное хранение
+        # Инициализируем state_data как NumPy-массив
         state_data = np.empty(0, dtype=np.float32)
 
-        # 1) Добавляем портфельную стоимость (скаляр)
-        state_data = np.concatenate(
-            [state_data, np.array([self.portfolio_value], dtype=np.float32)],
-            axis=0
-        )
+        # 1) Добавим портфельную стоимость
+        state_data = np.concatenate([state_data,
+                                     np.array([self.portfolio_value], dtype=np.float32)])
 
-        # 2) Добавляем веса (если weights - np.ndarray, приводим к float32 для единообразия)
-        weights = weights.astype(np.float32)  # если weights уже float32, можно пропустить
-        state_data = np.concatenate([state_data, weights], axis=0)
+        # 2) Добавим веса (если weights - np.ndarray float)
+        weights = weights.astype(np.float32)
+        state_data = np.concatenate([state_data, weights])
 
-        # 3) Добавляем кэш (скаляр)
-        state_data = np.concatenate(
-            [state_data, np.array([self.cash], dtype=np.float32)],
-            axis=0
-        )
+        # 3) Добавим кэш
+        state_data = np.concatenate([state_data,
+                                     np.array([self.cash], dtype=np.float32)])
 
-        # 4) Готовим исторические данные
+        # 4) Вычислим исторический срез
         start_index = max(0, self.min - self.lookback + 1)
         historical_data = self.df.iloc[start_index:self.min + 1]
 
-        # Проходим по тикерам в фиксированном (отсортированном) порядке
+        # 5) Цикл по тикерам (возможно, в отсортированном порядке)
         for tic in sorted(self.df['tic'].unique()):
             tic_data = historical_data[historical_data['tic'] == tic]
 
-            # Добавляем рыночные признаки
+            # Пример для "рыночных" признаков
             for feature in self.features_list:
+                # -- Сбор всех чисел во временный список (а точнее, потом в массив) --
                 if feature in tic_data.columns:
-                    actual_values = tic_data[feature].values
-                    n = len(actual_values)
-                    if n >= self.lookback:
-                        # Если данных >= lookback, берём последние lookback
-                        feature_values = actual_values[-self.lookback:]
+                    # Сначала парсим каждую ячейку в массив float
+                    parsed_arrays = [
+                        parse_to_1d_array(val) for val in tic_data[feature].values
+                    ]
+                    # Теперь "склеиваем" их все в один общий массив
+                    if len(parsed_arrays) > 0:
+                        flattened = np.concatenate(parsed_arrays)  # склеиваем все
+                        n = len(flattened)
+                        if n >= self.lookback:
+                            feature_values = flattened[-self.lookback:]
+                        else:
+                            feature_values = np.zeros(self.lookback, dtype=np.float32)
+                            feature_values[-n:] = flattened
                     else:
-                        # Если меньше, чем lookback, то часть заполнится нулями
+                        # Если нет строк (parsed_arrays пуст), делаем нули
                         feature_values = np.zeros(self.lookback, dtype=np.float32)
-                        feature_values[-n:] = actual_values
                 else:
-                    # Столбца нет — всё заполняем нулями
+                    # Нет такого столбца
                     feature_values = np.zeros(self.lookback, dtype=np.float32)
 
-                # Конкатенируем в state_data
-                state_data = np.concatenate([state_data, feature_values], axis=0)
+                # Конкатенируем в основной state_data
+                state_data = np.concatenate([state_data, feature_values])
 
-            # Добавляем технические индикаторы
+            # Аналогично - для технических индикаторов
             for tech in self.tech_indicator_list:
                 if tech in tic_data.columns:
-                    actual_values = tic_data[tech].values
-                    n = len(actual_values)
-                    if n >= self.lookback:
-                        tech_values = actual_values[-self.lookback:]
+                    parsed_arrays = [
+                        parse_to_1d_array(val) for val in tic_data[tech].values
+                    ]
+                    if len(parsed_arrays) > 0:
+                        flattened = np.concatenate(parsed_arrays)
+                        n = len(flattened)
+                        if n >= self.lookback:
+                            tech_values = flattened[-self.lookback:]
+                        else:
+                            tech_values = np.zeros(self.lookback, dtype=np.float32)
+                            tech_values[-n:] = flattened
                     else:
                         tech_values = np.zeros(self.lookback, dtype=np.float32)
-                        tech_values[-n:] = actual_values
                 else:
                     tech_values = np.zeros(self.lookback, dtype=np.float32)
 
-                state_data = np.concatenate([state_data, tech_values], axis=0)
+                state_data = np.concatenate([state_data, tech_values])
+
+        return state_data
 
         return state_data
 
