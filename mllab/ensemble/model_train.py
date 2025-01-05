@@ -544,7 +544,7 @@ class StockPortfolioEnv(gym.Env):
                  risk_volume,
                  initial_amount,
                  transaction_cost_amount,
-                 reward_scaling,
+                 reward_scaling=100,
                  tech_indicator_list,
                  features_list,
                  turbulence_threshold=None,
@@ -814,7 +814,6 @@ class StockPortfolioEnv(gym.Env):
 
         self.min += 1
         self.data = self.get_data_by_date()
-        self.state = self._update_state()
 
         portfolio_return, updated_weights = self.calculate_portfolio_return(stop_loss, take_profit)
         self.actions_memory.append(
