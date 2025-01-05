@@ -552,7 +552,8 @@ class StockPortfolioEnv(gym.Env):
                  reward_scaling=100,
                  lookback=5,
                  initial=True,
-                 previous_state=[]
+                 previous_state=[],
+                 minimal_cash = 0.1
                  ):
         """
         Initialize the environment with the given parameters.
@@ -571,6 +572,7 @@ class StockPortfolioEnv(gym.Env):
         - lookback: Number of historical time steps for constructing the state.
         """
         self.FEATURE_LENGTHS = FEATURE_LENGTHS
+        self.minimal_cash = minimal_cash * initial_amount
 
         self.annual_risk_free_rate = 0.04
         self.trading_days_per_year = 252
@@ -817,26 +819,62 @@ class StockPortfolioEnv(gym.Env):
 
         return state_data
 
-    def _sell_stock(self, stock_index, amount, current_price):
+    def _adjust_sell_amount(self, amount, current_price):
         """
-        Sell stock and handle cash and holdings, accounting for long and short positions.
+        Корректируем 'amount' так, чтобы после сделки self.cash не опустился ниже self.minimal_cash,
+        учитывая, что transaction_cost мал, и мы считаем его один раз.
+        """
+        if amount == 0:
+            return 0
 
-        Parameters:
-        - stock_index: Index of the stock to sell.
-        - amount: Amount of stock to sell (positive for selling long, negative for short).
-        - current_price: Current price of the stock.
-        """
+        # 1. Посчитаем комиссию один раз
+        transaction_cost = self.get_transaction_cost(amount, current_price)
+
+        # 2. Посчитаем, каким станет cash после сделки с исходным amount
+        potential_new_cash = self.cash + amount * current_price - transaction_cost
+
+        # 3. Если уже удовлетворяем условие (не уходим ниже minimal_cash) — корректировка не нужна
+        if potential_new_cash >= self.minimal_cash:
+            return amount
+
+        # 4. "значение кэша ушло в минус уже до этого, поэтому мы ничего не делаем,
+        #    текущая сделка только увеличивает количество кэша"
+        if amount * current_price - transaction_cost > 0:
+            return amount
+
+        # 5. Ниже идёт логика для покрытия короткой позиции (amount < 0).
+        max_cover = int((self.cash - self.minimal_cash - transaction_cost) / current_price)
+        x = -amount
+
+        if max_cover < 0:
+            # max_cover < 0 означает, что даже покупка 0 акций (вообще не покрывать шорт) уже
+            # не позволяет остаться выше minimal_cash. Возвращаем 0.
+            return 0
+
+        # Если x (сколько хотели купить) больше, чем max_cover, то уменьшаем до max_cover
+        if x > max_cover:
+            return -max_cover
+        else:
+            return amount
+
+    def _sell_stock(self, stock_index, amount, current_price):
         if amount == 0:
             return
 
-        # Calculate transaction cost
-        transaction_cost = self.get_transaction_cost(amount, current_price)
+        # Узнаём, сколько в итоге можем/хотим продать (или покрыть) без нарушения minimal_cash
+        adjusted_amount = self._adjust_sell_amount(amount, current_price)
 
-        # Update portfolio and cash
-        sell_value = amount * current_price
+        if adjusted_amount == 0:
+            # Если стало 0 — значит, сделку не совершаем.
+            return
+
+        # Пересчитываем комиссию и итоговое поступление/списание
+        transaction_cost = self.get_transaction_cost(adjusted_amount, current_price)
+        sell_value = adjusted_amount * current_price
+
         self.cash += sell_value - transaction_cost
         self.portfolio_value -= transaction_cost
-        self.share_holdings[stock_index] -= amount
+        self.share_holdings[stock_index] -= adjusted_amount
 
     def _sell_all_stocks(self):
         """
