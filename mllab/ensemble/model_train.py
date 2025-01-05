@@ -703,44 +703,77 @@ class StockPortfolioEnv(gym.Env):
 
         return transaction_cost
 
+    import numpy as np
+
     def _update_state(self, weights):
         """
-        Construct the current state with historical data, handling multiple tickers.
+        Обновляем state, используя np.concatenate для формирования массива.
+        Недостающие данные (len(tic_data) < self.lookback) частично дополняются нулями.
         """
-        state_data = (
-                [self.portfolio_value]  # Портфельная стоимость
-                + weights  # Веса активов
-                + [self.cash]  # Денежные средства
+
+        # Инициализируем пустой NumPy-массив
+        # dtype берём float32, если нужно более компактное хранение
+        state_data = np.empty(0, dtype=np.float32)
+
+        # 1) Добавляем портфельную стоимость (скаляр)
+        state_data = np.concatenate(
+            [state_data, np.array([self.portfolio_value], dtype=np.float32)],
+            axis=0
         )
 
-        # Вычисляем стартовый индекс для lookback
+        # 2) Добавляем веса (если weights - np.ndarray, приводим к float32 для единообразия)
+        weights = weights.astype(np.float32)  # если weights уже float32, можно пропустить
+        state_data = np.concatenate([state_data, weights], axis=0)
+
+        # 3) Добавляем кэш (скаляр)
+        state_data = np.concatenate(
+            [state_data, np.array([self.cash], dtype=np.float32)],
+            axis=0
+        )
+
+        # 4) Готовим исторические данные
         start_index = max(0, self.min - self.lookback + 1)
         historical_data = self.df.iloc[start_index:self.min + 1]
 
-        # Обрабатываем данные по каждому тикеру
-        for tic in self.df['tic'].unique():
+        # Проходим по тикерам в фиксированном (отсортированном) порядке
+        for tic in sorted(self.df['tic'].unique()):
             tic_data = historical_data[historical_data['tic'] == tic]
 
             # Добавляем рыночные признаки
             for feature in self.features_list:
                 if feature in tic_data.columns:
-                    feature_values = tic_data[feature].values[-self.lookback:] if len(
-                        tic_data) >= self.lookback else np.zeros(self.lookback)
+                    actual_values = tic_data[feature].values
+                    n = len(actual_values)
+                    if n >= self.lookback:
+                        # Если данных >= lookback, берём последние lookback
+                        feature_values = actual_values[-self.lookback:]
+                    else:
+                        # Если меньше, чем lookback, то часть заполнится нулями
+                        feature_values = np.zeros(self.lookback, dtype=np.float32)
+                        feature_values[-n:] = actual_values
                 else:
-                    feature_values = np.zeros(self.lookback)
-                state_data.append(feature_values)
+                    # Столбца нет — всё заполняем нулями
+                    feature_values = np.zeros(self.lookback, dtype=np.float32)
+
+                # Конкатенируем в state_data
+                state_data = np.concatenate([state_data, feature_values], axis=0)
 
             # Добавляем технические индикаторы
             for tech in self.tech_indicator_list:
                 if tech in tic_data.columns:
-                    tech_values = tic_data[tech].values[-self.lookback:] if len(
-                        tic_data) >= self.lookback else np.zeros(self.lookback)
+                    actual_values = tic_data[tech].values
+                    n = len(actual_values)
+                    if n >= self.lookback:
+                        tech_values = actual_values[-self.lookback:]
+                    else:
+                        tech_values = np.zeros(self.lookback, dtype=np.float32)
+                        tech_values[-n:] = actual_values
                 else:
-                    tech_values = np.zeros(self.lookback)
-                state_data.append(tech_values)
+                    tech_values = np.zeros(self.lookback, dtype=np.float32)
 
-        # Объединяем все данные в единый вектор
-        return np.concatenate(state_data)
+                state_data = np.concatenate([state_data, tech_values], axis=0)
+
+        return state_data
 
     def _sell_stock(self, stock_index, amount, current_price):
         """
