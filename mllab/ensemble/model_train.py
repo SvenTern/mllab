@@ -924,11 +924,10 @@ class StockPortfolioEnv(gym.Env):
 
             for i, diff in enumerate(weight_diff):
                 current_price = self.data['close'].values[i]
-                self._sell_stock(i, int(diff * self.portfolio_value / current_price), current_price)
+                self._sell_stock(i, -int(diff * self.portfolio_value / current_price), current_price)
 
-
-        stop_loss = actions[:, 1]
-        take_profit = actions[:, 2]
+        stop_loss = self.sl_scale * actions[:, 1]
+        take_profit = self.tp_scale * actions[:, 2]
 
         print('stop_loss', stop_loss)
         print('take_profit', take_profit)
@@ -941,10 +940,9 @@ class StockPortfolioEnv(gym.Env):
         self.min += 1
         self.data = self.get_data_by_date()
 
-        stop_loss = self.sl_scale * actions[:, 1]
-        take_profit = self.tp_scale * actions[:, 2]
-
         portfolio_return, updated_weights = self.calculate_portfolio_return(stop_loss, take_profit)
+        print('portfolio_return, updated_weights' ,portfolio_return, updated_weights)
+
         self.actions_memory.append(
             np.vstack((updated_weights, stop_loss, take_profit)))  # Update weights in action memory
         self.portfolio_return_memory.append(portfolio_return)
