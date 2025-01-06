@@ -1031,9 +1031,12 @@ class StockPortfolioEnv(gym.Env):
             plt.close()
             #if self.episode % self.print_verbosity == 0:
             print(f"day: {self.date_memory[-1]}, episode: {self.episode}")
-            print(f"begin_total_asset: {self.asset_memory[0].portfolio_value:0.2f}")
-            print(f"end_total_asset: {self.asset_memory[-1].portfolio_value:0.2f}")
-            #print(f"total_reward: {tot_reward:0.2f}")
+            begin_total_asset = self.asset_memory[0].portfolio_value
+            end_total_asset = self.asset_memory[-1].portfolio_value
+            total_reward = 100 * (end_total_asset - begin_total_asset) / begin_total_asset
+            print(f"begin_total_asset: {begin_total_asset:0.2f}")
+            print(f"end_total_asset: {end_total_asset:0.2f}")
+            print(f"total_reward: {total_reward:0.2f}")
             #print(f"total_cost: {self.cost:0.2f}")
             #print(f"total_trades: {self.trades}")
             print(f"Annual Sharpe: {self.calculate_annual_sharpe_ratio(self.convert_absolute_to_relative_returns(df)):0.3f}")
