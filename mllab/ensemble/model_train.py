@@ -929,19 +929,19 @@ class StockPortfolioEnv(gym.Env):
         stop_loss = self.sl_scale * actions[:, 1]
         take_profit = self.tp_scale * actions[:, 2]
 
-        print('stop_loss', stop_loss)
-        print('take_profit', take_profit)
-        print('new_weights', new_weights)
-        print('weight_diff', weight_diff)
+        #print('stop_loss', stop_loss)
+        #print('take_profit', take_profit)
+        #print('new_weights', new_weights)
+        #print('weight_diff', weight_diff)
 
-        print('share_holdings', self.share_holdings)
-        print('portfolio_value', self.portfolio_value)
+        #print('share_holdings', self.share_holdings)
+        #print('portfolio_value', self.portfolio_value)
 
         self.min += 1
         self.data = self.get_data_by_date()
 
         portfolio_return, updated_weights = self.calculate_portfolio_return(stop_loss, take_profit)
-        print('portfolio_return, updated_weights' ,portfolio_return, updated_weights)
+        #print('portfolio_return, updated_weights' ,portfolio_return, updated_weights)
 
         self.actions_memory.append(
             np.vstack((updated_weights, stop_loss, take_profit)))  # Update weights in action memory
