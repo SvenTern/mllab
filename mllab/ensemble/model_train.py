@@ -635,6 +635,8 @@ class StockPortfolioEnv(gym.Env):
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
         self.data = self.get_data_by_date()
+        self.pred_sl = np.zeros(self.stock_dim)
+        self.pred_tp = np.zeros(self.stock_dim)
 
 
     def sharpe_ratio_minutely(
@@ -965,25 +967,56 @@ class StockPortfolioEnv(gym.Env):
         return self.state, self.reward, self.terminal, {}
 
     def get_sltp(self, actions):
-
         if self.use_sltp:
             return self.sl_scale * actions[:, 1], self.tp_scale * actions[:, 2]
         else:
-            # 5) Цикл по тикерам
-            # нужно собрать в массив stop_loss, take_profit по тикерам в строках
+            # Initialize lists to store stop_loss and take_profit for each ticker
             stop_loss = []
             take_profit = []
+
             for tic in self.ticker_list:
+                # Filter data for the current ticker
                 tic_data = self.data[self.data['tic'] == tic]
 
-                #print("tic_data['prediction'].values", tic_data['prediction'].values[0])
-                #print("self.parse_to_1d_array(tic_data['prediction'].values)",
-                #      self.parse_to_1d_array(tic_data['prediction'].values[0]))
-                stop_loss.append(self.parse_to_1d_array(tic_data['prediction'].values[0])[5])
-                take_profit.append(self.parse_to_1d_array(tic_data['prediction'].values[0])[4])
+                if tic_data.empty:
+                    # Handle case where no data is found for the ticker
+                    parsed_prediction = [0] * 6  # Assuming at least 6 elements
+                else:
+                    # Parse the prediction values
+                    parsed_prediction = self.parse_to_1d_array(tic_data['prediction'].values[0])
 
-            # нужно учесть знак
-            return stop_loss * self.sl_scale, take_profit * self.tp_scale
+                # Append the respective stop_loss and take_profit values
+                stop_loss.append(parsed_prediction[5] if len(parsed_prediction) > 5 else 0)
+                take_profit.append(parsed_prediction[4] if len(parsed_prediction) > 4 else 0)
+
+            # Convert lists to numpy arrays for efficient processing
+            stop_loss = np.array(stop_loss)
+            take_profit = np.array(take_profit)
+
+            # Replace zeros in stop_loss and take_profit with previous predictions
+            # Ensure self.pred_sl and self.pred_tp are numpy arrays of the same length
+            if hasattr(self, 'pred_sl') and hasattr(self, 'pred_tp'):
+                # Replace zeros in stop_loss
+                zero_sl_mask = stop_loss == 0
+                stop_loss[zero_sl_mask] = self.pred_sl[zero_sl_mask]
+
+                # Replace zeros in take_profit
+                zero_tp_mask = take_profit == 0
+                take_profit[zero_tp_mask] = self.pred_tp[zero_tp_mask]
+            else:
+                # Initialize self.pred_sl and self.pred_tp if they don't exist
+                self.pred_sl = stop_loss.copy()
+                self.pred_tp = take_profit.copy()
+
+            # Update self.pred_sl and self.pred_tp with the current stop_loss and take_profit
+            self.pred_sl = stop_loss.copy()
+            self.pred_tp = take_profit.copy()
+
+            # Apply scaling
+            scaled_stop_loss = stop_loss * self.sl_scale
+            scaled_take_profit = take_profit * self.tp_scale
+
+            return scaled_stop_loss, scaled_take_profit
 
     def calculate_portfolio_return(self, stop_loss, take_profit):
         """
