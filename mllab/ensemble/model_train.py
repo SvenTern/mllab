@@ -553,7 +553,8 @@ class StockPortfolioEnv(gym.Env):
                  lookback=5,
                  initial=True,
                  previous_state=[],
-                 minimal_cash = 0.1
+                 minimal_cash = 0.1,
+                 use_sltp = False
                  ):
         """
         Initialize the environment with the given parameters.
@@ -573,6 +574,7 @@ class StockPortfolioEnv(gym.Env):
         """
         self.FEATURE_LENGTHS = FEATURE_LENGTHS
         self.minimal_cash = minimal_cash * initial_amount
+        self.use_sltp = use_sltp
 
         self.annual_risk_free_rate = 0.04
         self.trading_days_per_year = 252
@@ -580,8 +582,12 @@ class StockPortfolioEnv(gym.Env):
         self.minutes_per_year = self.trading_days_per_year * self.minutes_per_day
         self.risk_free_rate_per_min = (1 + self.annual_risk_free_rate) ** (1 / (self.minutes_per_year)) - 1
 
-        self.sl_scale = 0.1
-        self.tp_scale = 0.2
+        if self.use_sltp:
+            self.sl_scale = 1
+            self.tp_scale = 2
+        else:
+            self.sl_scale = 0.1
+            self.tp_scale = 0.2
 
         self.min = 0  # Current time index
         self.lookback = lookback  # Number of previous steps for state construction
@@ -617,7 +623,7 @@ class StockPortfolioEnv(gym.Env):
         # initalize state
         self.state = self._initiate_state()
         self.state_space = len(self.state)  # Dimensions of state space
-        self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3))  # Long/Short/StopLoss/TakeProfit
+        self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3)) if self.use_sltp else spaces.Box(low=-1, high=1, shape=(stock_dim, ))  # Long/Short/StopLoss/TakeProfit
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.state_space,)
         )
@@ -627,6 +633,8 @@ class StockPortfolioEnv(gym.Env):
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
         self.data = self.get_data_by_date()
+
+        self.ticker_list = self.df['tic'].unique().sorted().tolist()
 
     def sharpe_ratio_minutely(
             self
@@ -752,7 +760,7 @@ class StockPortfolioEnv(gym.Env):
         historical_data = self.df.iloc[start_index:self.min + 1]
 
         # 5) Цикл по тикерам
-        for tic in sorted(self.df['tic'].unique()):
+        for tic in self.ticker_list:
             tic_data = historical_data[historical_data['tic'] == tic]
 
             # --- (A) Обработка рыночных признаков ---
@@ -926,8 +934,7 @@ class StockPortfolioEnv(gym.Env):
                 current_price = self.data['close'].values[i]
                 self._sell_stock(i, -int(diff * self.portfolio_value / current_price), current_price)
 
-        stop_loss = self.sl_scale * actions[:, 1]
-        take_profit = self.tp_scale * actions[:, 2]
+        stop_loss ,  take_profit = self.get_sltp(actions)
 
         #print('stop_loss', stop_loss)
         #print('take_profit', take_profit)
@@ -955,6 +962,23 @@ class StockPortfolioEnv(gym.Env):
 
         self.reward = self.sharpe_ratio_minutely() * self.reward_scaling
         return self.state, self.reward, self.terminal, {}
+
+    def get_sltp(self, actions):
+
+        if self.use_sltp:
+            return self.sl_scale * actions[:, 1], self.tp_scale * actions[:, 2]
+        else:
+            # 5) Цикл по тикерам
+            # нужно собрать в массив stop_loss, take_profit по тикерам в строках
+            stop_loss = []
+            take_profit = []
+            for tic in self.ticker_list:
+                tic_data = self.data[self.data['tic'] == tic]
+                stop_loss.append(self.parse_to_1d_array(tic_data['prediction'].values)[5])
+                take_profit.append(self.parse_to_1d_array(tic_data['prediction'].values)[4])
+
+            # нужно учесть знак
+            return self.sl_scale * stop_loss, self.tp_scale * take_profit
 
     def calculate_portfolio_return(self, stop_loss, take_profit):
         """
@@ -1043,7 +1067,7 @@ class StockPortfolioEnv(gym.Env):
             historical_data = self.df.iloc[start_index:self.min + 1]
 
             # Обрабатываем данные по каждому тикеру
-            for tic in self.df['tic'].unique():
+            for tic in self.ticker_list:
                 tic_data = historical_data[historical_data['tic'] == tic]
 
                 # Добавляем рыночные признаки
@@ -1094,7 +1118,7 @@ class StockPortfolioEnv(gym.Env):
             historical_data = self.df.iloc[start_index:1]
 
             # Обрабатываем данные по каждому тикеру
-            for tic in self.df['tic'].unique():
+            for tic in self.ticker_list:
                 tic_data = historical_data[historical_data['tic'] == tic]
 
                 # Добавляем рыночные признаки
