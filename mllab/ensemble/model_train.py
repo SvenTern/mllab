@@ -697,12 +697,12 @@ class StockPortfolioEnv(gym.Env):
         - transaction_cost: The calculated transaction cost.
         """
         value_deal = abs(amount) * current_price
-        base_cost = value_deal * self.transaction_cost_amount['base']
+        base_cost = abs(amount) * self.transaction_cost_amount['base']
         minimal_cost = self.transaction_cost_amount['minimal']
         maximal_cost = self.transaction_cost_amount['maximal'] * value_deal
 
         # Apply cost boundaries
-        transaction_cost = max(minimal_cost, min(base_cost, maximal_cost))
+        transaction_cost = min(maximal_cost, max(base_cost, minimal_cost))
 
         return transaction_cost
 
