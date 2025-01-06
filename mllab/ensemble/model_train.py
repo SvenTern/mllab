@@ -585,8 +585,8 @@ class StockPortfolioEnv(gym.Env):
         self.risk_free_rate_per_min = (1 + self.annual_risk_free_rate) ** (1 / (self.minutes_per_year)) - 1
 
         if self.use_sltp:
-            self.sl_scale = 1
-            self.tp_scale = 2
+            self.sl_scale = 1.0
+            self.tp_scale = 2.0
         else:
             self.sl_scale = 0.1
             self.tp_scale = 0.2
