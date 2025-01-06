@@ -586,10 +586,10 @@ class StockPortfolioEnv(gym.Env):
 
         if self.use_sltp:
             self.sl_scale = 1.0
-            self.tp_scale = 2.0
+            self.tp_scale = 1.0
         else:
             self.sl_scale = 0.1
-            self.tp_scale = 0.2
+            self.tp_scale = 0.1
 
         self.min = 0  # Current time index
         self.lookback = lookback  # Number of previous steps for state construction
