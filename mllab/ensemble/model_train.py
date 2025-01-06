@@ -915,15 +915,28 @@ class StockPortfolioEnv(gym.Env):
 
         else:
 
-            stop_loss = actions[:, 1]
-            take_profit = actions[:, 2]
+
             # Normalize weights for non-terminal, non-last-minute steps
             new_weights = np.zeros_like(actions[:, 0]) if last_minute_of_day else self.softmax_normalization(actions[:, 0])
             weight_diff = new_weights - np.array(self.actions_memory[-1][0])
 
+
+
             for i, diff in enumerate(weight_diff):
                 current_price = self.data['close'].values[i]
                 self._sell_stock(i, int(diff * self.portfolio_value / current_price), current_price)
+
+
+        stop_loss = actions[:, 1]
+        take_profit = actions[:, 2]
+
+        print('stop_loss', stop_loss)
+        print('stop_loss', take_profit)
+        print('stop_loss', new_weights)
+        print('stop_loss', weight_diff)
+
+        print('share_holdings', self.share_holdings)
+        print('portfolio_value', self.portfolio_value)
 
         self.min += 1
         self.data = self.get_data_by_date()
