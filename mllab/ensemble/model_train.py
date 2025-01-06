@@ -968,8 +968,13 @@ class StockPortfolioEnv(gym.Env):
             high = self.data['high'].values[i]
             close_price = self.data['close'].values[i]
             open_price = self.data['open'].values[i]
-            last_close = self.get_data_by_date(self.min - 1)['close'].values[i]
+            previous_data = self.get_data_by_date(self.min - 1)
+            if previous_data is None:
+                last_close = open_price
+            else:
+                last_close = previous_data['close'].values[i]
 
+            # вот здесь сложный вопрос, так как важно понимать какого знака должен быть SL, TP
             stop_loss_price = last_close * (1 - stop_loss[i])
             take_profit_price = last_close * (1 + take_profit[i])
 
