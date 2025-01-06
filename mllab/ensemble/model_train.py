@@ -622,13 +622,7 @@ class StockPortfolioEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=(self.state_space,)
         )
         # Memory for tracking and logging
-        self.asset_memory = [
-            {
-                'cash': self.initial_amount,
-                'portfolio_value': self.initial_amount,
-                'holdings': np.zeros(self.stock_dim).tolist()  # Convert array to list for compatibility
-            }
-        ]
+        self.asset_memory = [{'cash': self.cash, 'portfolio_value': self.portfolio_value, 'holdings': self.share_holdings.copy()}]
         self.portfolio_return_memory = [0]
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]

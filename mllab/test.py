@@ -59,7 +59,13 @@ from finrl.config import (
 
 from finrl.config_tickers import SP_500_TICKER, DOW_30_TICKER
 
-from google.colab import drive
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
+
+# Аутентификация
+gauth = GoogleAuth()
+gauth.LocalWebserverAuth()  # Откроет окно браузера для авторизации
+drive = GoogleDrive(gauth)
 import os
 
 # Подключение Google Диска
