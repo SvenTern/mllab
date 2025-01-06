@@ -931,9 +931,9 @@ class StockPortfolioEnv(gym.Env):
         take_profit = actions[:, 2]
 
         print('stop_loss', stop_loss)
-        print('stop_loss', take_profit)
-        print('stop_loss', new_weights)
-        print('stop_loss', weight_diff)
+        print('take_profit', take_profit)
+        print('new_weights', new_weights)
+        print('weight_diff', weight_diff)
 
         print('share_holdings', self.share_holdings)
         print('portfolio_value', self.portfolio_value)
@@ -1129,15 +1129,18 @@ class StockPortfolioEnv(gym.Env):
         - normalized_weights: Array of weights balanced and capped by self.risk_volume.
         """
         abs_sum = np.sum(np.abs(actions))
-
-        # Handle the edge case where all actions are zero
         if abs_sum == 0:
             return np.zeros_like(actions)
 
-        # Normalize actions to make the sum of absolute values equal 1
-        final_weights = self.risk_volume * actions / abs_sum
+        # First, scale so sum of abs is 1 (or self.risk_volume).
+        normalized = actions / abs_sum
 
-        return final_weights
+        # Then clamp each weight in magnitude by self.risk_volume.
+        clamped = np.clip(normalized, -self.risk_volume, self.risk_volume)
+
+        # Note: once you clamp, the sum of absolute values might be below 1.
+        # If you must preserve sum=1 while also clamping, you'd need more complex logic.
+        return clamped
 
     def reset(self):
         """
