@@ -576,6 +576,8 @@ class StockPortfolioEnv(gym.Env):
         self.minimal_cash = minimal_cash * initial_amount
         self.use_sltp = use_sltp
 
+        self.ticker_list = df['tic'].unique().sorted().tolist()
+
         self.annual_risk_free_rate = 0.04
         self.trading_days_per_year = 252
         self.minutes_per_day = 390
@@ -634,7 +636,6 @@ class StockPortfolioEnv(gym.Env):
         self.date_memory = [self.dates[0]]
         self.data = self.get_data_by_date()
 
-        self.ticker_list = self.df['tic'].unique().sorted().tolist()
 
     def sharpe_ratio_minutely(
             self
