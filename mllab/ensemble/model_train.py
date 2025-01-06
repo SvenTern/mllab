@@ -928,8 +928,12 @@ class StockPortfolioEnv(gym.Env):
 
 
             # Normalize weights for non-terminal, non-last-minute steps
-            new_weights = np.zeros_like(actions[:, 0]) if last_minute_of_day else self.softmax_normalization(actions[:, 0])
-            weight_diff = new_weights - np.array(self.actions_memory[-1][0])
+            if self.use_sltp:
+                new_weights = np.zeros_like(actions[:, 0]) if last_minute_of_day else self.softmax_normalization(actions[:, 0])
+                weight_diff = new_weights - np.array(self.actions_memory[-1][0])
+            else:
+                new_weights = np.zeros_like(actions) if last_minute_of_day else self.softmax_normalization(actions)
+                weight_diff = new_weights - np.array(self.actions_memory[-1][0])
 
 
 
