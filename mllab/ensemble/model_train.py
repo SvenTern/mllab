@@ -592,6 +592,7 @@ class StockPortfolioEnv(gym.Env):
             self.tp_scale = 0.1
 
         self.min = 0  # Current time index
+        self.episode =0 # подсчет количества полных циклов через reset
         self.lookback = lookback  # Number of previous steps for state construction
         self.df = df  # Market data
         self.stock_dim = stock_dim  # Number of stocks
@@ -638,6 +639,94 @@ class StockPortfolioEnv(gym.Env):
         self.pred_sl = np.zeros(self.stock_dim)
         self.pred_tp = np.zeros(self.stock_dim)
 
+    def convert_absolute_to_relative_returns(self,df, portfolio_value_column='portfolio_value', return_column='return'):
+        """
+        Преобразует абсолютные доходности в относительные.
+
+        :param df: pandas.DataFrame с колонкой portfolio_value и абсолютными доходностями.
+        :param portfolio_value_column: Имя столбца с абсолютными значениями портфеля.
+        :param return_column: Имя столбца с абсолютными доходностями.
+        :return: pandas.DataFrame с добавленным столбцом relative_return.
+        """
+        if portfolio_value_column not in df.columns:
+            raise ValueError(f"Столбец '{portfolio_value_column}' не найден в DataFrame.")
+        if return_column not in df.columns:
+            raise ValueError(f"Столбец '{return_column}' не найден в DataFrame.")
+
+        # Вычисление относительных доходностей
+        df['relative_return'] = df[return_column] / df[portfolio_value_column].shift(1)
+
+        # Удаление строк с NaN, возникающих из-за сдвига
+        df = df.dropna(subset=['relative_return'])
+
+        return df
+
+    def calculate_annual_sharpe_ratio(self, df, return_column='return'):
+        """
+        Вычисляет годовой коэффициент Шарпа на основе доходностей, автоматически определяя
+        количество периодов в торговом дне и продолжительность периода в календарных днях.
+
+        :param df: pandas.DataFrame с индексом datetime и столбцом с доходностями.
+        :param return_column: Имя столбца в df, содержащего доходности. По умолчанию 'return'.
+        :param risk_free_rate: Годовая безрисковая ставка (например, 0.02 для 2%). По умолчанию 0.0.
+        :return: Годовой коэффициент Шарпа.
+        """
+
+        # Проверка наличия столбца
+        if return_column not in df.columns:
+            raise ValueError(f"Столбец '{return_column}' не найден в DataFrame.")
+
+        # Убедимся, что индекс типа datetime
+        if not pd.api.types.is_datetime64_any_dtype(df.index):
+            raise TypeError("Индекс DataFrame должен быть типа datetime.")
+
+        # Удаление пропущенных значений
+        returns = df[return_column].dropna()
+
+        # Проверка достаточности данных
+        if returns.empty:
+            raise ValueError("Нет доступных данных для вычисления коэффициента Шарпа.")
+
+        # Извлечение даты и времени из индекса
+        df_clean = returns.to_frame()
+        df_clean['date'] = df_clean.index.date
+        df_clean['time'] = df_clean.index.time
+
+        # Определение количества периодов в день
+        periods_per_day = df_clean.groupby('date').size().mode()
+        if periods_per_day.empty:
+            raise ValueError("Не удалось определить количество периодов в день из данных.")
+        periods_per_day = periods_per_day.iloc[0]
+
+        # Определение количества календарных дней
+        start_date = df_clean['date'].min()
+        end_date = df_clean['date'].max()
+        total_days = (end_date - start_date).days + 1  # +1 для включения конечного дня
+
+        # Определение количества торговых дней (уникальные даты с данными)
+        trading_days = df_clean['date'].nunique()
+
+        # Определение продолжительности периода в годах
+        period_years = total_days / 365.25  # Используем среднее количество дней в году с учетом високосных
+
+        #print(
+        #    f"Определено {periods_per_day} периодов в торговом дне, {trading_days} торговых дней и период длится {period_years:.2f} года(лет).")
+
+        # Расчет средней доходности и стандартного отклонения
+        mean_return = returns.mean()
+        std_return = returns.std()
+
+        # Масштабирование до годовых значений
+        annual_mean_return = mean_return * periods_per_day * trading_days / period_years
+        annual_std_return = std_return * np.sqrt(periods_per_day * trading_days) / np.sqrt(period_years)
+
+        # Корректировка безрисковой ставки
+        annual_excess_return = annual_mean_return - self.annual_risk_free_rate
+
+        # Вычисление коэффициента Шарпа
+        sharpe_ratio = annual_excess_return / annual_std_return
+
+        return sharpe_ratio
 
     def sharpe_ratio_minutely(
             self
@@ -892,6 +981,32 @@ class StockPortfolioEnv(gym.Env):
             current_price = self.data['close'].values[i]
             self._sell_stock(i, holding, current_price)
 
+    def get_grow_value(self):
+
+        # Предполагается, что self.asset_memory — это список объектов с атрибутом portfolio_value
+        # и self.dates — это список объектов datetime
+
+        # Извлекаем значения portfolio_value и даты
+        portfolio_values = [item.portfolio_value for item in self.asset_memory]
+        dates = self.dates
+
+        # Создаем DataFrame
+        df = pd.DataFrame({
+            'date': dates,
+            'portfolio_value': portfolio_values
+        })
+
+        # Убедимся, что данные отсортированы по дате
+        df = df.sort_values('date').reset_index(drop=True)
+
+        # Рассчитываем прирост стоимости портфеля (разницу с предыдущим значением)
+        df['return'] = df['portfolio_value'].diff()
+
+        # Убираем первую строку, где прирост будет NaN
+        df = df.dropna()
+
+        return df
+
     def step(self, actions):
         """
         Execute one step in the environment.
@@ -909,12 +1024,21 @@ class StockPortfolioEnv(gym.Env):
 
         if self.terminal:
             self._sell_all_stocks()
-            df = pd.DataFrame(self.portfolio_return_memory, columns=['return'])
+
+            df = self.get_grow_value()['return']
             plt.plot(df['return'].cumsum())
             plt.savefig('cumulative_reward.png')
             plt.close()
-            self.reward = self.sharpe_ratio_minutely()
-            print('sharp ratio', self.reward)
+            #if self.episode % self.print_verbosity == 0:
+            print(f"day: {self.date_memory[-1]}, episode: {self.episode}")
+            print(f"begin_total_asset: {self.asset_memory[0].portfolio_value:0.2f}")
+            print(f"end_total_asset: {self.asset_memory[-1].portfolio_value:0.2f}")
+            #print(f"total_reward: {tot_reward:0.2f}")
+            #print(f"total_cost: {self.cost:0.2f}")
+            #print(f"total_trades: {self.trades}")
+            print(f"Annual Sharpe: {self.calculate_annual_sharpe_ratio(self.convert_absolute_to_relative_returns(df)):0.3f}")
+            print("=================================")
+
             return self.state, self.reward, self.terminal, {}
 
         last_minute_of_day = (
@@ -1227,6 +1351,7 @@ class StockPortfolioEnv(gym.Env):
         self.portfolio_return_memory = [0]
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
+        self.episode += 1
         return self.state
 
     def save_asset_memory(self):
