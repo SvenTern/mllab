@@ -580,6 +580,9 @@ class StockPortfolioEnv(gym.Env):
         self.minutes_per_year = self.trading_days_per_year * self.minutes_per_day
         self.risk_free_rate_per_min = (1 + self.annual_risk_free_rate) ** (1 / (self.minutes_per_year)) - 1
 
+        self.sl_scale = 0.1
+        self.tp_scale = 0.2
+
         self.min = 0  # Current time index
         self.lookback = lookback  # Number of previous steps for state construction
         self.df = df  # Market data
@@ -931,8 +934,8 @@ class StockPortfolioEnv(gym.Env):
         self.min += 1
         self.data = self.get_data_by_date()
 
-        stop_loss = actions[:, 1]
-        take_profit = actions[:, 2]
+        stop_loss = self.sl_scale * actions[:, 1]
+        take_profit = self.tp_scale * actions[:, 2]
 
         portfolio_return, updated_weights = self.calculate_portfolio_return(stop_loss, take_profit)
         self.actions_memory.append(
@@ -1125,16 +1128,7 @@ class StockPortfolioEnv(gym.Env):
             return np.zeros_like(actions)
 
         # Normalize actions to make the sum of absolute values equal 1
-        normalized_actions = actions / abs_sum
-
-        # Cap each normalized action to self.risk_volume
-        capped_actions = np.clip(normalized_actions, -self.risk_volume, self.risk_volume)
-
-        # Re-normalize to ensure the sum of absolute weights equals 1 after capping
-        abs_capped_sum = np.sum(np.abs(capped_actions))
-        if abs_capped_sum == 0:
-            return np.zeros_like(actions)  # Handle the case where all weights are capped to zero
-        final_weights = capped_actions / abs_capped_sum
+        final_weights = self.risk_volume * actions / abs_sum
 
         return final_weights
 
