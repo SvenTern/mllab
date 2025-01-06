@@ -616,11 +616,11 @@ class StockPortfolioEnv(gym.Env):
         self.share_holdings = np.zeros(self.stock_dim)  # Share holdings
         # initalize state
         self.state = self._initiate_state()
-        self.state_space = (len(self.state),)  # Dimensions of state space
+        self.state_space = len(self.state)  # Dimensions of state space
         self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim, 3))  # Long/Short/StopLoss/TakeProfit
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(len(self.state), )
-         )
+            low=-np.inf, high=np.inf, shape=(self.state_space,)
+        )
         # Memory for tracking and logging
         self.asset_memory = [
             {
