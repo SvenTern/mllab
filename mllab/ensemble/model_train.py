@@ -976,14 +976,14 @@ class StockPortfolioEnv(gym.Env):
             for tic in self.ticker_list:
                 tic_data = self.data[self.data['tic'] == tic]
 
-                print("tic_data['prediction'].values", tic_data['prediction'].values[0])
-                print("self.parse_to_1d_array(tic_data['prediction'].values)",
-                      self.parse_to_1d_array(tic_data['prediction'].values[0]))
+                #print("tic_data['prediction'].values", tic_data['prediction'].values[0])
+                #print("self.parse_to_1d_array(tic_data['prediction'].values)",
+                #      self.parse_to_1d_array(tic_data['prediction'].values[0]))
                 stop_loss.append(self.parse_to_1d_array(tic_data['prediction'].values[0])[5])
                 take_profit.append(self.parse_to_1d_array(tic_data['prediction'].values[0])[4])
 
             # нужно учесть знак
-            return self.sl_scale * stop_loss, self.tp_scale * take_profit
+            return stop_loss * self.sl_scale, take_profit * self.tp_scale
 
     def calculate_portfolio_return(self, stop_loss, take_profit):
         """
