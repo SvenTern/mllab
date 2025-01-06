@@ -576,7 +576,7 @@ class StockPortfolioEnv(gym.Env):
         self.minimal_cash = minimal_cash * initial_amount
         self.use_sltp = use_sltp
 
-        self.ticker_list = df['tic'].unique().sorted().tolist()
+        self.ticker_list = df['tic'].unique().tolist()
 
         self.annual_risk_free_rate = 0.04
         self.trading_days_per_year = 252
