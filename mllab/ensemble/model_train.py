@@ -678,6 +678,7 @@ class StockPortfolioEnv(gym.Env):
 
         # Убедимся, что индекс типа datetime
         if not pd.api.types.is_datetime64_any_dtype(df.index):
+            print('df',df)
             raise TypeError("Индекс DataFrame должен быть типа datetime.")
 
         # Удаление пропущенных значений
