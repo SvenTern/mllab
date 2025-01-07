@@ -643,13 +643,16 @@ class StockPortfolioEnv(gym.Env):
         self.use_logging = use_logging
         self.logging_data = []
 
-    def logging(self, text, value):
+    def logging(self, text, value = None):
 
         if self.use_logging == 0:
             return
         #время
-        self.logging_data.append(f'{self.min}: {text} : {value:,.0f} : {self.cash:,.0f}')
-
+        if value is not None and value > 0:
+            self.logging_data.append(f'{self.min}: {text} : {value:,.0f} : {self.cash:,.0f} : {self.portfolio_value:,.0f}')
+        else:
+            self.logging_data.append(
+                f'{self.min}: {text} : {self.cash:,.0f} : {self.portfolio_value:,.0f}')
 
     def convert_absolute_to_relative_returns(self,df, portfolio_value_column='portfolio_value', return_column='return'):
         """
