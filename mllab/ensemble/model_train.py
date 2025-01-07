@@ -676,9 +676,13 @@ class StockPortfolioEnv(gym.Env):
         if return_column not in df.columns:
             raise ValueError(f"Столбец '{return_column}' не найден в DataFrame.")
 
+        df['date'] = pd.to_datetime(df['date'])
+
+        # Установка колонки 'date' в качестве индекса
+        df.set_index('date', inplace=True)
+
         # Убедимся, что индекс типа datetime
         if not pd.api.types.is_datetime64_any_dtype(df.index):
-            print('df',df)
             raise TypeError("Индекс DataFrame должен быть типа datetime.")
 
         # Удаление пропущенных значений
