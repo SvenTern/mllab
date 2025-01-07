@@ -1025,7 +1025,7 @@ class StockPortfolioEnv(gym.Env):
         if self.terminal:
             self._sell_all_stocks()
 
-            df = self.get_grow_value()['return']
+            df = self.get_grow_value()
             plt.plot(df['return'].cumsum())
             plt.savefig('cumulative_reward.png')
             plt.close()
