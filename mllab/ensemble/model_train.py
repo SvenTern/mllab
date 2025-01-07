@@ -678,12 +678,13 @@ class StockPortfolioEnv(gym.Env):
 
         df['date'] = pd.to_datetime(df['date'])
 
-        # Установка колонки 'date' в качестве индекса
+        ## Установка колонки 'date' в качестве индекса
         df.set_index('date', inplace=True)
+        df.index.names = 'timestamp'
 
         # Убедимся, что индекс типа datetime
-        if not pd.api.types.is_datetime64_any_dtype(df.index):
-            raise TypeError("Индекс DataFrame должен быть типа datetime.")
+        #if not pd.api.types.is_datetime64_any_dtype(df.index):
+        #    raise TypeError("Индекс DataFrame должен быть типа datetime.")
 
         # Удаление пропущенных значений
         returns = df[return_column].dropna()
@@ -696,6 +697,7 @@ class StockPortfolioEnv(gym.Env):
         df_clean = returns.to_frame()
         df_clean['date'] = df_clean.index.date
         df_clean['time'] = df_clean.index.time
+
 
         # Определение количества периодов в день
         periods_per_day = df_clean.groupby('date').size().mode()
