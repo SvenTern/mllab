@@ -554,7 +554,8 @@ class StockPortfolioEnv(gym.Env):
                  initial=True,
                  previous_state=[],
                  minimal_cash = 0.1,
-                 use_sltp = False
+                 use_sltp = False,
+                 logging = 1
                  ):
         """
         Initialize the environment with the given parameters.
@@ -638,6 +639,17 @@ class StockPortfolioEnv(gym.Env):
         self.data = self.get_data_by_date()
         self.pred_sl = np.zeros(self.stock_dim)
         self.pred_tp = np.zeros(self.stock_dim)
+
+        self.use_logging = logging
+        self.logging = []
+
+    def logging(self, text, value):
+
+        if self.use_logging == 0:
+            return
+        #время
+        self.logging.append(f'{self.min}: {text} : {value:,.0f}')
+
 
     def convert_absolute_to_relative_returns(self,df, portfolio_value_column='portfolio_value', return_column='return'):
         """
@@ -977,6 +989,8 @@ class StockPortfolioEnv(gym.Env):
         sell_value = adjusted_amount * current_price
 
         self.cash += sell_value - transaction_cost
+        self.logging('cash from # Sell stock', sell_value - transaction_cost)
+
         self.portfolio_value -= transaction_cost
         self.share_holdings[stock_index] -= adjusted_amount
 
@@ -1186,24 +1200,28 @@ class StockPortfolioEnv(gym.Env):
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
+                self.logging('cash from # Long stop-loss',  stop_loss_price * holding - transaction_cost)
                 self.share_holdings[i] = 0
             elif high >= stop_loss_price and holding < 0:  # Short stop-loss
                 current_return = (stop_loss_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
+                self.logging('cash from # Short stop-loss', stop_loss_price * holding - transaction_cost)
                 self.share_holdings[i] = 0
             elif high >= take_profit_price and holding > 0:  # Long take-profit
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
-                self.cash += take_profit_price * holding - - transaction_cost
+                self.cash += take_profit_price * holding - transaction_cost
+                self.logging('cash from # Long take-profit', take_profit_price * holding - transaction_cost)
                 self.share_holdings[i] = 0
             elif low <= take_profit_price and holding < 0:  # Short take-profit
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - transaction_cost
+                self.logging('cash from # Short take-profit', take_profit_price * holding - transaction_cost)
                 self.share_holdings[i] = 0
             else:  # Regular price change
                 current_return = (close_price - last_close) * holding
@@ -1213,6 +1231,8 @@ class StockPortfolioEnv(gym.Env):
 
         # дополнительный профит от кэша
         current_return = self.cash * self.risk_free_rate_per_min
+        self.cash += current_return
+        self.logging('cash from # risk free', current_return)
         returns.append(current_return)
 
         # Calculate portfolio return
@@ -1362,6 +1382,7 @@ class StockPortfolioEnv(gym.Env):
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
         self.episode += 1
+        self.logging = []
         return self.state
 
     def save_asset_memory(self):
