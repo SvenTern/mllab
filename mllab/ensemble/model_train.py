@@ -641,14 +641,14 @@ class StockPortfolioEnv(gym.Env):
         self.pred_tp = np.zeros(self.stock_dim)
 
         self.use_logging = logging
-        self.logging = []
+        self.logging_data = []
 
     def logging(self, text, value):
 
         if self.use_logging == 0:
             return
         #время
-        self.logging.append(f'{self.min}: {text} : {value:,.0f}')
+        self.logging_data.append(f'{self.min}: {text} : {value:,.0f}')
 
 
     def convert_absolute_to_relative_returns(self,df, portfolio_value_column='portfolio_value', return_column='return'):
