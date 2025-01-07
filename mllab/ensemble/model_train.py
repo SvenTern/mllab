@@ -993,7 +993,7 @@ class StockPortfolioEnv(gym.Env):
 
         self.portfolio_value -= transaction_cost
         self.share_holdings[stock_index] -= adjusted_amount
-        self.logging('holding {stock_index} from # Sell stock', sell_value)
+        self.logging(f'holding {stock_index} from # Sell stock', sell_value)
 
 
     def _sell_all_stocks(self):
