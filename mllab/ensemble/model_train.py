@@ -555,7 +555,7 @@ class StockPortfolioEnv(gym.Env):
                  previous_state=[],
                  minimal_cash = 0.1,
                  use_sltp = False,
-                 logging = 1
+                 use_logging = 1
                  ):
         """
         Initialize the environment with the given parameters.
@@ -640,7 +640,7 @@ class StockPortfolioEnv(gym.Env):
         self.pred_sl = np.zeros(self.stock_dim)
         self.pred_tp = np.zeros(self.stock_dim)
 
-        self.use_logging = logging
+        self.use_logging = use_logging
         self.logging_data = []
 
     def logging(self, text, value):
@@ -1382,7 +1382,7 @@ class StockPortfolioEnv(gym.Env):
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
         self.episode += 1
-        self.logging = []
+        self.logging_data = []
         return self.state
 
     def save_asset_memory(self):
