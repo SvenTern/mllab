@@ -680,7 +680,7 @@ class StockPortfolioEnv(gym.Env):
 
         ## Установка колонки 'date' в качестве индекса
         df.set_index('date', inplace=True)
-        df.index.names = 'timestamp'
+        df.index.names = ['timestamp']
 
         # Убедимся, что индекс типа datetime
         #if not pd.api.types.is_datetime64_any_dtype(df.index):
