@@ -649,10 +649,10 @@ class StockPortfolioEnv(gym.Env):
             return
         #время
         if value is not None and value > 0:
-            self.logging_data.append(f'{self.min}: {text} : {value:,.0f} : {self.cash:,.0f} : {self.portfolio_value:,.0f}')
+            self.logging_data.append(f'{self.min}: {text} : {value:,.0f} : cash : {self.cash:,.0f} : value : {self.portfolio_value:,.0f}')
         else:
             self.logging_data.append(
-                f'{self.min}: {text} : {self.cash:,.0f} : {self.portfolio_value:,.0f}')
+                f'{self.min}: {text} : cash :{self.cash:,.0f} : value :{self.portfolio_value:,.0f}')
 
     def convert_absolute_to_relative_returns(self,df, portfolio_value_column='portfolio_value', return_column='return'):
         """
@@ -980,6 +980,7 @@ class StockPortfolioEnv(gym.Env):
         if amount == 0:
             return
 
+
         # Узнаём, сколько в итоге можем/хотим продать (или покрыть) без нарушения minimal_cash
         adjusted_amount = self._adjust_sell_amount(amount, current_price)
 
@@ -992,11 +993,11 @@ class StockPortfolioEnv(gym.Env):
         sell_value = adjusted_amount * current_price
 
         self.cash += sell_value - transaction_cost
-        self.logging('cash from # Sell stock', sell_value - transaction_cost)
+        #self.logging('cash from # Sell stock', sell_value - transaction_cost)
 
         self.portfolio_value -= transaction_cost
         self.share_holdings[stock_index] -= adjusted_amount
-        self.logging(f'holding {stock_index} amount {adjusted_amount:,.0f} price: {current_price} cost {transaction_cost:,.0f} from # Sell stock', sell_value)
+        self.logging(f'holding {stock_index} amount {adjusted_amount:,.0f} price: {current_price:,.3f} cost {transaction_cost:,.0f} from # Sell stock', sell_value)
 
 
     def _sell_all_stocks(self):
@@ -1074,6 +1075,8 @@ class StockPortfolioEnv(gym.Env):
                 self.dates[self.min].floor('D') != self.dates[self.min + 1].floor('D')
         )
 
+        stop_loss, take_profit = self.get_sltp(actions)
+
         if last_minute_of_day:
             self._sell_all_stocks()
 
@@ -1089,12 +1092,11 @@ class StockPortfolioEnv(gym.Env):
                 weight_diff = new_weights - np.array(self.actions_memory[-1][0])
 
 
-
             for i, diff in enumerate(weight_diff):
-                current_price = self.data['close'].values[i]
-                self._sell_stock(i, -int(diff * self.portfolio_value / current_price), current_price)
-
-        stop_loss ,  take_profit = self.get_sltp(actions)
+                # входим в сделку только если есть какие то значения sl tp
+                if not (stop_loss[i] == 0 or take_profit[i]==0):
+                    current_price = self.data['close'].values[i]
+                    self._sell_stock(i, -int(diff * self.portfolio_value / current_price), current_price)
 
         #print('stop_loss', stop_loss)
         #print('take_profit', take_profit)
@@ -1200,7 +1202,7 @@ class StockPortfolioEnv(gym.Env):
             take_profit_price = last_close * (1 + take_profit[i])
 
             self.logging(
-                f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.2f}, take_profit_price :{take_profit_price:,.2f}',
+                f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.3f}, take_profit_price :{take_profit_price:,.3f}',
                 0)
 
             # Handle stop-loss and take-profit for long and short positions
@@ -1209,32 +1211,32 @@ class StockPortfolioEnv(gym.Env):
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
-                self.logging('cash from # Long stop-loss',  stop_loss_price * holding - transaction_cost)
-                self.logging(f'holding {i} amount {holding} price {stop_loss_price} cost {transaction_cost:,.2f} from # Long stop-loss', - stop_loss_price * holding)
+                #self.logging('cash from # Long stop-loss',  stop_loss_price * holding - transaction_cost)
+                self.logging(f'Потери Long stop-loss {current_return:,.2f} holding {i} amount {holding} price {stop_loss_price:,.3f} cost {transaction_cost:,.2f} from # Long stop-loss', - stop_loss_price * holding)
                 self.share_holdings[i] = 0
             elif high >= stop_loss_price and holding < 0:  # Short stop-loss
                 current_return = (stop_loss_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
-                self.logging('cash from # Short stop-loss', stop_loss_price * holding - transaction_cost)
-                self.logging(f'holding {i} amount {holding} price {stop_loss_price} cost {transaction_cost:,.2f} from # Short stop-loss', - stop_loss_price * holding)
+                #self.logging('cash from # Short stop-loss', stop_loss_price * holding - transaction_cost)
+                self.logging(f'Потери Short stop-loss {current_return:,.2f} holding {i} amount {holding} price {stop_loss_price:,.3f} cost {transaction_cost:,.2f} from # Short stop-loss', - stop_loss_price * holding)
                 self.share_holdings[i] = 0
             elif high >= take_profit_price and holding > 0:  # Long take-profit
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - transaction_cost
-                self.logging('cash from # Long take-profit', take_profit_price * holding - transaction_cost)
-                self.logging(f'holding {i} amount {holding} price {take_profit_price} cost {transaction_cost:,.2f} from # Long take-profit', - take_profit_price * holding)
+                #self.logging('cash from # Long take-profit', take_profit_price * holding - transaction_cost)
+                self.logging(f'Заработок Long take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Long take-profit', - take_profit_price * holding)
                 self.share_holdings[i] = 0
             elif low <= take_profit_price and holding < 0:  # Short take-profit
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - transaction_cost
-                self.logging('cash from # Short take-profit', take_profit_price * holding - transaction_cost)
-                self.logging(f'holding {i} amount {holding} price {take_profit_price} cost {transaction_cost:,.2f} from # Short take-profit', - take_profit_price * holding)
+                #self.logging('cash from # Short take-profit', take_profit_price * holding - transaction_cost)
+                self.logging(f'Заработок Short take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Short take-profit', - take_profit_price * holding)
                 self.share_holdings[i] = 0
             else:  # Regular price change
                 current_return = (close_price - last_close) * holding
@@ -1245,7 +1247,7 @@ class StockPortfolioEnv(gym.Env):
         # дополнительный профит от кэша
         current_return = self.cash * self.risk_free_rate_per_min
         self.cash += current_return
-        self.logging(f'cash from # risk free {current_return:.2f}', 0)
+        #self.logging(f'cash from # risk free {current_return:.2f}', 0)
         returns.append(current_return)
 
         # Calculate portfolio return
