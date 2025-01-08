@@ -1245,7 +1245,7 @@ class StockPortfolioEnv(gym.Env):
         # дополнительный профит от кэша
         current_return = self.cash * self.risk_free_rate_per_min
         self.cash += current_return
-        self.logging(f'cash from # risk free {current_return,.2f}', 0)
+        self.logging(f'cash from # risk free {current_return:.2f}', 0)
         returns.append(current_return)
 
         # Calculate portfolio return
