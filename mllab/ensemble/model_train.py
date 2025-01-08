@@ -1124,6 +1124,9 @@ class StockPortfolioEnv(gym.Env):
 
     def get_sltp_volatility(self, volatility, holdings):
 
+        if volatility == 0:
+            volatility = 0.001
+
         if holdings >= 0:
             return -abs(volatility) * self.sl_scale, abs(volatility) * self.tp_scale
         else:
