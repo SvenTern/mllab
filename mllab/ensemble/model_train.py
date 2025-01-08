@@ -1155,12 +1155,12 @@ class StockPortfolioEnv(gym.Env):
                 take_profit = parsed_prediction[6] if len(parsed_prediction) > 6 else 0
 
                 # если sl tp по логике не верные определяем их из волатильности
-                if self.holdings[idx] > 0:
+                if self.share_holdings[idx] > 0:
                     if take_profit <= stop_loss:
-                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.holdings[idx])
-                elif self.holdings[idx] < 0:
+                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.share_holdings[idx])
+                elif self.share_holdings[idx] < 0:
                     if take_profit >= stop_loss:
-                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.holdings[idx])
+                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.share_holdings[idx])
 
                 # Append the respective stop_loss and take_profit values
                 stop_loss.append(stop_loss)
