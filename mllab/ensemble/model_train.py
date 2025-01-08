@@ -1483,44 +1483,54 @@ class StockPortfolioEnv(gym.Env):
 
         return final_price
 
-    def get_predictions(self):
+    def __get_predictions__(self):
         # Предполагаем, что self.df содержит столбцы: 'prediction', 'tic', 'date'
+        # Преобразуем столбец 'prediction' в двумерный массив
+        predictions_array = np.stack(self.df['prediction'].values)
 
-        # 1. Извлекаем первые три элемента и 5-й, 6-й элементы массива в новые столбцы
-        self.df[['bin-1', 'bin-0', 'bin+1', 'sl', 'tp']] = self.df['prediction'] \
-            .apply(lambda x: pd.Series({
-            'bin-1': x[0],
-            'bin-0': x[1],
-            'bin+1': x[2],
-            'sl': x[4],
-            'tp': x[5]
-        }))
+        # Извлекаем необходимые столбцы из массива
+        bin_minus1 = predictions_array[:, 0]
+        bin_0 = predictions_array[:, 1]
+        bin_plus1 = predictions_array[:, 2]
+        sl = predictions_array[:, 4]
+        tp = predictions_array[:, 5]
 
-        # 2. Создаем новый столбец 'bin' на основе максимального значения среди 'bin-1', 'bin-0', 'bin+1'
-        self.df['bin'] = self.df[['bin-1', 'bin-0', 'bin+1']].idxmax(axis=1).map({
-            'bin-1': '-bin-1',
-            'bin-0': '0',
-            'bin+1': 'bin+1'
-        })
+        # Добавляем новые столбцы в DataFrame
+        self.df['sl'] = sl
+        self.df['tp'] = tp
 
-        # 3. Удаляем временные столбцы 'bin-1', 'bin-0', 'bin+1'
-        self.df.drop(columns=['bin-1', 'bin-0', 'bin+1'], inplace=True)
+        # Создаём DataFrame для временных столбцов bin-1, bin-0, bin+1
+        temp_bins = pd.DataFrame({
+            'bin-1': bin_minus1,
+            'bin-0': bin_0,
+            'bin+1': bin_plus1
+        }, index=self.df.index)
 
-        # 4. Группируем данные по 'date' и формируем матрицы для каждого момента времени
+        # Определяем столбец 'bin' на основе максимальных значений, используя векторизированный подход
+        max_indices = temp_bins.values.argmax(axis=1)  # Получаем индексы максимальных значений по строкам
+        # Соответствие индексов и меток
+        mapping = {0: '-bin-1', 1: '0', 2: 'bin+1'}
+        self.df['bin'] = [mapping[idx] for idx in max_indices]
+
+        # Удаляем временные столбцы - уже не нужны
+        # (temp_bins использовался только локально, поэтому нет необходимости его удалять)
+
+        # Группируем данные по 'date'
         grouped_data = {}
+        # Сортируем DataFrame один раз по 'date' и 'tic' для оптимизации
+        self.df.sort_values(['date', 'tic'], inplace=True)
+
+        # Группировка и формирование матриц по датам
         for date, group in self.df.groupby('date'):
-            # Сортировка по 'tic'
-            group_sorted = group.sort_values('tic')
             # Извлекаем массив значений для столбцов 'bin', 'sl', 'tp'
-            # Результатом будет матрица (количество_тикеров × 3)
-            matrix = group_sorted[['bin', 'sl', 'tp']].to_numpy()
+            matrix = group[['bin', 'sl', 'tp']].to_numpy()
             grouped_data[date] = matrix
 
         return grouped_data
 
-    def _run(self):
+    def __run__(self):
         # Получаем сгруппированные данные по датам
-        grouped_data = self.get_predictions()
+        grouped_data = self.__get_predictions__()
 
         # Извлекаем отсортированный список дат из сгруппированных данных
         dates = sorted(grouped_data.keys())
