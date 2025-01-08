@@ -1491,8 +1491,8 @@ class StockPortfolioEnv(gym.Env):
 
         # Применяем преобразования для поиска максимума
         comparison_array = np.stack([
-            predictions_array[:, 0] * -1,
-            predictions_array[:, 1] * 0,
+            predictions_array[:, 0],
+            predictions_array[:, 1],
             predictions_array[:, 2]
         ], axis=1)
 
