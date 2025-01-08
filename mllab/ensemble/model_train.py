@@ -1190,7 +1190,7 @@ class StockPortfolioEnv(gym.Env):
             # вот здесь сложный вопрос, так как важно понимать какого знака должен быть SL, TP
             # если stop_loss[i] < 0 то считаем, что это short сделка
             # stop_loss_price - в это случае будет больше, т.е. мы страхуемся от роста ...
-            stop_loss_price = last_close * (1 - stop_loss[i])
+            stop_loss_price = last_close * (1 + stop_loss[i])
             take_profit_price = last_close * (1 + take_profit[i])
 
             self.logging(
