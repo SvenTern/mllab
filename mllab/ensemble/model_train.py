@@ -1193,9 +1193,9 @@ class StockPortfolioEnv(gym.Env):
             stop_loss_price = last_close * (1 - stop_loss[i])
             take_profit_price = last_close * (1 + take_profit[i])
 
-            #self.logging(
-            #    f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.3f}, take_profit_price :{take_profit_price:,.3f}',
-            #    0)
+            self.logging(
+                f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.3f}, take_profit_price :{take_profit_price:,.3f}',
+                0)
 
             # Handle stop-loss and take-profit for long and short positions
             if low <= stop_loss_price and holding > 0:  # Long stop-loss
