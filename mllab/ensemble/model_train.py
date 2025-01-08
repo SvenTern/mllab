@@ -1212,7 +1212,11 @@ class StockPortfolioEnv(gym.Env):
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
                 #self.logging('cash from # Long stop-loss',  stop_loss_price * holding - transaction_cost)
+                self.logging(
+                    f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.3f}, take_profit_price :{take_profit_price:,.3f}',
+                    0)
                 self.logging(f'Потери Long stop-loss {current_return:,.2f} holding {i} amount {holding} price {stop_loss_price:,.3f} cost {transaction_cost:,.2f} from # Long stop-loss', - stop_loss_price * holding)
+
                 self.share_holdings[i] = 0
             elif high >= stop_loss_price and holding < 0:  # Short stop-loss
                 current_return = (stop_loss_price - last_close) * holding
@@ -1220,7 +1224,7 @@ class StockPortfolioEnv(gym.Env):
                 current_return -= transaction_cost
                 self.cash += stop_loss_price * holding - transaction_cost
                 #self.logging('cash from # Short stop-loss', stop_loss_price * holding - transaction_cost)
-                self.logging(f'Потери Short stop-loss {current_return:,.2f} holding {i} amount {holding} price {stop_loss_price:,.3f} cost {transaction_cost:,.2f} from # Short stop-loss', - stop_loss_price * holding)
+                #self.logging(f'Потери Short stop-loss {current_return:,.2f} holding {i} amount {holding} price {stop_loss_price:,.3f} cost {transaction_cost:,.2f} from # Short stop-loss', - stop_loss_price * holding)
                 self.share_holdings[i] = 0
             elif high >= take_profit_price and holding > 0:  # Long take-profit
                 current_return = (take_profit_price - last_close) * holding
@@ -1228,7 +1232,7 @@ class StockPortfolioEnv(gym.Env):
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - transaction_cost
                 #self.logging('cash from # Long take-profit', take_profit_price * holding - transaction_cost)
-                self.logging(f'Заработок Long take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Long take-profit', - take_profit_price * holding)
+                #self.logging(f'Заработок Long take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Long take-profit', - take_profit_price * holding)
                 self.share_holdings[i] = 0
             elif low <= take_profit_price and holding < 0:  # Short take-profit
                 current_return = (take_profit_price - last_close) * holding
@@ -1236,7 +1240,7 @@ class StockPortfolioEnv(gym.Env):
                 current_return -= transaction_cost
                 self.cash += take_profit_price * holding - transaction_cost
                 #self.logging('cash from # Short take-profit', take_profit_price * holding - transaction_cost)
-                self.logging(f'Заработок Short take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Short take-profit', - take_profit_price * holding)
+                #self.logging(f'Заработок Short take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Short take-profit', - take_profit_price * holding)
                 self.share_holdings[i] = 0
             else:  # Regular price change
                 current_return = (close_price - last_close) * holding
