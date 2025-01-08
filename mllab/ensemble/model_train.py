@@ -589,8 +589,8 @@ class StockPortfolioEnv(gym.Env):
             self.sl_scale = 1.0
             self.tp_scale = 1.0
         else:
-            self.sl_scale = 0.1
-            self.tp_scale = 0.1
+            self.sl_scale = 1
+            self.tp_scale = 2
 
         self.min = 0  # Current time index
         self.episode =0 # подсчет количества полных циклов через reset
@@ -637,8 +637,6 @@ class StockPortfolioEnv(gym.Env):
         self.actions_memory = [[[0]] * self.stock_dim]
         self.date_memory = [self.dates[0]]
         self.data = self.get_data_by_date()
-        self.pred_sl = np.zeros(self.stock_dim)
-        self.pred_tp = np.zeros(self.stock_dim)
 
         self.use_logging = use_logging
         self.logging_data = []
@@ -1075,8 +1073,6 @@ class StockPortfolioEnv(gym.Env):
                 self.dates[self.min].floor('D') != self.dates[self.min + 1].floor('D')
         )
 
-        stop_loss, take_profit = self.get_sltp(actions)
-
         if last_minute_of_day:
             self._sell_all_stocks()
 
@@ -1094,9 +1090,10 @@ class StockPortfolioEnv(gym.Env):
 
             for i, diff in enumerate(weight_diff):
                 # входим в сделку только если есть какие то значения sl tp
-                if not (stop_loss[i] == 0 or take_profit[i]==0):
-                    current_price = self.data['close'].values[i]
-                    self._sell_stock(i, -int(diff * self.portfolio_value / current_price), current_price)
+                current_price = self.data['close'].values[i]
+                self._sell_stock(i, -int(diff * self.portfolio_value / current_price), current_price)
+
+        stop_loss, take_profit = self.get_sltp(actions)
 
         #print('stop_loss', stop_loss)
         #print('take_profit', take_profit)
@@ -1125,15 +1122,24 @@ class StockPortfolioEnv(gym.Env):
         self.reward = self.sharpe_ratio_minutely() * self.reward_scaling
         return self.state, self.reward, self.terminal, {}
 
+    def get_sltp_volatility(self, volatility, holdings):
+
+        if holdings >= 0:
+            return -volatility * self.sl_scale, volatility * self.tp_scale
+        else:
+            return volatility * self.sl_scale, - volatility * self.tp_scale
+
     def get_sltp(self, actions):
         if self.use_sltp:
             return self.sl_scale * actions[:, 1], self.tp_scale * actions[:, 2]
         else:
+
+            # Если sl, tp нулевые то определяем их из волатильности
             # Initialize lists to store stop_loss and take_profit for each ticker
             stop_loss = []
             take_profit = []
 
-            for tic in self.ticker_list:
+            for idx, tic in enumerate(self.ticker_list):
                 # Filter data for the current ticker
                 tic_data = self.data[self.data['tic'] == tic]
 
@@ -1143,39 +1149,28 @@ class StockPortfolioEnv(gym.Env):
                 else:
                     # Parse the prediction values
                     parsed_prediction = self.parse_to_1d_array(tic_data['prediction'].values[0])
+                    volatility = tic_data['volatility'].values[0]
+
+                stop_loss = parsed_prediction[5] if len(parsed_prediction) > 5 else 0
+                take_profit = parsed_prediction[6] if len(parsed_prediction) > 6 else 0
+
+                # если sl tp по логике не верные определяем их из волатильности
+                if self.holdings[idx] > 0:
+                    if take_profit <= stop_loss:
+                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.holdings[idx])
+                elif self.holdings[idx] < 0:
+                    if take_profit >= stop_loss:
+                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.holdings[idx])
 
                 # Append the respective stop_loss and take_profit values
-                stop_loss.append(parsed_prediction[5] if len(parsed_prediction) > 5 else 0)
-                take_profit.append(parsed_prediction[4] if len(parsed_prediction) > 4 else 0)
+                stop_loss.append(stop_loss)
+                take_profit.append(take_profit)
 
             # Convert lists to numpy arrays for efficient processing
             stop_loss = np.array(stop_loss)
             take_profit = np.array(take_profit)
 
-            # Replace zeros in stop_loss and take_profit with previous predictions
-            # Ensure self.pred_sl and self.pred_tp are numpy arrays of the same length
-            if hasattr(self, 'pred_sl') and hasattr(self, 'pred_tp'):
-                # Replace zeros in stop_loss
-                zero_sl_mask = stop_loss == 0
-                stop_loss[zero_sl_mask] = self.pred_sl[zero_sl_mask]
-
-                # Replace zeros in take_profit
-                zero_tp_mask = take_profit == 0
-                take_profit[zero_tp_mask] = self.pred_tp[zero_tp_mask]
-            else:
-                # Initialize self.pred_sl and self.pred_tp if they don't exist
-                self.pred_sl = stop_loss.copy()
-                self.pred_tp = take_profit.copy()
-
-            # Update self.pred_sl and self.pred_tp with the current stop_loss and take_profit
-            self.pred_sl = stop_loss.copy()
-            self.pred_tp = take_profit.copy()
-
-            # Apply scaling
-            scaled_stop_loss = stop_loss * self.sl_scale
-            scaled_take_profit = take_profit * self.tp_scale
-
-            return scaled_stop_loss, scaled_take_profit
+            return stop_loss, take_profit
 
     def calculate_portfolio_return(self, stop_loss, take_profit):
         """
@@ -1207,6 +1202,10 @@ class StockPortfolioEnv(gym.Env):
 
             # Handle stop-loss and take-profit for long and short positions
             if low <= stop_loss_price and holding > 0:  # Long stop-loss
+
+                if stop_loss_price >= take_profit_price:
+                    raise ValueError("# Long stop-loss stop_loss_price не должно быть больше или равно take_profit_price")
+
                 current_return = (stop_loss_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
@@ -1219,6 +1218,10 @@ class StockPortfolioEnv(gym.Env):
 
                 self.share_holdings[i] = 0
             elif high >= stop_loss_price and holding < 0:  # Short stop-loss
+
+                if stop_loss_price <= take_profit_price:
+                    raise ValueError("# Short stop-loss stop_loss_price не должно быть меньше или равно take_profit_price")
+
                 current_return = (stop_loss_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
                 current_return -= transaction_cost
@@ -1227,6 +1230,10 @@ class StockPortfolioEnv(gym.Env):
                 #self.logging(f'Потери Short stop-loss {current_return:,.2f} holding {i} amount {holding} price {stop_loss_price:,.3f} cost {transaction_cost:,.2f} from # Short stop-loss', - stop_loss_price * holding)
                 self.share_holdings[i] = 0
             elif high >= take_profit_price and holding > 0:  # Long take-profit
+
+                if stop_loss_price >= take_profit_price:
+                    raise ValueError("# Long take-profit stop_loss_price не должно быть больше или равно take_profit_price")
+
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
@@ -1235,6 +1242,10 @@ class StockPortfolioEnv(gym.Env):
                 #self.logging(f'Заработок Long take-profit {current_return:,.2f} holding {i} amount {holding} price {take_profit_price:,.3f} cost {transaction_cost:,.2f} from # Long take-profit', - take_profit_price * holding)
                 self.share_holdings[i] = 0
             elif low <= take_profit_price and holding < 0:  # Short take-profit
+
+                if stop_loss_price <= take_profit_price:
+                    raise ValueError("# Short take-profit stop_loss_price не должно быть меньше или равно take_profit_price")
+
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
                 current_return -= transaction_cost
