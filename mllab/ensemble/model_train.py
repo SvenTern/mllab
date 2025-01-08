@@ -997,7 +997,7 @@ class StockPortfolioEnv(gym.Env):
 
         self.portfolio_value -= transaction_cost
         self.share_holdings[stock_index] -= adjusted_amount
-        self.logging(f'holding {stock_index} amount {adjusted_amount:,.0f} price: {current_price:,.3f} cost {transaction_cost:,.0f} from # Sell stock', sell_value)
+        #self.logging(f'holding {stock_index} amount {adjusted_amount:,.0f} price: {current_price:,.3f} cost {transaction_cost:,.0f} from # Sell stock', sell_value)
 
 
     def _sell_all_stocks(self):
@@ -1201,9 +1201,9 @@ class StockPortfolioEnv(gym.Env):
             stop_loss_price = last_close * (1 - stop_loss[i])
             take_profit_price = last_close * (1 + take_profit[i])
 
-            self.logging(
-                f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.3f}, take_profit_price :{take_profit_price:,.3f}',
-                0)
+            #self.logging(
+            #    f'price {i} last_close: {last_close}, open :{open_price}, low ;{low}, high :{high}, close :{close_price}, stop_loss_price :{stop_loss_price:,.3f}, take_profit_price :{take_profit_price:,.3f}',
+            #    0)
 
             # Handle stop-loss and take-profit for long and short positions
             if low <= stop_loss_price and holding > 0:  # Long stop-loss
