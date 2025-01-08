@@ -1487,45 +1487,39 @@ class StockPortfolioEnv(gym.Env):
     import pandas as pd
 
     def __get_predictions__(self):
-        # Предполагаем, что self.df содержит столбцы: 'prediction', 'tic', 'date'
-
-        # 1. Преобразуем столбец 'prediction' в двумерный массив NumPy
         predictions_array = np.stack(self.df['prediction'].values)
 
-        # 2. Извлекаем необходимые столбцы из массива
-        bin_minus1 = predictions_array[:, 0] * -1
-        bin_0 = predictions_array[:, 1] * 0
-        bin_plus1 = predictions_array[:, 2]
+        # Применяем преобразования для поиска максимума
+        comparison_array = np.stack([
+            predictions_array[:, 0] * -1,
+            predictions_array[:, 1] * 0,
+            predictions_array[:, 2]
+        ], axis=1)
+
+        # Вычисляем индексы столбцов с максимальным значением
+        max_indices = np.argmax(comparison_array, axis=1)
+
+        # Извлекаем необходимые столбцы
         sl = predictions_array[:, 4]
         tp = predictions_array[:, 5]
 
-        # 3. Добавляем новые столбцы 'sl' и 'tp' в DataFrame
+        # Формируем значения для bin на основе max_indices
+        # Важно: используем исходные значения для bin_minus1, bin_0, bin_plus1 для правильного результата
+        bin_minus1 = predictions_array[:, 0] * -1
+        bin_0 = predictions_array[:, 1] * 0
+        bin_plus1 = predictions_array[:, 2]
+        chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
+
+        # Заполняем DataFrame
         self.df['sl'] = sl
         self.df['tp'] = tp
-
-        # 4. Создаём DataFrame для временных столбцов bin-1, bin-0, bin+1
-        temp_bins = pd.DataFrame({
-            'bin-1': bin_minus1,
-            'bin-0': bin_0,
-            'bin+1': bin_plus1
-        }, index=self.df.index)
-
-        # 5. Определяем индексы максимальных значений по строкам для столбцов bin-1, bin-0, bin+1
-        max_indices = temp_bins.values.argmax(axis=1)  # индексы максимальных значений по строкам
-
-        # 6. Используем np.choose для выбора соответствующих значений
-        # np.choose выберет из списков [bin_minus1, bin_0, bin_plus1] значение в каждой строке на основе max_indices
-        chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
         self.df['bin'] = chosen_values
 
-        # 7. Сортировка DataFrame по 'date' и 'tic' для оптимизации группировки
+        # Сортировка и группировка как было раньше
         self.df.sort_values(['date', 'tic'], inplace=True)
-
-        # 8. Группировка и формирование матриц по датам
         grouped_data = {}
         grouped = self.df.groupby('date')
         for date, group in grouped:
-            # Извлекаем массив значений для столбцов 'bin', 'sl', 'tp'
             matrix = group[['bin', 'sl', 'tp']].to_numpy()
             grouped_data[date] = matrix
 
