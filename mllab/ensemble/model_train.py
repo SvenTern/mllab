@@ -1483,45 +1483,48 @@ class StockPortfolioEnv(gym.Env):
 
         return final_price
 
+    import numpy as np
+    import pandas as pd
+
     def __get_predictions__(self):
         # Предполагаем, что self.df содержит столбцы: 'prediction', 'tic', 'date'
-        # Преобразуем столбец 'prediction' в двумерный массив
+
+        # 1. Преобразуем столбец 'prediction' в двумерный массив NumPy
         predictions_array = np.stack(self.df['prediction'].values)
 
-        # Извлекаем необходимые столбцы из массива
-        bin_minus1 = predictions_array[:, 0]
-        bin_0 = predictions_array[:, 1]
+        # 2. Извлекаем необходимые столбцы из массива
+        bin_minus1 = predictions_array[:, 0] * -1
+        bin_0 = predictions_array[:, 1] * 0
         bin_plus1 = predictions_array[:, 2]
         sl = predictions_array[:, 4]
         tp = predictions_array[:, 5]
 
-        # Добавляем новые столбцы в DataFrame
+        # 3. Добавляем новые столбцы 'sl' и 'tp' в DataFrame
         self.df['sl'] = sl
         self.df['tp'] = tp
 
-        # Создаём DataFrame для временных столбцов bin-1, bin-0, bin+1
+        # 4. Создаём DataFrame для временных столбцов bin-1, bin-0, bin+1
         temp_bins = pd.DataFrame({
             'bin-1': bin_minus1,
             'bin-0': bin_0,
             'bin+1': bin_plus1
         }, index=self.df.index)
 
-        # Определяем столбец 'bin' на основе максимальных значений, используя векторизированный подход
-        max_indices = temp_bins.values.argmax(axis=1)  # Получаем индексы максимальных значений по строкам
-        # Соответствие индексов и меток
-        mapping = {0: '-bin-1', 1: '0', 2: 'bin+1'}
-        self.df['bin'] = [mapping[idx] for idx in max_indices]
+        # 5. Определяем индексы максимальных значений по строкам для столбцов bin-1, bin-0, bin+1
+        max_indices = temp_bins.values.argmax(axis=1)  # индексы максимальных значений по строкам
 
-        # Удаляем временные столбцы - уже не нужны
-        # (temp_bins использовался только локально, поэтому нет необходимости его удалять)
+        # 6. Используем np.choose для выбора соответствующих значений
+        # np.choose выберет из списков [bin_minus1, bin_0, bin_plus1] значение в каждой строке на основе max_indices
+        chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
+        self.df['bin'] = chosen_values
 
-        # Группируем данные по 'date'
-        grouped_data = {}
-        # Сортируем DataFrame один раз по 'date' и 'tic' для оптимизации
+        # 7. Сортировка DataFrame по 'date' и 'tic' для оптимизации группировки
         self.df.sort_values(['date', 'tic'], inplace=True)
 
-        # Группировка и формирование матриц по датам
-        for date, group in self.df.groupby('date'):
+        # 8. Группировка и формирование матриц по датам
+        grouped_data = {}
+        grouped = self.df.groupby('date')
+        for date, group in grouped:
             # Извлекаем массив значений для столбцов 'bin', 'sl', 'tp'
             matrix = group[['bin', 'sl', 'tp']].to_numpy()
             grouped_data[date] = matrix
@@ -1529,26 +1532,15 @@ class StockPortfolioEnv(gym.Env):
         return grouped_data
 
     def __run__(self):
-        # Получаем сгруппированные данные по датам
         grouped_data = self.__get_predictions__()
-
-        # Извлекаем отсортированный список дат из сгруппированных данных
         dates = sorted(grouped_data.keys())
-
-        # Инициализируем текущий индекс для итерации по датам
         current_index = 0
-
-        # Основной цикл выполнения до наступления терминального события или пока не закончатся даты
         while not self.terminal and current_index < len(dates):
-            # Выбираем текущую дату как массив действий
             current_date = dates[current_index]
-            actions = grouped_data[current_date]  # матрица значений для текущей даты
-
-            # Передаем действия в метод step
+            actions = grouped_data[current_date]
             self.step(actions)
-
-            # Переходим к следующей дате
             current_index += 1
+
 
 
 
