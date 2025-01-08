@@ -1500,14 +1500,14 @@ class StockPortfolioEnv(gym.Env):
         max_indices = np.argmax(comparison_array, axis=1)
 
         # Извлекаем необходимые столбцы
-        sl = predictions_array[:, 4]
-        tp = predictions_array[:, 5]
+        tp = predictions_array[:, 4]
+        sl = predictions_array[:, 5]
 
         # Формируем значения для bin на основе max_indices
         # Важно: используем исходные значения для bin_minus1, bin_0, bin_plus1 для правильного результата
-        bin_minus1 = predictions_array[:, 0] * -1
+        bin_minus1 = predictions_array[:, 3] * -1
         bin_0 = predictions_array[:, 1] * 0
-        bin_plus1 = predictions_array[:, 2]
+        bin_plus1 = predictions_array[:, 3]
         chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
 
         # Заполняем DataFrame

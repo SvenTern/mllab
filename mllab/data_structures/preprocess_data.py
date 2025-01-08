@@ -991,7 +991,7 @@ def add_takeprofit_stoploss_volume(
 
     return_minus1 = return_value[mask_bin_minus1]
     tp[mask_bin_minus1] = coeff_tp * return_minus1
-    sl[mask_bin_minus1] = coeff_sl * return_minus1 / b_minus1
+    sl[mask_bin_minus1] = - coeff_sl * return_minus1 / b_minus1
 
     # --- bin = 3 (long) ---
     mask_bin_plus1 = (max_bin == 3)
@@ -1004,7 +1004,7 @@ def add_takeprofit_stoploss_volume(
 
     return_plus1 = return_value[mask_bin_plus1]
     tp[mask_bin_plus1] = coeff_tp * return_plus1
-    sl[mask_bin_plus1] = coeff_sl * return_plus1 / b_plus1
+    sl[mask_bin_plus1] = - coeff_sl * return_plus1 / b_plus1
 
     # Формируем финальную структуру: [p(-1), p(0), p(+1), vol, tp, sl]
     updated_predictions = []
