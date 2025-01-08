@@ -1133,42 +1133,39 @@ class StockPortfolioEnv(gym.Env):
         if self.use_sltp:
             return self.sl_scale * actions[:, 1], self.tp_scale * actions[:, 2]
         else:
-
-            # Если sl, tp нулевые то определяем их из волатильности
-            # Initialize lists to store stop_loss and take_profit for each ticker
-            stop_loss = []
-            take_profit = []
+            # Инициализация numpy массивов для stop_loss и take_profit
+            n = len(self.ticker_list)
+            stop_loss = np.empty(n)
+            take_profit = np.empty(n)
 
             for idx, tic in enumerate(self.ticker_list):
-                # Filter data for the current ticker
+                # Фильтрация данных для текущего тикера
                 tic_data = self.data[self.data['tic'] == tic]
 
                 if tic_data.empty:
-                    # Handle case where no data is found for the ticker
-                    parsed_prediction = [0] * 6  # Assuming at least 6 elements
+                    # Обработка случая, когда данные для тикера отсутствуют
+                    parsed_prediction = [0] * 6  # Предполагаем минимум 6 элементов
+                    volatility = 0.001  # Можно задать нулевую волатильность или другое значение по умолчанию
                 else:
-                    # Parse the prediction values
+                    # Парсинг предсказанных значений и извлечение волатильности
                     parsed_prediction = self.parse_to_1d_array(tic_data['prediction'].values[0])
                     volatility = tic_data['volatility'].values[0]
 
-                stop_loss = parsed_prediction[5] if len(parsed_prediction) > 5 else 0
-                take_profit = parsed_prediction[6] if len(parsed_prediction) > 6 else 0
+                # Извлечение исходных значений stop_loss и take_profit для текущего тикера
+                sl_value = parsed_prediction[5] if len(parsed_prediction) > 5 else 0
+                tp_value = parsed_prediction[6] if len(parsed_prediction) > 6 else 0
 
-                # если sl tp по логике не верные определяем их из волатильности
+                # Проверка и корректировка значений stop_loss и take_profit на основе волатильности
                 if self.share_holdings[idx] > 0:
-                    if take_profit <= stop_loss:
-                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.share_holdings[idx])
+                    if tp_value <= sl_value:
+                        sl_value, tp_value = self.get_sltp_volatility(volatility, self.share_holdings[idx])
                 elif self.share_holdings[idx] < 0:
-                    if take_profit >= stop_loss:
-                        stop_loss, take_profit = self.get_sltp_volatility(volatility, self.share_holdings[idx])
+                    if tp_value >= sl_value:
+                        sl_value, tp_value = self.get_sltp_volatility(volatility, self.share_holdings[idx])
 
-                # Append the respective stop_loss and take_profit values
-                stop_loss.append(stop_loss)
-                take_profit.append(take_profit)
-
-            # Convert lists to numpy arrays for efficient processing
-            stop_loss = np.array(stop_loss)
-            take_profit = np.array(take_profit)
+                # Заполнение массивов рассчитанными значениями для текущего индекса
+                stop_loss[idx] = sl_value
+                take_profit[idx] = tp_value
 
             return stop_loss, take_profit
 
