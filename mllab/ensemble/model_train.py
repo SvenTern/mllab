@@ -1125,9 +1125,9 @@ class StockPortfolioEnv(gym.Env):
     def get_sltp_volatility(self, volatility, holdings):
 
         if holdings >= 0:
-            return -volatility * self.sl_scale, volatility * self.tp_scale
+            return -abs(volatility) * self.sl_scale, abs(volatility) * self.tp_scale
         else:
-            return volatility * self.sl_scale, - volatility * self.tp_scale
+            return abs(volatility) * self.sl_scale, - abs(volatility) * self.tp_scale
 
     def get_sltp(self, actions):
         if self.use_sltp:
@@ -1157,10 +1157,10 @@ class StockPortfolioEnv(gym.Env):
 
                 # Проверка и корректировка значений stop_loss и take_profit на основе волатильности
                 if self.share_holdings[idx] > 0:
-                    if tp_value <= sl_value:
+                    if (1 + tp_value) <= (1 + sl_value): #нужно чтобы take_profit был выше stop_loss
                         sl_value, tp_value = self.get_sltp_volatility(volatility, self.share_holdings[idx])
                 elif self.share_holdings[idx] < 0:
-                    if tp_value >= sl_value:
+                    if (1 + tp_value) >= (1 + sl_value):  #нужно чтобы take_profit был ниже stop_loss
                         sl_value, tp_value = self.get_sltp_volatility(volatility, self.share_holdings[idx])
 
                 # Заполнение массивов рассчитанными значениями для текущего индекса
@@ -1216,7 +1216,7 @@ class StockPortfolioEnv(gym.Env):
                 self.share_holdings[i] = 0
             elif high >= stop_loss_price and holding < 0:  # Short stop-loss
 
-                if stop_loss_price <= take_profit_price:
+                if stop_loss_price <= take_profit_price:  #нужно чтобы take_profit был ниже stop_loss
                     raise ValueError(f"# Short stop-loss stop_loss_price {stop_loss_price:,.3f} не должно быть меньше или равно take_profit_price {take_profit_price:,.3f}")
 
                 current_return = (stop_loss_price - last_close) * holding
