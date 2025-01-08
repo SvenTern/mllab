@@ -1201,7 +1201,7 @@ class StockPortfolioEnv(gym.Env):
             if low <= stop_loss_price and holding > 0:  # Long stop-loss
 
                 if stop_loss_price >= take_profit_price:
-                    raise ValueError("# Long stop-loss stop_loss_price не должно быть больше или равно take_profit_price")
+                    raise ValueError(f"# Long stop-loss stop_loss_price {stop_loss_price:,.3f} не должно быть больше или равно take_profit_price {take_profit_price:,.3f}")
 
                 current_return = (stop_loss_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
@@ -1217,7 +1217,7 @@ class StockPortfolioEnv(gym.Env):
             elif high >= stop_loss_price and holding < 0:  # Short stop-loss
 
                 if stop_loss_price <= take_profit_price:
-                    raise ValueError("# Short stop-loss stop_loss_price не должно быть меньше или равно take_profit_price")
+                    raise ValueError(f"# Short stop-loss stop_loss_price {stop_loss_price:,.3f} не должно быть меньше или равно take_profit_price {take_profit_price:,.3f}")
 
                 current_return = (stop_loss_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, stop_loss_price)
@@ -1229,7 +1229,7 @@ class StockPortfolioEnv(gym.Env):
             elif high >= take_profit_price and holding > 0:  # Long take-profit
 
                 if stop_loss_price >= take_profit_price:
-                    raise ValueError("# Long take-profit stop_loss_price не должно быть больше или равно take_profit_price")
+                    raise ValueError(f"# Long take-profit stop_loss_price {stop_loss_price:,.3f} не должно быть больше или равно take_profit_price {take_profit_price:,.3f}")
 
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
@@ -1241,7 +1241,7 @@ class StockPortfolioEnv(gym.Env):
             elif low <= take_profit_price and holding < 0:  # Short take-profit
 
                 if stop_loss_price <= take_profit_price:
-                    raise ValueError("# Short take-profit stop_loss_price не должно быть меньше или равно take_profit_price")
+                    raise ValueError(f"# Short take-profit stop_loss_price {stop_loss_price:,.3f} не должно быть меньше или равно take_profit_price {take_profit_price:,.3f}")
 
                 current_return = (take_profit_price - last_close) * holding
                 transaction_cost = self.get_transaction_cost(holding, take_profit_price)
