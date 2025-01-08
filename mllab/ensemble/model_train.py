@@ -1483,19 +1483,20 @@ class StockPortfolioEnv(gym.Env):
 
         return final_price
 
-    def _get_predictions(self):
+    def get_predictions(self):
         # Предполагаем, что self.df содержит столбцы: 'prediction', 'tic', 'date'
 
         # 1. Извлекаем первые три элемента и 5-й, 6-й элементы массива в новые столбцы
         self.df[['bin-1', 'bin-0', 'bin+1', 'sl', 'tp']] = self.df['prediction'] \
-            .apply(lambda x: pd.Series({'bin-1': x[0],
-                                        'bin-0': x[1],
-                                        'bin+1': x[2],
-                                        'sl': x[4],
-                                        'tp': x[5]}))
+            .apply(lambda x: pd.Series({
+            'bin-1': x[0],
+            'bin-0': x[1],
+            'bin+1': x[2],
+            'sl': x[4],
+            'tp': x[5]
+        }))
 
         # 2. Создаем новый столбец 'bin' на основе максимального значения среди 'bin-1', 'bin-0', 'bin+1'
-        # Если максимум в 'bin-0' -> 0, в 'bin-1' -> '-bin-1', в 'bin+1' -> 'bin+1'
         self.df['bin'] = self.df[['bin-1', 'bin-0', 'bin+1']].idxmax(axis=1).map({
             'bin-1': '-bin-1',
             'bin-0': '0',
@@ -1505,27 +1506,41 @@ class StockPortfolioEnv(gym.Env):
         # 3. Удаляем временные столбцы 'bin-1', 'bin-0', 'bin+1'
         self.df.drop(columns=['bin-1', 'bin-0', 'bin+1'], inplace=True)
 
-        # 4. Группируем данные по 'date' и для каждого момента времени собираем отсортированные по 'tic' массивы значений
+        # 4. Группируем данные по 'date' и формируем матрицы для каждого момента времени
         grouped_data = {}
         for date, group in self.df.groupby('date'):
             # Сортировка по 'tic'
             group_sorted = group.sort_values('tic')
-            # Формирование словаря с массивами значений для данного момента времени
-            grouped_data[date] = {
-                'tic': group_sorted['tic'].tolist(),
-                'bin': group_sorted['bin'].tolist(),
-                'sl': group_sorted['sl'].tolist(),
-                'tp': group_sorted['tp'].tolist()
-            }
+            # Извлекаем массив значений для столбцов 'bin', 'sl', 'tp'
+            # Результатом будет матрица (количество_тикеров × 3)
+            matrix = group_sorted[['bin', 'sl', 'tp']].to_numpy()
+            grouped_data[date] = matrix
 
         return grouped_data
 
-    def _create_actions(self):
-
-        # получаем предсказания и с ними работаем ...
-
-        pass
-
     def _run(self):
+        # Получаем сгруппированные данные по датам
+        grouped_data = self.get_predictions()
 
-        pass
+        # Извлекаем отсортированный список дат из сгруппированных данных
+        dates = sorted(grouped_data.keys())
+
+        # Инициализируем текущий индекс для итерации по датам
+        current_index = 0
+
+        # Основной цикл выполнения до наступления терминального события или пока не закончатся даты
+        while not self.terminal and current_index < len(dates):
+            # Выбираем текущую дату как массив действий
+            current_date = dates[current_index]
+            actions = grouped_data[current_date]  # матрица значений для текущей даты
+
+            # Передаем действия в метод step
+            self.step(actions)
+
+            # Переходим к следующей дате
+            current_index += 1
+
+
+
+
+
