@@ -1134,7 +1134,7 @@ class StockPortfolioEnv(gym.Env):
 
     def get_sltp(self, actions):
         if self.use_sltp:
-            return self.sl_scale * actions[:, 1], self.tp_scale * actions[:, 2]
+            return actions[:, 1] * self.sl_scale, actions[:, 2] * self.tp_scal
         else:
             # Инициализация numpy массивов для stop_loss и take_profit
             n = len(self.ticker_list)
