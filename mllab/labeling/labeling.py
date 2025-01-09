@@ -470,7 +470,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             if bin_value == 0:
                 # Сдвиг previous_end_time на текущую строку
                 previous_end_time = idx - short_period + 2
-                previous_close = tic_data.loc[idx]['close']
+                previous_close = tic_data.loc[idx - short_period + 2]['close']
                 continue
 
             # Обработка bin == 1 или bin == -1
