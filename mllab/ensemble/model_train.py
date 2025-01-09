@@ -1569,11 +1569,14 @@ class StockPortfolioEnv(gym.Env):
             current_index += 1
 
     def __check__(self):
+        # Проверка наличия атрибута predictions; если его нет или он пустой, получаем предсказания
+        if not hasattr(self, 'predictions') or self.predictions is None:
+            self.predictions = self.__get_predictions__()
+
         # Извлекаем уникальные тикеры из DataFrame self.df и сортируем их в алфавитном порядке
         tickers = sorted(self.df['tic'].unique())
 
         # Инициализируем словарь для хранения результатов по каждому тикеру.
-        # Для каждого тикера хранятся два списка: один для верных предсказаний, другой для неверных.
         results_by_ticker = {tic: {'correct': [], 'incorrect': []} for tic in tickers}
 
         def get_price_change(df, current_index, direction='prev'):
@@ -1690,14 +1693,13 @@ class StockPortfolioEnv(gym.Env):
         ax.set_xticklabels(ticker_list, rotation=45)
         ax.legend()
 
-        # Добавление подписей значений на столбцы (опционально)
         def autolabel(rects):
             """Добавление текста с численным значением поверх каждого столбца."""
             for rect in rects:
                 height = rect.get_height()
                 ax.annotate(f'{height}',
                             xy=(rect.get_x() + rect.get_width() / 2, height),
-                            xytext=(0, 3),  # смещение по вертикали
+                            xytext=(0, 3),
                             textcoords="offset points",
                             ha='center', va='bottom')
 
@@ -1707,7 +1709,6 @@ class StockPortfolioEnv(gym.Env):
         fig.tight_layout()
         plt.show()
 
-        # Возвращаем результаты для дальнейшего анализа, если необходимо
         return results_by_ticker
 
 
