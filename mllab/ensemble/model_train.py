@@ -1578,58 +1578,34 @@ class StockPortfolioEnv(gym.Env):
 
         def get_price_change(df, current_index, direction='prev'):
             """
-            Рассчитывает процентное изменение цены закрытия между двумя последовательными периодами:
-            - Если direction='prev', рассчитывает изменение от предыдущего периода до текущего.
-            - Если direction='next', рассчитывает изменение от текущего периода до следующего.
-            При отсутствии предыдущего или следующего периода возвращает None.
+            Рассчитывает процентное изменение цены закрытия между двумя последовательными периодами.
             """
             try:
                 if direction == 'prev':
-                    # Получаем данные предыдущего и текущего периодов
                     prev_row = df.iloc[current_index - 1]
                     curr_row = df.iloc[current_index]
-                    # Расчитываем процентное изменение цены закрытия от предыдущего периода
                     change_pct = (curr_row['close'] - prev_row['close']) / prev_row['close'] * 100
                 else:  # direction == 'next'
-                    # Получаем данные текущего и следующего периодов
                     curr_row = df.iloc[current_index]
                     next_row = df.iloc[current_index + 1]
-                    # Расчитываем процентное изменение цены закрытия до следующего периода
                     change_pct = (next_row['close'] - curr_row['close']) / curr_row['close'] * 100
             except IndexError:
-                # Если индекс выходит за пределы DataFrame (например, первый или последний элемент),
-                # возвращаем None, так как соседнего периода нет
                 change_pct = None
             return change_pct
 
         def check_prediction(date, tic, predicted_direction, pred_value):
             """
-            Проверяет данное предсказание для указанного тикера и даты:
-            - Фильтрует данные для тикера и сортирует их по дате.
-            - Находит строку, соответствующую заданной дате.
-            - Рассчитывает процентные изменения цены за предыдущий и следующий периоды.
-            - Определяет фактическое направление изменения цены в следующий период.
-            - Сравнивает предсказанное направление с фактическим.
-            Возвращает словарь с подробной информацией о предсказании.
+            Проверяет предсказание для данного тикера и даты, рассчитывает изменения и определяет корректность.
             """
-            # Фильтруем данные для данного тикера и сортируем их по дате
             tic_data = self.df[self.df['tic'] == tic].sort_values(by='date').reset_index(drop=True)
-
-            # Находим строку, соответствующую заданной дате
             matching_rows = tic_data[tic_data['date'] == date]
             if matching_rows.empty:
-                # Если для данного тикера на заданную дату нет данных, возвращаем None
                 return None
 
-            # Индекс строки в отсортированном DataFrame tic_data
             current_index = matching_rows.index[0]
-
-            # Рассчитываем процентные изменения цены до текущей даты (предыдущий период)
-            # и после текущей даты (следующий период)
             change_prev = get_price_change(tic_data, current_index, direction='prev')
             change_next = get_price_change(tic_data, current_index, direction='next')
 
-            # Определяем фактическое направление изменения цены в следующий период
             actual_direction = None
             if change_next is not None:
                 if change_next > 0:
@@ -1639,10 +1615,8 @@ class StockPortfolioEnv(gym.Env):
                 else:
                     actual_direction = 'neutral'
 
-            # Сравниваем предсказанное направление с фактическим
             prediction_correct = (actual_direction == predicted_direction)
 
-            # Возвращаем детализированную информацию о предсказании и результатах
             return {
                 'date': date,
                 'tic': tic,
@@ -1654,58 +1628,88 @@ class StockPortfolioEnv(gym.Env):
                 'correct': prediction_correct
             }
 
-        # Основной цикл по каждому тикеру из отсортированного списка
+        # Обработка предсказаний для каждого тикера по каждой дате
         for tic in tickers:
-            # Проходим по каждой дате и соответствующему массиву предсказаний
             for date, prediction_array in self.predictions.items():
-                # Определяем индекс текущего тикера в отсортированном списке tickers
                 try:
                     idx = tickers.index(tic)
                 except ValueError:
-                    # Если тикер не найден в списке (что маловероятно), пропускаем итерацию
                     continue
 
-                # Получаем значение предсказания для данного тикера и даты
-                # Предполагается, что строки в prediction_array соответствуют порядку отсортированных тикеров
-                prediction_value = prediction_array[idx, 0]  # используем первый столбец для предсказания
-
-                # Пропускаем нейтральные предсказания (где prediction_value равно 0)
+                prediction_value = prediction_array[idx, 0]
                 if prediction_value == 0:
                     continue
 
-                # Определяем предсказанное направление: рост или падение
                 predicted_direction = 'growth' if prediction_value > 0 else 'fall'
-
-                # Проверяем предсказание и получаем подробный результат
                 result = check_prediction(date, tic, predicted_direction, prediction_value)
                 if result is None:
-                    # Если данные для данного случая не найдены, пропускаем
                     continue
 
-                # Сохраняем результат в соответствующем списке: correct или incorrect
                 if result['correct']:
                     results_by_ticker[tic]['correct'].append(result)
                 else:
                     results_by_ticker[tic]['incorrect'].append(result)
 
-        # Вывод результатов по каждому тикеру
+        # Вывод текстовых результатов для каждого тикера
         for tic, res in results_by_ticker.items():
             print(f"\nТикер: {tic}")
-
-            # Вывод количества верных предсказаний и их деталей
             correct_list = res['correct']
+            incorrect_list = res['incorrect']
+
             print(f"Количество верных предсказаний: {len(correct_list)}")
             for item in correct_list:
                 print(item)
 
-            # Вывод количества неверных предсказаний и их деталей
-            incorrect_list = res['incorrect']
             print(f"\nКоличество неверных предсказаний: {len(incorrect_list)}")
             for item in incorrect_list:
                 print(item)
 
-        # Возвращаем словарь с результатами для дальнейшего анализа или использования
+        # Подготовка данных для визуализации
+        ticker_list = []
+        correct_counts = []
+        incorrect_counts = []
+
+        for tic in tickers:
+            ticker_list.append(tic)
+            correct_counts.append(len(results_by_ticker[tic]['correct']))
+            incorrect_counts.append(len(results_by_ticker[tic]['incorrect']))
+
+        # Построение столбчатой диаграммы
+        x = np.arange(len(ticker_list))  # позиции по оси X для каждого тикера
+        width = 0.35  # ширина каждого столбца
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        # Столбцы для верных и неверных предсказаний
+        rects1 = ax.bar(x - width / 2, correct_counts, width, label='Верные')
+        rects2 = ax.bar(x + width / 2, incorrect_counts, width, label='Неверные')
+
+        # Добавление подписей и меток
+        ax.set_ylabel('Количество предсказаний')
+        ax.set_title('Верные и неверные предсказания по тикерам')
+        ax.set_xticks(x)
+        ax.set_xticklabels(ticker_list, rotation=45)
+        ax.legend()
+
+        # Добавление подписей значений на столбцы (опционально)
+        def autolabel(rects):
+            """Добавление текста с численным значением поверх каждого столбца."""
+            for rect in rects:
+                height = rect.get_height()
+                ax.annotate(f'{height}',
+                            xy=(rect.get_x() + rect.get_width() / 2, height),
+                            xytext=(0, 3),  # смещение по вертикали
+                            textcoords="offset points",
+                            ha='center', va='bottom')
+
+        autolabel(rects1)
+        autolabel(rects2)
+
+        fig.tight_layout()
+        plt.show()
+
+        # Возвращаем результаты для дальнейшего анализа, если необходимо
         return results_by_ticker
+
 
 
 
