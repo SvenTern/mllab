@@ -401,7 +401,78 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     return final_result
 
 
+def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFrame):
+    """
+    Проверяет корректность разметки изменения тренда с учетом интервалов времени period_length,
+    начиная цикл со второй строки и устанавливая previous_end_time на предыдущую строку.
 
+    Параметры:
+      data   - DataFrame с индексом 'timestamp' и колонками ['tic', 'open', 'low', 'high', 'close']
+      labels - DataFrame с индексом 'timestamp' и колонками ['tic', 'period_length', 'bin'],
+               где 'period_length' — количество интервалов (строк) текущего тренда,
+               'bin' — направление: 1 для роста, -1 для падения, 0 для нейтрального.
+
+    Возвращает:
+      Список кортежей (tic, period_end_timestamp, сообщение), где найдены несоответствия.
+    """
+    discrepancies = []
+    labels_grouped = labels.groupby('tic')
+
+    for tic, tic_labels in labels_grouped:
+        tic_labels = tic_labels.sort_index().reset_index()
+        tic_data = data[data['tic'] == tic].sort_index().reset_index()
+
+        if tic_data.empty or len(tic_labels) < 2:
+            continue
+
+        # Начинаем со второй строки
+        start_index = 1
+        previous_close = None
+        previous_end_time = start_index - 1
+
+        # Цикл начинается со второй строки
+        for idx in range(start_index, len(tic_labels)):
+            label_row = tic_labels.loc[idx]
+            bin_value = label_row['bin']
+            period_length = int(label_row['period_length'])
+            current_label_time = label_row['timestamp']
+
+            # Определение начала периода
+            # start_time = current_label_time if current_label_time > previous_end_time else previous_end_time
+
+            # Обработка bin == 0
+            if bin_value == 0:
+                # Сдвиг previous_end_time на текущую строку
+                previous_end_time = idx
+                previous_close = tic_data.loc[idx]['close']
+                continue
+
+            # Обработка bin == 1 или bin == -1
+            period_rows = tic_data.loc[idx:].head(period_length)
+            if period_rows.empty:
+                continue
+
+            period_end_time = period_rows.index[-1]
+            period_end_close = period_rows.iloc[-1]['close']
+            period_end_time_time = tic_data.loc[idx]['timestamp']
+
+            if previous_close is not None:
+                if bin_value == 1 and period_end_close < previous_close:
+                    discrepancies.append(
+                        (tic, period_end_time_time,
+                         f"Несоответствие: тикер {tic}, ожидаемый рост, но "
+                         f"цена упала с {previous_close} до {period_end_close}")
+                    )
+                elif bin_value == -1 and period_end_close > previous_close:
+                    discrepancies.append(
+                        (tic, period_end_time_time,
+                         f"Несоответствие: тикер {tic}, ожидается падение, но "
+                         f"цена выросла с {previous_close} до {period_end_close}")
+                    )
+            # нужно передвигать период, только если сменился тренд
+            if period_length == 1:
+                previous_close = period_end_close
+                previous_end_time = period_end_time
 
 
 

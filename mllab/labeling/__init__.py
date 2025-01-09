@@ -3,7 +3,7 @@ Labeling techniques used in financial machine learning.
 """
 
 from mllab.labeling.labeling import (add_vertical_barrier, apply_pt_sl_on_t1, barrier_touched, drop_labels,
-                                        get_bins, get_events)
+                                        get_bins, get_events, check_trend_labels_with_period_length, short_long_box)
 from mllab.labeling.trend_scanning import trend_scanning_labels
 from mllab.labeling.tail_sets import TailSetLabels
 from mllab.labeling.fixed_time_horizon import fixed_time_horizon
