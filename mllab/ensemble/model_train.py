@@ -1568,140 +1568,92 @@ class StockPortfolioEnv(gym.Env):
             self.step(actions)
             current_index += 1
 
-
     def __check__(self):
-        # Проверка наличия атрибута predictions; если его нет или он пустой, получаем предсказания
+        # Проверка наличия атрибута predictions; при необходимости вызов метода для получения предсказаний
         if not hasattr(self, 'predictions') or self.predictions is None:
             self.predictions = self.__get_predictions__()
 
-        # Извлекаем уникальные тикеры из DataFrame self.df и сортируем их в алфавитном порядке
-        tickers = sorted(self.df['tic'].unique())
+        # Предварительная сортировка DataFrame по тикеру и дате для оптимизации последующих операций
+        df_sorted = self.df.sort_values(by=['tic', 'date']).reset_index(drop=True)
+        # Группировка по тикерам для вычислений
+        grouped = df_sorted.groupby('tic')
 
-        # Инициализируем словарь для хранения результатов по каждому тикеру.
-        # Для каждого тикера хранятся четыре списка:
-        # - correct_prev и incorrect_prev для оценки по change_prev
-        # - correct_next и incorrect_next для оценки по change_next
+        # Векторизированный расчёт процентного изменения цены закрытия:
+        # Вычисление изменения от предыдущего периода и до следующего периода для каждой строки
+        df_sorted['change_prev_%'] = grouped['close'].pct_change() * 100
+        df_sorted['change_next_%'] = grouped['close'].pct_change(periods=-1) * 100
+
+        # Определение направления изменений цен для предыдущего и следующего периодов
+        df_sorted['actual_direction_prev'] = np.where(
+            df_sorted['change_prev_%'] > 0, 'growth',
+            np.where(df_sorted['change_prev_%'] < 0, 'fall', 'neutral')
+        )
+        df_sorted['actual_direction_next'] = np.where(
+            df_sorted['change_next_%'] > 0, 'growth',
+            np.where(df_sorted['change_next_%'] < 0, 'fall', 'neutral')
+        )
+
+        # Получаем список уникальных тикеров (уже отсортированный)
+        tickers = df_sorted['tic'].unique()
+
+        # Подготовка структуры для хранения количества верных/неверных предсказаний по каждому тикеру
         results_by_ticker = {
             tic: {
-                'correct_prev': [],
-                'incorrect_prev': [],
-                'correct_next': [],
-                'incorrect_next': []
+                'correct_prev': 0,
+                'incorrect_prev': 0,
+                'correct_next': 0,
+                'incorrect_next': 0
             } for tic in tickers
         }
 
-        def get_price_change(df, current_index, direction='prev'):
-            """
-            Рассчитывает процентное изменение цены закрытия между двумя последовательными периодами.
-            """
-            try:
-                if direction == 'prev':
-                    prev_row = df.iloc[current_index - 1]
-                    curr_row = df.iloc[current_index]
-                    change_pct = (curr_row['close'] - prev_row['close']) / prev_row['close'] * 100
-                else:  # direction == 'next'
-                    curr_row = df.iloc[current_index]
-                    next_row = df.iloc[current_index + 1]
-                    change_pct = (next_row['close'] - curr_row['close']) / curr_row['close'] * 100
-            except IndexError:
-                change_pct = None
-            return change_pct
-
-        def check_prediction(date, tic, predicted_direction, pred_value):
-            """
-            Проверяет предсказание для данного тикера и даты, рассчитывает изменения по предыдущему и следующему периодам
-            и определяет корректность предсказаний отдельно для каждого периода.
-            """
-            tic_data = self.df[self.df['tic'] == tic].sort_values(by='date').reset_index(drop=True)
-            matching_rows = tic_data[tic_data['date'] == date]
-            if matching_rows.empty:
-                return None
-
-            current_index = matching_rows.index[0]
-            change_prev = get_price_change(tic_data, current_index, direction='prev')
-            change_next = get_price_change(tic_data, current_index, direction='next')
-
-            # Определение направлений для предыдущего и следующего периодов
-            actual_direction_prev = None
-            if change_prev is not None:
-                if change_prev > 0:
-                    actual_direction_prev = 'growth'
-                elif change_prev < 0:
-                    actual_direction_prev = 'fall'
-                else:
-                    actual_direction_prev = 'neutral'
-
-            actual_direction_next = None
-            if change_next is not None:
-                if change_next > 0:
-                    actual_direction_next = 'growth'
-                elif change_next < 0:
-                    actual_direction_next = 'fall'
-                else:
-                    actual_direction_next = 'neutral'
-
-            # Определение корректности предсказаний отдельно для предыдущего и следующего периодов
-            correct_prev = (actual_direction_prev == predicted_direction)
-            correct_next = (actual_direction_next == predicted_direction)
-
-            return {
-                'date': date,
-                'tic': tic,
-                'predicted_direction': predicted_direction,
-                'prediction_value': pred_value,
-                'actual_direction_prev': actual_direction_prev,
-                'actual_direction_next': actual_direction_next,
-                'change_prev_%': change_prev,
-                'change_next_%': change_next,
-                'correct_prev': correct_prev,
-                'correct_next': correct_next
-            }
-
-        # Обработка предсказаний для каждого тикера по каждой дате
-        for tic in tickers:
-            for date, prediction_array in self.predictions.items():
-                try:
-                    idx = tickers.index(tic)
-                except ValueError:
-                    continue
-
+        # Создаём словарь предсказаний для быстрого доступа: ключ - (date, tic), значение - predicted_direction
+        prediction_dict = {}
+        # Предполагаем, что self.predictions – словарь: ключами являются даты, значениями – массивы предсказаний
+        for date, prediction_array in self.predictions.items():
+            # Для каждого тикера извлекаем предсказанное направление
+            for idx, tic in enumerate(tickers):
                 prediction_value = prediction_array[idx, 0]
-                if prediction_value == 0:
-                    continue
+                # Если предсказание не нейтральное, сохраняем направление
+                if prediction_value != 0:
+                    direction = 'growth' if prediction_value > 0 else 'fall'
+                    prediction_dict[(date, tic)] = direction
 
-                predicted_direction = 'growth' if prediction_value > 0 else 'fall'
-                result = check_prediction(date, tic, predicted_direction, prediction_value)
-                if result is None:
-                    continue
+        # Оценка предсказаний: сравнение предсказанного направления с фактическим для каждого случая
+        for (date, tic), predicted_direction in prediction_dict.items():
+            # Находим строку DataFrame по тикеру и дате
+            mask = (df_sorted['tic'] == tic) & (df_sorted['date'] == date)
+            row = df_sorted.loc[mask]
+            if row.empty:
+                continue
 
-                # Разделяем результаты по оценке change_prev и change_next
-                if result['correct_prev']:
-                    results_by_ticker[tic]['correct_prev'].append(result)
-                else:
-                    results_by_ticker[tic]['incorrect_prev'].append(result)
+            # Извлекаем фактические направления для предыдущего и следующего периодов
+            actual_prev = row['actual_direction_prev'].values[0]
+            actual_next = row['actual_direction_next'].values[0]
 
-                if result['correct_next']:
-                    results_by_ticker[tic]['correct_next'].append(result)
-                else:
-                    results_by_ticker[tic]['incorrect_next'].append(result)
+            # Обновляем счётчики верных/неверных предсказаний для каждого тикера
+            if actual_prev == predicted_direction:
+                results_by_ticker[tic]['correct_prev'] += 1
+            else:
+                results_by_ticker[tic]['incorrect_prev'] += 1
 
-        # Вывод текстовых результатов для каждого тикера по каждому критерию
+            if actual_next == predicted_direction:
+                results_by_ticker[tic]['correct_next'] += 1
+            else:
+                results_by_ticker[tic]['incorrect_next'] += 1
+
+        # Вывод текстовых результатов по каждому тикеру
         for tic, res in results_by_ticker.items():
             print(f"\nТикер: {tic}")
-            print(f"По change_prev - Верных: {len(res['correct_prev'])}, Неверных: {len(res['incorrect_prev'])}")
-            print(f"По change_next - Верных: {len(res['correct_next'])}, Неверных: {len(res['incorrect_next'])}")
+            print(f"По change_prev - Верных: {res['correct_prev']}, Неверных: {res['incorrect_prev']}")
+            print(f"По change_next - Верных: {res['correct_next']}, Неверных: {res['incorrect_next']}")
 
-        # Подготовка данных для визуализации результатов change_prev
-        correct_prev_counts = []
-        incorrect_prev_counts = []
-        for tic in tickers:
-            correct_prev_counts.append(len(results_by_ticker[tic]['correct_prev']))
-            incorrect_prev_counts.append(len(results_by_ticker[tic]['incorrect_prev']))
+        # Подготовка данных для визуализации по change_prev
+        correct_prev_counts = [results_by_ticker[tic]['correct_prev'] for tic in tickers]
+        incorrect_prev_counts = [results_by_ticker[tic]['incorrect_prev'] for tic in tickers]
 
         # Визуализация результатов по change_prev
         x = np.arange(len(tickers))
         width = 0.35
-
         fig, ax = plt.subplots(figsize=(10, 6))
         rects1 = ax.bar(x - width / 2, correct_prev_counts, width, label='Верные (prev)')
         rects2 = ax.bar(x + width / 2, incorrect_prev_counts, width, label='Неверные (prev)')
@@ -1713,13 +1665,11 @@ class StockPortfolioEnv(gym.Env):
         ax.legend()
 
         def autolabel(rects):
-            """Добавление текста с численным значением поверх каждого столбца."""
+            """Добавление числовых подписей над столбцами для наглядности."""
             for rect in rects:
                 height = rect.get_height()
-                ax.annotate(f'{height}',
-                            xy=(rect.get_x() + rect.get_width() / 2, height),
-                            xytext=(0, 3),
-                            textcoords="offset points",
+                ax.annotate(f'{height}', xy=(rect.get_x() + rect.get_width() / 2, height),
+                            xytext=(0, 3), textcoords="offset points",
                             ha='center', va='bottom')
 
         autolabel(rects1)
@@ -1727,12 +1677,9 @@ class StockPortfolioEnv(gym.Env):
         fig.tight_layout()
         plt.show()
 
-        # Подготовка данных для визуализации результатов change_next
-        correct_next_counts = []
-        incorrect_next_counts = []
-        for tic in tickers:
-            correct_next_counts.append(len(results_by_ticker[tic]['correct_next']))
-            incorrect_next_counts.append(len(results_by_ticker[tic]['incorrect_next']))
+        # Подготовка данных для визуализации по change_next
+        correct_next_counts = [results_by_ticker[tic]['correct_next'] for tic in tickers]
+        incorrect_next_counts = [results_by_ticker[tic]['incorrect_next'] for tic in tickers]
 
         # Визуализация результатов по change_next
         fig, ax = plt.subplots(figsize=(10, 6))
