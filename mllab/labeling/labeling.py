@@ -275,44 +275,39 @@ def calculate_segments(group_close, group_low, group_high, short_period, long_pe
     cumulative_return = 0.0
     start_index = 0
     pred_index = 0
-    end_long_period =False
+
 
     for i in range(short_period - 1, n):
+        # не адекватно определяем направление роста, так как считаем его первый раз от неправильного интервала ...
+        # вот здесь ошибка !!!
         short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
         new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
-        if new_bin != current_bin or end_long_period or (i - start_index + 1) > long_period:
-            end_long_period = False
+        if new_bin != current_bin or (i - start_index + 1) > long_period:
             if current_bin != 0:
-                vr_low = min(group_low[pred_index:i]) / group_close[pred_index] - 1
-                vr_high = max(group_high[pred_index:i]) / group_close[pred_index] - 1
                 period_length = i - start_index
                 for j in range(start_index, i):
                     bins[j] = current_bin
-                    vr_lows[j] = vr_low
-                    vr_highs[j] = vr_high
-                    returns[j] = cumulative_return
+                    vr_lows[j] = min(group_low[pred_index:j]) / group_close[pred_index] - 1
+                    vr_highs[j] = max(group_high[pred_index:j]) / group_close[pred_index] - 1
+                    returns[j] = (group_close[j] - group_close[pred_index]) / group_close[pred_index]
                     period_lengths[j] = period_length - (j - start_index)
 
-            current_bin = new_bin
-            # нужно обеспечить смену бина, хоть бины и будут дальше те же, просто превышен период тренда ...
-            if (i - start_index + 1) > long_period:
-                end_long_period = True
+
             start_index = i
-            cumulative_return = short_return
             pred_index = start_index - short_period + 1
-        else:
-            cumulative_return = short_return
+            # нужно пересчитать current_bin
+            short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
+            current_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
+
 
     if current_bin != 0:
-        vr_low = min(group_low[pred_index:]) / group_close[pred_index] - 1
-        vr_high = max(group_high[pred_index:]) / group_close[pred_index] - 1
         period_length = n - start_index
         for j in range(start_index, n):
             bins[j] = current_bin
-            vr_lows[j] = vr_low
-            vr_highs[j] = vr_high
-            returns[j] = cumulative_return
+            vr_lows[j] = min(group_low[pred_index:j]) / group_close[pred_index] - 1
+            vr_highs[j] = max(group_high[pred_index:j]) / group_close[pred_index] - 1
+            returns[j] = (group_close[j] - group_close[pred_index]) / group_close[pred_index]
             period_lengths[j] = period_length - (j - start_index)
 
     return bins, vr_lows, vr_highs, returns, period_lengths
