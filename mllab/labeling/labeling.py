@@ -479,7 +479,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                 previous_close = period_end_close
                 previous_end_time = period_end_time
 
-
+    return discrepancies
 
 # Snippet 3.8 page 54
 def drop_labels(events, min_pct=.05):
