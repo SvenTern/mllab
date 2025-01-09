@@ -60,10 +60,10 @@ def apply_pt_sl_on_t1(**kwargs):  # pragma: no cover
             results.loc[loc, 'sl'] = df0[(df0 / close[loc] - 1) <= sl].index.min()
             results.loc[loc, 'pt'] = df0[(df0 / close[loc] - 1) >= pt].index.min()
 
-        # нужно поставить минимальное время где происходит пересечение барьеров ...
+        # нужно поставить минимальное время, где происходит пересечение барьеров ...
         results.loc[loc, 't1'] = min(events.loc[loc, 't1'], results.loc[loc, 'sl'], results.loc[loc, 'pt'])
 
-        # если минимальное время начало интервала то нужно перенести на начало следующего интервала
+        # если минимальное время начало интервала, то нужно перенести на начало следующего интервала
         if results.loc[loc, 't1'] == loc and idx + 1 < len(molecule):
             results.loc[loc, 't2'] = molecule[idx + 1]
         else:
@@ -263,7 +263,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
 
 @njit
-def calculate_segments(group_close, group_low, group_high, short_period = 2, long_period, group_threshold):
+def calculate_segments(group_close, group_low, group_high, short_period, long_period, group_threshold):
     n = len(group_close)
     bins = [0] * n
     vr_lows = [0.0] * n
