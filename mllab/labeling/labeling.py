@@ -263,7 +263,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
 
 @njit
-def calculate_segments(group_close, group_low, group_high, short_period, long_period, group_threshold):
+def calculate_segments(group_close, group_low, group_high, group_last_minute, short_period, long_period, group_threshold):
     n = len(group_close)
     bins = [0] * n
     vr_lows = [0.0] * n
@@ -283,7 +283,8 @@ def calculate_segments(group_close, group_low, group_high, short_period, long_pe
         short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
         new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
-        if new_bin != current_bin or (i - start_index + 1) > long_period:
+        # нужно добавить конец дня, т.е. когда i это конец торгового дня, тоже нужно завершить тренд ...
+        if new_bin != current_bin or (i - start_index + 1) > long_period or group_last_minute[i]:
             if current_bin != 0:
                 period_length = i - start_index
                 for j in range(start_index, i):
@@ -335,6 +336,31 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
         else:
             raise ValueError("DataFrame не индексирован по 'timestamp' и не содержит столбец 'timestamp'.")
 
+    # Предполагается, что DataFrame 'data' уже содержит столбец или индекс 'timestamp'.
+    # Убедимся, что индекс DataFrame — это datetime индекс.
+    #if data.index.name != 'timestamp' or not pd.api.types.is_datetime64_any_dtype(data.index):
+    #    if 'timestamp' in data.columns:
+    #        data['timestamp'] = pd.to_datetime(data['timestamp'])
+    #        data.set_index('timestamp', inplace=True)
+    #    else:
+    #        raise ValueError("DataFrame должен содержать индекс или столбец 'timestamp' с типом datetime.")
+
+    # Создаём столбец 'date' для группировки по дате (без времени)
+    data['date'] = data.index.date
+
+    # Группируем по дате и находим последнюю запись для каждого дня
+    last_entries = data.groupby('date').tail(1)
+
+    # Инициализируем новый столбец 'is_last_minute' значениями False
+    data['is_last_minute'] = False
+
+    # Устанавливаем True для строк, которые соответствуют последней минуте каждого дня
+    # Используем индекс из last_entries для обновления основной таблицы
+    data.loc[last_entries.index, 'is_last_minute'] = True
+
+    # (Опционально) Удаляем вспомогательный столбец 'date', если он больше не нужен
+    data.drop(columns='date', inplace=True)
+
     has_tic = 'tic' in data.columns
     result_list = []
 
@@ -380,7 +406,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
         group_threshold = threshold if not isinstance(calculated_threshold, dict) else calculated_threshold.get(tic, threshold)
 
         bins, vr_lows, vr_highs, returns, period_lengths = calculate_segments(
-            group['close'].values, group['low'].values, group['high'].values, short_period, long_period, group_threshold
+            group['close'].values, group['low'].values, group['high'].values, group['is_last_minute'].values, short_period, long_period, group_threshold
         )
 
         group_result['bin'] = bins
