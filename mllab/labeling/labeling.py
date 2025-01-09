@@ -263,7 +263,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
 
 @njit
-def calculate_segments(group_close, group_low, group_high, short_period, long_period, group_threshold):
+def calculate_segments(group_close, group_low, group_high, short_period = 2, long_period, group_threshold):
     n = len(group_close)
     bins = [0] * n
     vr_lows = [0.0] * n
@@ -290,7 +290,7 @@ def calculate_segments(group_close, group_low, group_high, short_period, long_pe
                     vr_lows[j] = vr_low
                     vr_highs[j] = vr_high
                     returns[j] = cumulative_return
-                    period_lengths[j] = period_length
+                    period_lengths[j] = period_length - (j - start_index)
 
             current_bin = new_bin
             start_index = i
@@ -308,11 +308,11 @@ def calculate_segments(group_close, group_low, group_high, short_period, long_pe
             vr_lows[j] = vr_low
             vr_highs[j] = vr_high
             returns[j] = cumulative_return
-            period_lengths[j] = period_length
+            period_lengths[j] = period_length - (j - start_index)
 
     return bins, vr_lows, vr_highs, returns, period_lengths
 
-def short_long_box(data: pd.DataFrame, short_period: int = 3, long_period: int = 5, threshold: float = 0.005):
+def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int = 5, threshold: float = 0.005):
     """
     Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
     Includes a progress indicator and optimized computation.
