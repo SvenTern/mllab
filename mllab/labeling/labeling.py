@@ -427,7 +427,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     return final_result
 
 
-def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFrame):
+def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFrame, short_period :int = 2):
     """
     Проверяет корректность разметки изменения тренда с учетом интервалов времени period_length,
     начиная цикл со второй строки и устанавливая previous_end_time на предыдущую строку.
@@ -454,7 +454,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
         # Начинаем со второй строки
         start_index = 1
         previous_close = None
-        previous_end_time = start_index - 1
+        previous_end_time = start_index - short_period + 1
 
         # Цикл начинается со второй строки
         for idx in range(start_index, len(tic_labels)):
@@ -469,12 +469,12 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             # Обработка bin == 0
             if bin_value == 0:
                 # Сдвиг previous_end_time на текущую строку
-                previous_end_time = idx
+                previous_end_time = idx - short_period + 2
                 previous_close = tic_data.loc[idx]['close']
                 continue
 
             # Обработка bin == 1 или bin == -1
-            period_rows = tic_data.loc[idx:].head(period_length)
+            period_rows = tic_data.loc[idx - short_period + 2:].head(period_length)
             if period_rows.empty:
                 continue
 
