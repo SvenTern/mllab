@@ -1568,6 +1568,147 @@ class StockPortfolioEnv(gym.Env):
             self.step(actions)
             current_index += 1
 
+    def __check__(self):
+        # Извлекаем уникальные тикеры из DataFrame self.df и сортируем их в алфавитном порядке
+        tickers = sorted(self.df['tic'].unique())
+
+        # Инициализируем словарь для хранения результатов по каждому тикеру.
+        # Для каждого тикера хранятся два списка: один для верных предсказаний, другой для неверных.
+        results_by_ticker = {tic: {'correct': [], 'incorrect': []} for tic in tickers}
+
+        def get_price_change(df, current_index, direction='prev'):
+            """
+            Рассчитывает процентное изменение цены закрытия между двумя последовательными периодами:
+            - Если direction='prev', рассчитывает изменение от предыдущего периода до текущего.
+            - Если direction='next', рассчитывает изменение от текущего периода до следующего.
+            При отсутствии предыдущего или следующего периода возвращает None.
+            """
+            try:
+                if direction == 'prev':
+                    # Получаем данные предыдущего и текущего периодов
+                    prev_row = df.iloc[current_index - 1]
+                    curr_row = df.iloc[current_index]
+                    # Расчитываем процентное изменение цены закрытия от предыдущего периода
+                    change_pct = (curr_row['close'] - prev_row['close']) / prev_row['close'] * 100
+                else:  # direction == 'next'
+                    # Получаем данные текущего и следующего периодов
+                    curr_row = df.iloc[current_index]
+                    next_row = df.iloc[current_index + 1]
+                    # Расчитываем процентное изменение цены закрытия до следующего периода
+                    change_pct = (next_row['close'] - curr_row['close']) / curr_row['close'] * 100
+            except IndexError:
+                # Если индекс выходит за пределы DataFrame (например, первый или последний элемент),
+                # возвращаем None, так как соседнего периода нет
+                change_pct = None
+            return change_pct
+
+        def check_prediction(date, tic, predicted_direction, pred_value):
+            """
+            Проверяет данное предсказание для указанного тикера и даты:
+            - Фильтрует данные для тикера и сортирует их по дате.
+            - Находит строку, соответствующую заданной дате.
+            - Рассчитывает процентные изменения цены за предыдущий и следующий периоды.
+            - Определяет фактическое направление изменения цены в следующий период.
+            - Сравнивает предсказанное направление с фактическим.
+            Возвращает словарь с подробной информацией о предсказании.
+            """
+            # Фильтруем данные для данного тикера и сортируем их по дате
+            tic_data = self.df[self.df['tic'] == tic].sort_values(by='date').reset_index(drop=True)
+
+            # Находим строку, соответствующую заданной дате
+            matching_rows = tic_data[tic_data['date'] == date]
+            if matching_rows.empty:
+                # Если для данного тикера на заданную дату нет данных, возвращаем None
+                return None
+
+            # Индекс строки в отсортированном DataFrame tic_data
+            current_index = matching_rows.index[0]
+
+            # Рассчитываем процентные изменения цены до текущей даты (предыдущий период)
+            # и после текущей даты (следующий период)
+            change_prev = get_price_change(tic_data, current_index, direction='prev')
+            change_next = get_price_change(tic_data, current_index, direction='next')
+
+            # Определяем фактическое направление изменения цены в следующий период
+            actual_direction = None
+            if change_next is not None:
+                if change_next > 0:
+                    actual_direction = 'growth'
+                elif change_next < 0:
+                    actual_direction = 'fall'
+                else:
+                    actual_direction = 'neutral'
+
+            # Сравниваем предсказанное направление с фактическим
+            prediction_correct = (actual_direction == predicted_direction)
+
+            # Возвращаем детализированную информацию о предсказании и результатах
+            return {
+                'date': date,
+                'tic': tic,
+                'predicted_direction': predicted_direction,
+                'prediction_value': pred_value,
+                'actual_direction': actual_direction,
+                'change_prev_%': change_prev,
+                'change_next_%': change_next,
+                'correct': prediction_correct
+            }
+
+        # Основной цикл по каждому тикеру из отсортированного списка
+        for tic in tickers:
+            # Проходим по каждой дате и соответствующему массиву предсказаний
+            for date, prediction_array in self.predictions.items():
+                # Определяем индекс текущего тикера в отсортированном списке tickers
+                try:
+                    idx = tickers.index(tic)
+                except ValueError:
+                    # Если тикер не найден в списке (что маловероятно), пропускаем итерацию
+                    continue
+
+                # Получаем значение предсказания для данного тикера и даты
+                # Предполагается, что строки в prediction_array соответствуют порядку отсортированных тикеров
+                prediction_value = prediction_array[idx, 0]  # используем первый столбец для предсказания
+
+                # Пропускаем нейтральные предсказания (где prediction_value равно 0)
+                if prediction_value == 0:
+                    continue
+
+                # Определяем предсказанное направление: рост или падение
+                predicted_direction = 'growth' if prediction_value > 0 else 'fall'
+
+                # Проверяем предсказание и получаем подробный результат
+                result = check_prediction(date, tic, predicted_direction, prediction_value)
+                if result is None:
+                    # Если данные для данного случая не найдены, пропускаем
+                    continue
+
+                # Сохраняем результат в соответствующем списке: correct или incorrect
+                if result['correct']:
+                    results_by_ticker[tic]['correct'].append(result)
+                else:
+                    results_by_ticker[tic]['incorrect'].append(result)
+
+        # Вывод результатов по каждому тикеру
+        for tic, res in results_by_ticker.items():
+            print(f"\nТикер: {tic}")
+
+            # Вывод количества верных предсказаний и их деталей
+            correct_list = res['correct']
+            print(f"Количество верных предсказаний: {len(correct_list)}")
+            for item in correct_list:
+                print(item)
+
+            # Вывод количества неверных предсказаний и их деталей
+            incorrect_list = res['incorrect']
+            print(f"\nКоличество неверных предсказаний: {len(incorrect_list)}")
+            for item in incorrect_list:
+                print(item)
+
+        # Возвращаем словарь с результатами для дальнейшего анализа или использования
+        return results_by_ticker
+
+
+
 
 
 
