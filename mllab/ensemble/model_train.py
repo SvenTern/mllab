@@ -1568,6 +1568,7 @@ class StockPortfolioEnv(gym.Env):
             self.step(actions)
             current_index += 1
 
+
     def __check__(self):
         # Проверка наличия атрибута predictions; если его нет или он пустой, получаем предсказания
         if not hasattr(self, 'predictions') or self.predictions is None:
@@ -1577,7 +1578,17 @@ class StockPortfolioEnv(gym.Env):
         tickers = sorted(self.df['tic'].unique())
 
         # Инициализируем словарь для хранения результатов по каждому тикеру.
-        results_by_ticker = {tic: {'correct': [], 'incorrect': []} for tic in tickers}
+        # Для каждого тикера хранятся четыре списка:
+        # - correct_prev и incorrect_prev для оценки по change_prev
+        # - correct_next и incorrect_next для оценки по change_next
+        results_by_ticker = {
+            tic: {
+                'correct_prev': [],
+                'incorrect_prev': [],
+                'correct_next': [],
+                'incorrect_next': []
+            } for tic in tickers
+        }
 
         def get_price_change(df, current_index, direction='prev'):
             """
@@ -1598,7 +1609,8 @@ class StockPortfolioEnv(gym.Env):
 
         def check_prediction(date, tic, predicted_direction, pred_value):
             """
-            Проверяет предсказание для данного тикера и даты, рассчитывает изменения и определяет корректность.
+            Проверяет предсказание для данного тикера и даты, рассчитывает изменения по предыдущему и следующему периодам
+            и определяет корректность предсказаний отдельно для каждого периода.
             """
             tic_data = self.df[self.df['tic'] == tic].sort_values(by='date').reset_index(drop=True)
             matching_rows = tic_data[tic_data['date'] == date]
@@ -1609,26 +1621,40 @@ class StockPortfolioEnv(gym.Env):
             change_prev = get_price_change(tic_data, current_index, direction='prev')
             change_next = get_price_change(tic_data, current_index, direction='next')
 
-            actual_direction = None
+            # Определение направлений для предыдущего и следующего периодов
+            actual_direction_prev = None
+            if change_prev is not None:
+                if change_prev > 0:
+                    actual_direction_prev = 'growth'
+                elif change_prev < 0:
+                    actual_direction_prev = 'fall'
+                else:
+                    actual_direction_prev = 'neutral'
+
+            actual_direction_next = None
             if change_next is not None:
                 if change_next > 0:
-                    actual_direction = 'growth'
+                    actual_direction_next = 'growth'
                 elif change_next < 0:
-                    actual_direction = 'fall'
+                    actual_direction_next = 'fall'
                 else:
-                    actual_direction = 'neutral'
+                    actual_direction_next = 'neutral'
 
-            prediction_correct = (actual_direction == predicted_direction)
+            # Определение корректности предсказаний отдельно для предыдущего и следующего периодов
+            correct_prev = (actual_direction_prev == predicted_direction)
+            correct_next = (actual_direction_next == predicted_direction)
 
             return {
                 'date': date,
                 'tic': tic,
                 'predicted_direction': predicted_direction,
                 'prediction_value': pred_value,
-                'actual_direction': actual_direction,
+                'actual_direction_prev': actual_direction_prev,
+                'actual_direction_next': actual_direction_next,
                 'change_prev_%': change_prev,
                 'change_next_%': change_next,
-                'correct': prediction_correct
+                'correct_prev': correct_prev,
+                'correct_next': correct_next
             }
 
         # Обработка предсказаний для каждого тикера по каждой дате
@@ -1648,49 +1674,42 @@ class StockPortfolioEnv(gym.Env):
                 if result is None:
                     continue
 
-                if result['correct']:
-                    results_by_ticker[tic]['correct'].append(result)
+                # Разделяем результаты по оценке change_prev и change_next
+                if result['correct_prev']:
+                    results_by_ticker[tic]['correct_prev'].append(result)
                 else:
-                    results_by_ticker[tic]['incorrect'].append(result)
+                    results_by_ticker[tic]['incorrect_prev'].append(result)
 
-        # Вывод текстовых результатов для каждого тикера
+                if result['correct_next']:
+                    results_by_ticker[tic]['correct_next'].append(result)
+                else:
+                    results_by_ticker[tic]['incorrect_next'].append(result)
+
+        # Вывод текстовых результатов для каждого тикера по каждому критерию
         for tic, res in results_by_ticker.items():
             print(f"\nТикер: {tic}")
-            correct_list = res['correct']
-            incorrect_list = res['incorrect']
+            print(f"По change_prev - Верных: {len(res['correct_prev'])}, Неверных: {len(res['incorrect_prev'])}")
+            print(f"По change_next - Верных: {len(res['correct_next'])}, Неверных: {len(res['incorrect_next'])}")
 
-            print(f"Количество верных предсказаний: {len(correct_list)}")
-            for item in correct_list:
-                print(item)
-
-            print(f"\nКоличество неверных предсказаний: {len(incorrect_list)}")
-            for item in incorrect_list:
-                print(item)
-
-        # Подготовка данных для визуализации
-        ticker_list = []
-        correct_counts = []
-        incorrect_counts = []
-
+        # Подготовка данных для визуализации результатов change_prev
+        correct_prev_counts = []
+        incorrect_prev_counts = []
         for tic in tickers:
-            ticker_list.append(tic)
-            correct_counts.append(len(results_by_ticker[tic]['correct']))
-            incorrect_counts.append(len(results_by_ticker[tic]['incorrect']))
+            correct_prev_counts.append(len(results_by_ticker[tic]['correct_prev']))
+            incorrect_prev_counts.append(len(results_by_ticker[tic]['incorrect_prev']))
 
-        # Построение столбчатой диаграммы
-        x = np.arange(len(ticker_list))  # позиции по оси X для каждого тикера
-        width = 0.35  # ширина каждого столбца
+        # Визуализация результатов по change_prev
+        x = np.arange(len(tickers))
+        width = 0.35
 
         fig, ax = plt.subplots(figsize=(10, 6))
-        # Столбцы для верных и неверных предсказаний
-        rects1 = ax.bar(x - width / 2, correct_counts, width, label='Верные')
-        rects2 = ax.bar(x + width / 2, incorrect_counts, width, label='Неверные')
+        rects1 = ax.bar(x - width / 2, correct_prev_counts, width, label='Верные (prev)')
+        rects2 = ax.bar(x + width / 2, incorrect_prev_counts, width, label='Неверные (prev)')
 
-        # Добавление подписей и меток
         ax.set_ylabel('Количество предсказаний')
-        ax.set_title('Верные и неверные предсказания по тикерам')
+        ax.set_title('Оценка предсказаний по change_prev')
         ax.set_xticks(x)
-        ax.set_xticklabels(ticker_list, rotation=45)
+        ax.set_xticklabels(tickers, rotation=45)
         ax.legend()
 
         def autolabel(rects):
@@ -1705,7 +1724,29 @@ class StockPortfolioEnv(gym.Env):
 
         autolabel(rects1)
         autolabel(rects2)
+        fig.tight_layout()
+        plt.show()
 
+        # Подготовка данных для визуализации результатов change_next
+        correct_next_counts = []
+        incorrect_next_counts = []
+        for tic in tickers:
+            correct_next_counts.append(len(results_by_ticker[tic]['correct_next']))
+            incorrect_next_counts.append(len(results_by_ticker[tic]['incorrect_next']))
+
+        # Визуализация результатов по change_next
+        fig, ax = plt.subplots(figsize=(10, 6))
+        rects1 = ax.bar(x - width / 2, correct_next_counts, width, label='Верные (next)')
+        rects2 = ax.bar(x + width / 2, incorrect_next_counts, width, label='Неверные (next)')
+
+        ax.set_ylabel('Количество предсказаний')
+        ax.set_title('Оценка предсказаний по change_next')
+        ax.set_xticks(x)
+        ax.set_xticklabels(tickers, rotation=45)
+        ax.legend()
+
+        autolabel(rects1)
+        autolabel(rects2)
         fig.tight_layout()
         plt.show()
 
