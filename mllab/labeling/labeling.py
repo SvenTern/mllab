@@ -346,7 +346,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     #        raise ValueError("DataFrame должен содержать индекс или столбец 'timestamp' с типом datetime.")
 
     # Создаём столбец 'date' для группировки по дате (без времени)
-    data['date'] = pd.to_datetime(data.index).date
+    data['date'] = pd.to_datetime(data.index, utc=True).date
 
     # Группируем по дате и находим последнюю запись для каждого дня
     last_entries = data.groupby('date').tail(1)
