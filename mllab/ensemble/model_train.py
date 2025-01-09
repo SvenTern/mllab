@@ -1134,7 +1134,40 @@ class StockPortfolioEnv(gym.Env):
 
     def get_sltp(self, actions):
         if self.use_sltp:
-            return actions[:, 1] * self.sl_scale, actions[:, 2] * self.tp_scale
+
+            stop_loss = actions[:, 1]
+            take_profit = actions[:, 2]
+
+            for idx, tic in enumerate(self.ticker_list):
+                sl_value = stop_loss[idx]
+                tp_value = take_profit[idx]
+
+                # Фильтрация данных для текущего тикера
+                tic_data = self.data[self.data['tic'] == tic]
+
+                if tic_data.empty:
+                    # Обработка случая, когда данные для тикера отсутствуют
+                    #parsed_prediction = [0] * 6  # Предполагаем минимум 6 элементов
+                    volatility = 0.001  # Можно задать нулевую волатильность или другое значение по умолчанию
+                else:
+                    # Парсинг предсказанных значений и извлечение волатильности
+                    #parsed_prediction = self.parse_to_1d_array(tic_data['prediction'].values[0])
+                    volatility = tic_data['volatility'].values[0]
+
+                # Проверка и корректировка значений stop_loss и take_profit на основе волатильности
+                if self.share_holdings[idx] > 0:
+                    if (1 + tp_value) <= (1 + sl_value):  # нужно чтобы take_profit был выше stop_loss
+                        sl_value, tp_value = self.get_sltp_volatility(volatility, self.share_holdings[idx])
+                elif self.share_holdings[idx] < 0:
+                    if (1 + tp_value) >= (1 + sl_value):  # нужно чтобы take_profit был ниже stop_loss
+                        sl_value, tp_value = self.get_sltp_volatility(volatility, self.share_holdings[idx])
+
+                # Заполнение массивов рассчитанными значениями для текущего индекса
+                stop_loss[idx] = sl_value
+                take_profit[idx] = tp_value
+
+            return stop_loss* self.sl_scale, take_profit * self.tp_scale
+
         else:
             # Инициализация numpy массивов для stop_loss и take_profit
             n = len(self.ticker_list)
