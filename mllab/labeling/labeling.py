@@ -469,12 +469,12 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             # Обработка bin == 0
             if bin_value == 0:
                 # Сдвиг previous_end_time на текущую строку
-                previous_end_time = idx - short_period + 2
+                previous_end_time = idx
                 previous_close = tic_data.loc[idx - short_period + 2]['close']
                 continue
 
             # Обработка bin == 1 или bin == -1
-            period_rows = tic_data.loc[idx - short_period + 2:].head(period_length)
+            period_rows = tic_data.loc[idx:].head(period_length)
             if period_rows.empty:
                 continue
 
