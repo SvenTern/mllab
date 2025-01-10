@@ -348,6 +348,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     # Создаём столбец 'date' для группировки по дате (без времени)
     data['date'] = pd.to_datetime(data.index, utc=True).date
 
+    # Проверяем наличие столбца 'row_num' в last_entries
+    if 'row_num' not in data.columns:
+        # 1. Создаем вспомогательный столбец с порядковым номером для каждой строки
+        data['row_num'] = range(len(data))
+
     # Группируем по дате и находим последнюю запись для каждого дня
     last_entries = data.groupby('date').tail(1)
 
@@ -360,10 +365,6 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
 
     ## 4. Создаем словарь: ключ – дата, значение – порядковый номер последней записи этого дня
     #mapping = {row.date: row.row_num for _, row in last_entries.iterrows()}
-
-    # Проверяем наличие столбца 'row_num' в last_entries
-    if 'row_num' not in last_entries.columns:
-        raise KeyError("Столбец 'row_num' отсутствует в last_entries. Проверьте создание столбца.")
 
     # 4. Создаем словарь: ключ – дата, значение – порядковый номер последней записи этого дня,
     # используя set_index для формирования словаря напрямую
