@@ -263,7 +263,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
 
 @njit
-def calculate_segments(group_close, group_low, group_high, group_last_minute, short_period, long_period, group_threshold):
+def calculate_segments(group_close, group_low, group_high, group_last_minute, end_day_index, short_period, long_period, group_threshold):
     n = len(group_close)
     bins = [0] * n
     vr_lows = [0.0] * n
@@ -280,7 +280,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, sh
     for i in range(short_period - 1, n):
         # вот здесь нужно понимать, если pred_index в прошлом торговом дне, а i в текущем то нужно считать, что нет роста или падений, чтобы не было такой разметки
         short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
-        if group_last_minute[pred_index]:
+        if end_day_index[pred_index] < end_day_index[i]:
             short_return = 0
         new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
@@ -300,7 +300,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, sh
             pred_index = start_index - short_period + 1
             # нужно пересчитать current_bin
             short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
-            if group_last_minute[pred_index]:
+            if end_day_index[pred_index] < end_day_index[i]:
                 short_return = 0
             current_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
@@ -361,6 +361,13 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     # Используем индекс из last_entries для обновления основной таблицы
     data.loc[last_entries.index, 'is_last_minute'] = True
 
+    # 3. Создаём словарь для отображения даты в индекс последней записи этого дня
+    # Ключ – дата, значение – соответствующий индекс последней записи
+    mapping = {row.date: idx for idx, row in last_entries.iterrows()}
+
+    # 4. Добавляем колонку с индексом конца торгового дня для каждой строки
+    data['end_day_index'] = data['date'].map(mapping)
+
     # (Опционально) Удаляем вспомогательный столбец 'date', если он больше не нужен
     data.drop(columns='date', inplace=True)
 
@@ -409,7 +416,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
         group_threshold = threshold if not isinstance(calculated_threshold, dict) else calculated_threshold.get(tic, threshold)
 
         bins, vr_lows, vr_highs, returns, period_lengths = calculate_segments(
-            group['close'].values, group['low'].values, group['high'].values, group['is_last_minute'].values, short_period, long_period, group_threshold
+            group['close'].values, group['low'].values, group['high'].values, group['is_last_minute'].values, group['end_day_index'].values, short_period, long_period, group_threshold
         )
 
         group_result['bin'] = bins
