@@ -359,7 +359,15 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     data.loc[last_entries.index, 'is_last_minute'] = True
 
     ## 4. Создаем словарь: ключ – дата, значение – порядковый номер последней записи этого дня
-    mapping = {row.date: row.row_num for _, row in last_entries.iterrows()}
+    #mapping = {row.date: row.row_num for _, row in last_entries.iterrows()}
+
+    # Проверяем наличие столбца 'row_num' в last_entries
+    if 'row_num' not in last_entries.columns:
+        raise KeyError("Столбец 'row_num' отсутствует в last_entries. Проверьте создание столбца.")
+
+    # 4. Создаем словарь: ключ – дата, значение – порядковый номер последней записи этого дня,
+    # используя set_index для формирования словаря напрямую
+    mapping = last_entries.set_index('date')['row_num'].to_dict()
 
     # 4. Добавляем колонку с индексом конца торгового дня для каждой строки
     data['end_day_index'] = data['date'].map(mapping)
