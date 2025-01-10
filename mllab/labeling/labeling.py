@@ -272,10 +272,10 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
 
     current_bin = 0
     cumulative_return = 0.0
-    start_index = short_period - 1
+    start_index = short_period
     pred_index = 0
 
-    for i in range(short_period - 1, n):
+    for i in range(short_period, n):
         # вот здесь нужно понимать, если pred_index в прошлом торговом дне, а i в текущем то нужно считать, что нет роста или падений, чтобы не было такой разметки
         short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
         if group_end_day_index[pred_index] < group_end_day_index[i]:
@@ -286,15 +286,15 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
         if new_bin != current_bin or (i - start_index + 1) > long_period or group_last_minute[i]:
             if current_bin != 0:
                 period_length = i - start_index
-                for j in range(start_index - short_period + 1, i - short_period + 1):
+                for j in range(start_index - short_period, i - short_period):
                     bins[j] = current_bin
-                    vr_lows[j] = min(group_low[pred_index:j + short_period - 1]) / group_close[pred_index] - 1
-                    vr_highs[j] = max(group_high[pred_index:j+ short_period - 1]) / group_close[pred_index] - 1
-                    returns[j] = (group_close[j+ short_period - 1] - group_close[pred_index]) / group_close[pred_index]
-                    period_lengths[j] = period_length - (j - start_index)
+                    vr_lows[j] = min(group_low[pred_index:j + short_period]) / group_close[pred_index] - 1
+                    vr_highs[j] = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
+                    returns[j] = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
+                    period_lengths[j] = period_length - (j + short_period - start_index)
 
             start_index = i
-            pred_index = start_index - short_period + 1
+            pred_index = start_index - short_period
             # нужно пересчитать current_bin
             short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
             if group_end_day_index[pred_index] < group_end_day_index[i]:
@@ -303,17 +303,17 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
 
     if current_bin != 0:
         period_length = n - start_index
-        for j in range(start_index - short_period + 1, n):
+        for j in range(start_index - short_period, n):
             bins[j] = current_bin
-            vr_lows[j] = min(group_low[pred_index:j+ short_period - 1]) / group_close[pred_index] - 1
-            vr_highs[j] = max(group_high[pred_index:j+ short_period - 1]) / group_close[pred_index] - 1
-            returns[j] = (group_close[j+ short_period - 1] - group_close[pred_index]) / group_close[pred_index]
-            period_lengths[j] = period_length - (j - start_index)
+            vr_lows[j] = min(group_low[pred_index:j+ short_period]) / group_close[pred_index] - 1
+            vr_highs[j] = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
+            returns[j] = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
+            period_lengths[j] = period_length - (j + short_period - start_index)
 
     return bins, vr_lows, vr_highs, returns, period_lengths
 
 
-def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int = 5, threshold: float = 0.005):
+def short_long_box(data: pd.DataFrame, short_period: int = 1, long_period: int = 5, threshold: float = 0.005):
     """
     Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
     Includes a progress indicator and optimized computation.
@@ -472,10 +472,10 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
         start_index = 0
         previous_close = None
         # указатель точку завершения текущего периода
-        #previous_end_time = start_index - short_period + 1
+        #previous_end_time = start_index - short_period
 
         # Цикл начинается со второй строки
-        for idx in range(start_index, len(tic_labels) - short_period + 1):
+        for idx in range(start_index, len(tic_labels) - short_period):
             label_row = tic_labels.loc[idx]
             bin_value = label_row['bin']
             period_length = int(label_row['period_length'])
@@ -488,15 +488,15 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             if bin_value == 0:
                 # Сдвиг previous_end_time на текущую строку
                 #previous_end_time = idx +  1
-                previous_close = tic_data.loc[idx + 1]['close']
+                previous_close = tic_data.loc[idx]['close']
                 continue
 
             # Обработка bin == 1 или bin == -1
-            period_rows = tic_data.loc[idx + short_period -1:].head(period_length)
+            period_rows = tic_data.loc[idx + short_period:].head(period_length)
             if period_rows.empty:
                 continue
 
-            period_end_time = period_rows.index[-1]
+            #period_end_time = period_rows.index[-1]
             period_end_close = period_rows.iloc[-1]['close']
             period_end_time_time = tic_data.loc[idx]['timestamp']
 
@@ -515,7 +515,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                     )
             # нужно передвигать период, только если сменился тренд
             if period_length == 1:
-                previous_close = tic_data.loc[idx + short_period -1 + period_length]['close']
+                previous_close = tic_data.loc[idx + short_period + period_length]['close']
                 #previous_end_time = period_end_time
 
     return discrepancies
