@@ -291,7 +291,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
                     vr_lows[j] = min(group_low[pred_index:j + short_period]) / group_close[pred_index] - 1
                     vr_highs[j] = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
                     returns[j] = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
-                    period_lengths[j] = period_length - (j + short_period - start_index)
+                    period_lengths[j] = period_length - (j - start_index) - 1
 
             start_index = i
             pred_index = start_index - short_period
@@ -308,7 +308,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
             vr_lows[j] = min(group_low[pred_index:j+ short_period]) / group_close[pred_index] - 1
             vr_highs[j] = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
             returns[j] = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
-            period_lengths[j] = period_length - (j + short_period - start_index)
+            period_lengths[j] = period_length - (j - start_index) -1
 
     return bins, vr_lows, vr_highs, returns, period_lengths
 
