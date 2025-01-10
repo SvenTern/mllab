@@ -485,13 +485,13 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             if previous_close is not None:
                 if bin_value == 1 and period_end_close < previous_close:
                     discrepancies.append(
-                        (tic, period_end_time_time,
+                        (tic, period_end_time_time, idx,
                          f"Несоответствие: тикер {tic}, ожидаемый рост, но "
                          f"цена упала с {previous_close} до {period_end_close}")
                     )
                 elif bin_value == -1 and period_end_close > previous_close:
                     discrepancies.append(
-                        (tic, period_end_time_time,
+                        (tic, period_end_time_time, idx,
                          f"Несоответствие: тикер {tic}, ожидается падение, но "
                          f"цена выросла с {previous_close} до {period_end_close}")
                     )
