@@ -107,10 +107,9 @@ def add_vertical_barrier(t_events, close, num_days=0, num_hours=0, num_minutes=0
     return pd.DatetimeIndex(aligned_barriers)
 
 
-
 # Snippet 3.3 -> 3.6 page 50, Getting the Time of the First Touch, with Meta Labels
 def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vertical_barrier_times=None,
-               side_prediction=None, normalized_data:bool=False, verbose=True ):
+               side_prediction=None, normalized_data: bool = False, verbose=True):
     """
     Advances in Financial Machine Learning, Snippet 3.6 page 50.
 
@@ -144,7 +143,7 @@ def get_events(close, t_events, pt_sl, target, min_ret=None, num_threads=1, vert
     """
     # проверка на соответствие длины t_events и количества барьеров vertical_barrier_times
     if len(t_events) > len(vertical_barrier_times):
-        t_events = t_events[:len(vertical_barrier_times)+1]
+        t_events = t_events[:len(vertical_barrier_times) + 1]
 
     # Auto-set min_ret if not provided
     if not min_ret is None:
@@ -261,9 +260,9 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
     return out
 
 
-
 @njit
-def calculate_segments(group_close, group_low, group_high, group_last_minute, group_end_day_index, short_period, long_period, group_threshold):
+def calculate_segments(group_close, group_low, group_high, group_last_minute, group_end_day_index, short_period,
+                       long_period, group_threshold):
     n = len(group_close)
     bins = [0] * n
     vr_lows = [0.0] * n
@@ -275,7 +274,6 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
     cumulative_return = 0.0
     start_index = 0
     pred_index = 0
-
 
     for i in range(short_period - 1, n):
         # вот здесь нужно понимать, если pred_index в прошлом торговом дне, а i в текущем то нужно считать, что нет роста или падений, чтобы не было такой разметки
@@ -295,7 +293,6 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
                     returns[j] = (group_close[j] - group_close[pred_index]) / group_close[pred_index]
                     period_lengths[j] = period_length - (j - start_index)
 
-
             start_index = i
             pred_index = start_index - short_period + 1
             # нужно пересчитать current_bin
@@ -303,7 +300,6 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
             if group_end_day_index[pred_index] < group_end_day_index[i]:
                 short_return = 0
             current_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
-
 
     if current_bin != 0:
         period_length = n - start_index
@@ -315,6 +311,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
             period_lengths[j] = period_length - (j - start_index)
 
     return bins, vr_lows, vr_highs, returns, period_lengths
+
 
 def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int = 5, threshold: float = 0.005):
     """
@@ -413,10 +410,12 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
         if has_tic:
             group_result['tic'] = tic
 
-        group_threshold = threshold if not isinstance(calculated_threshold, dict) else calculated_threshold.get(tic, threshold)
+        group_threshold = threshold if not isinstance(calculated_threshold, dict) else calculated_threshold.get(tic,
+                                                                                                                threshold)
 
         bins, vr_lows, vr_highs, returns, period_lengths = calculate_segments(
-            group['close'].values, group['low'].values, group['high'].values, group['is_last_minute'].values, group['end_day_index'].values, short_period, long_period, group_threshold
+            group['close'].values, group['low'].values, group['high'].values, group['is_last_minute'].values,
+            group['end_day_index'].values, short_period, long_period, group_threshold
         )
 
         group_result['bin'] = bins
@@ -437,7 +436,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     return final_result
 
 
-def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFrame, short_period :int = 2):
+def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFrame, short_period: int = 2):
     """
     Проверяет корректность разметки изменения тренда с учетом интервалов времени period_length,
     начиная цикл со второй строки и устанавливая previous_end_time на предыдущую строку.
@@ -512,6 +511,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                 #previous_end_time = period_end_time
 
     return discrepancies
+
 
 # Snippet 3.8 page 54
 def drop_labels(events, min_pct=.05):
