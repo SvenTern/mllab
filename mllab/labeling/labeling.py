@@ -492,7 +492,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                 continue
 
             # Обработка bin == 1 или bin == -1
-            period_rows = tic_data.loc[idx + short_period:].head(period_length)
+            period_rows = tic_data.loc[idx + short_period:].head(period_length - short_period + 1)
             if period_rows.empty:
                 continue
 
@@ -514,8 +514,8 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                          f"цена выросла с {previous_close} до {period_end_close}")
                     )
             # нужно передвигать период, только если сменился тренд
-            if period_length == 1:
-                previous_close = tic_data.loc[idx + period_length]['close']
+            if period_length == short_period:
+                previous_close = tic_data.loc[idx + period_length - short_period + 1]['close']
                 #previous_end_time = period_end_time
 
     return discrepancies
