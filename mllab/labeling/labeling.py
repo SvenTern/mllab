@@ -272,7 +272,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
 
     current_bin = 0
     cumulative_return = 0.0
-    start_index = 0
+    start_index = short_period - 1
     pred_index = 0
 
     for i in range(short_period - 1, n):
@@ -286,7 +286,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
         if new_bin != current_bin or (i - start_index + 1) > long_period or group_last_minute[i]:
             if current_bin != 0:
                 period_length = i - start_index
-                for j in range(start_index, i):
+                for j in range(start_index - short_period + 1, i - short_period + 1):
                     bins[j] = current_bin
                     vr_lows[j] = min(group_low[pred_index:j]) / group_close[pred_index] - 1
                     vr_highs[j] = max(group_high[pred_index:j]) / group_close[pred_index] - 1
@@ -488,7 +488,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             if bin_value == 0:
                 # Сдвиг previous_end_time на текущую строку
                 #previous_end_time = idx +  1
-                previous_close = tic_data.loc[idx - short_period + 2]['close']
+                previous_close = tic_data.loc[idx + 1]['close']
                 continue
 
             # Обработка bin == 1 или bin == -1
@@ -515,7 +515,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                     )
             # нужно передвигать период, только если сменился тренд
             if period_length == 1:
-                previous_close = tic_data.loc[idx + period_length - short_period + 1]['close']
+                previous_close = tic_data.loc[idx + period_length]['close']
                 #previous_end_time = period_end_time
 
     return discrepancies
