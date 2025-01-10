@@ -288,9 +288,9 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
                 period_length = i - start_index
                 for j in range(start_index - short_period + 1, i - short_period + 1):
                     bins[j] = current_bin
-                    vr_lows[j] = min(group_low[pred_index:j]) / group_close[pred_index] - 1
-                    vr_highs[j] = max(group_high[pred_index:j]) / group_close[pred_index] - 1
-                    returns[j] = (group_close[j] - group_close[pred_index]) / group_close[pred_index]
+                    vr_lows[j] = min(group_low[pred_index:j + short_period - 1]) / group_close[pred_index] - 1
+                    vr_highs[j] = max(group_high[pred_index:j+ short_period - 1]) / group_close[pred_index] - 1
+                    returns[j] = (group_close[j+ short_period - 1] - group_close[pred_index]) / group_close[pred_index]
                     period_lengths[j] = period_length - (j - start_index)
 
             start_index = i
@@ -303,11 +303,11 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
 
     if current_bin != 0:
         period_length = n - start_index
-        for j in range(start_index, n):
+        for j in range(start_index - short_period + 1, n):
             bins[j] = current_bin
-            vr_lows[j] = min(group_low[pred_index:j]) / group_close[pred_index] - 1
-            vr_highs[j] = max(group_high[pred_index:j]) / group_close[pred_index] - 1
-            returns[j] = (group_close[j] - group_close[pred_index]) / group_close[pred_index]
+            vr_lows[j] = min(group_low[pred_index:j+ short_period - 1]) / group_close[pred_index] - 1
+            vr_highs[j] = max(group_high[pred_index:j+ short_period - 1]) / group_close[pred_index] - 1
+            returns[j] = (group_close[j+ short_period - 1] - group_close[pred_index]) / group_close[pred_index]
             period_lengths[j] = period_length - (j - start_index)
 
     return bins, vr_lows, vr_highs, returns, period_lengths
