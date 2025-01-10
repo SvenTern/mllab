@@ -300,6 +300,8 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, sh
             pred_index = start_index - short_period + 1
             # нужно пересчитать current_bin
             short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
+            if group_last_minute[pred_index]:
+                short_return = 0
             current_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
 
