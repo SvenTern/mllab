@@ -469,13 +469,13 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             continue
 
         # Начинаем со второй строки
-        start_index = short_period - 2
+        start_index = 0
         previous_close = None
         # указатель точку завершения текущего периода
         #previous_end_time = start_index - short_period + 1
 
         # Цикл начинается со второй строки
-        for idx in range(start_index, len(tic_labels)):
+        for idx in range(start_index, len(tic_labels) - short_period + 1):
             label_row = tic_labels.loc[idx]
             bin_value = label_row['bin']
             period_length = int(label_row['period_length'])
