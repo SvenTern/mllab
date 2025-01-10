@@ -278,9 +278,10 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, sh
 
 
     for i in range(short_period - 1, n):
-        # не адекватно определяем направление роста, так как считаем его первый раз от неправильного интервала ...
-        # вот здесь ошибка !!!
+        # вот здесь нужно понимать, если pred_index в прошлом торговом дне, а i в текущем то нужно считать, что нет роста или падений, чтобы не было такой разметки
         short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
+        if group_last_minute[pred_index]:
+            short_return = 0
         new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
         # нужно добавить конец дня, т.е. когда i это конец торгового дня, тоже нужно завершить тренд ...
