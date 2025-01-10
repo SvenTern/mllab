@@ -263,7 +263,7 @@ def get_bins(triple_barrier_events, close, normalized_data: bool = False):
 
 
 @njit
-def calculate_segments(group_close, group_low, group_high, group_last_minute, end_day_index, short_period, long_period, group_threshold):
+def calculate_segments(group_close, group_low, group_high, group_last_minute, group_end_day_index, short_period, long_period, group_threshold):
     n = len(group_close)
     bins = [0] * n
     vr_lows = [0.0] * n
@@ -280,7 +280,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, en
     for i in range(short_period - 1, n):
         # вот здесь нужно понимать, если pred_index в прошлом торговом дне, а i в текущем то нужно считать, что нет роста или падений, чтобы не было такой разметки
         short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
-        if end_day_index[pred_index] < end_day_index[i]:
+        if group_end_day_index[pred_index] < group_end_day_index[i]:
             short_return = 0
         new_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
@@ -300,7 +300,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, en
             pred_index = start_index - short_period + 1
             # нужно пересчитать current_bin
             short_return = (group_close[i] - group_close[pred_index]) / group_close[pred_index]
-            if end_day_index[pred_index] < end_day_index[i]:
+            if group_end_day_index[pred_index] < group_end_day_index[i]:
                 short_return = 0
             current_bin = 1 if short_return > group_threshold else -1 if short_return < -group_threshold else 0
 
