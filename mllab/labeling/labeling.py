@@ -515,7 +515,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                     )
             # нужно передвигать период, только если сменился тренд
             if period_length == 1:
-                previous_close = tic_data.loc[idx + period_length + 1]['close']
+                previous_close = tic_data.loc[idx + period_length]['close']
                 #previous_end_time = period_end_time
 
     return discrepancies
