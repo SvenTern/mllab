@@ -469,7 +469,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             continue
 
         # Начинаем со второй строки
-        start_index = 1
+        start_index = short_period - 2
         previous_close = None
         # указатель точку завершения текущего периода
         #previous_end_time = start_index - short_period + 1
