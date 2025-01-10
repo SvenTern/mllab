@@ -457,6 +457,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
         # Начинаем со второй строки
         start_index = 1
         previous_close = None
+        # указатель точку завершения текущего периода
         previous_end_time = start_index - short_period + 1
 
         # Цикл начинается со второй строки
@@ -472,7 +473,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
             # Обработка bin == 0
             if bin_value == 0:
                 # Сдвиг previous_end_time на текущую строку
-                previous_end_time = idx
+                previous_end_time = idx +  1
                 previous_close = tic_data.loc[idx - short_period + 2]['close']
                 continue
 
@@ -482,7 +483,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                 continue
 
             period_end_time = period_rows.index[-1]
-            period_end_close = period_rows.iloc[-1]['close']
+            period_end_close = period_rows.iloc[-1 - short_period + 2]['close']
             period_end_time_time = tic_data.loc[idx]['timestamp']
 
             if previous_close is not None:
