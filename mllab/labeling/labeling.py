@@ -363,7 +363,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     mapping = {row.date: idx for idx, row in last_entries.iterrows()}
 
     # 4. Добавляем колонку с индексом конца торгового дня для каждой строки
-    data['end_day_index'] = data['date'].map(mapping)
+    data['end_day_index'] = data['date'].map(mapping).astype(np.float64)
 
     # (Опционально) Удаляем вспомогательный столбец 'date', если он больше не нужен
     data.drop(columns='date', inplace=True)
