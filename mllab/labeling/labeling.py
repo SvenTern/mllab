@@ -358,12 +358,11 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     # Используем индекс из last_entries для обновления основной таблицы
     data.loc[last_entries.index, 'is_last_minute'] = True
 
-    # 3. Создаём словарь для отображения даты в индекс последней записи этого дня
-    # Ключ – дата, значение – соответствующий индекс последней записи
-    mapping = {row.date: idx for idx, row in last_entries.iterrows()}
+    ## 4. Создаем словарь: ключ – дата, значение – порядковый номер последней записи этого дня
+    mapping = {row.date: row.row_num for _, row in last_entries.iterrows()}
 
     # 4. Добавляем колонку с индексом конца торгового дня для каждой строки
-    data['end_day_index'] = data['date'].map(mapping).astype(np.float64)
+    data['end_day_index'] = data['date'].map(mapping)
 
     # (Опционально) Удаляем вспомогательный столбец 'date', если он больше не нужен
     data.drop(columns='date', inplace=True)
