@@ -1522,74 +1522,56 @@ class StockPortfolioEnv(gym.Env):
     import pandas as pd
 
     def __get_predictions__(self, type: str = 'prediction'):
-
         if type == 'prediction':
+            # Формируем массив прогнозов из столбца 'prediction'
             predictions_array = np.stack(self.df['prediction'].values)
 
-            # Применяем преобразования для поиска максимума
-            comparison_array = np.stack([
-                predictions_array[:, 0],
-                predictions_array[:, 1],
-                predictions_array[:, 2]
-            ], axis=1)
-
-            # Вычисляем индексы столбцов с максимальным значением
+            # Используем первые три столбца для сравнения
+            comparison_array = predictions_array[:, :3]
             max_indices = np.argmax(comparison_array, axis=1)
 
-            # Извлекаем необходимые столбцы
+            # Извлекаем необходимые столбцы из массива
             tp = predictions_array[:, 4]
             sl = predictions_array[:, 5]
 
-            # Формируем значения для bin на основе max_indices
-            # Важно: используем исходные значения для bin_minus1, bin_0, bin_plus1 для правильного результата
-            bin_minus1 = predictions_array[:, 3] * -1
-            bin_0 = predictions_array[:, 1] * 0
-            bin_plus1 = predictions_array[:, 3]
+            # Вычисляем значения столбца 'bin' на основе max_indices
+            col3 = predictions_array[:, 3]
+            bin_minus1 = -col3
+            bin_0 = np.zeros_like(col3)
+            bin_plus1 = col3
             chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
 
-            # Заполняем DataFrame
+            # Записываем результаты в DataFrame
             self.df['sl'] = sl
             self.df['tp'] = tp
             self.df['bin'] = chosen_values
 
-            # Сортировка и группировка как было раньше
-            self.df.sort_values(['date', 'tic'], inplace=True)
-            grouped_data = {}
-            grouped = self.df.groupby('date')
-            for date, group in grouped:
-                matrix = group[['bin', 'sl', 'tp']].to_numpy()
-                grouped_data[date] = matrix
+        # Общие операции для обоих типов
+        self.df.sort_values(['date', 'tic'], inplace=True)
+        grouped = self.df.groupby('date')
 
-            return grouped_data
+        # Инициализация прогресс-бара для этапа группировки
+        grouped_data = {}
+        # Используем tqdm для отображения прогресса по группам
+        for date, group in tqdm(grouped, desc="Группировка данных по датам", total=len(grouped)):
+            matrix = group[['bin', 'sl', 'tp']].to_numpy()
+            grouped_data[date] = matrix
 
-        elif type == 'label':
-
-            # Эти колонки уже есть
-            #self.df['sl'] = sl
-            #self.df['tp'] = tp
-            #self.df['bin'] = chosen_values
-
-            # Сортировка и группировка как было раньше
-            self.df.sort_values(['date', 'tic'], inplace=True)
-            grouped_data = {}
-            grouped = self.df.groupby('date')
-            for date, group in grouped:
-                matrix = group[['bin', 'sl', 'tp']].to_numpy()
-                grouped_data[date] = matrix
-
-            return grouped_data
-
+        return grouped_data
 
     def __run__(self, type: str = 'prediction'):
 
-        grouped_data = self.__get_predictions__(type = type)
+        grouped_data = self.__get_predictions__(type=type)
         dates = sorted(grouped_data.keys())
-        current_index = 0
-        while not self.terminal and current_index < len(dates):
-            current_date = dates[current_index]
+
+        # Используем tqdm для создания итератора с прогресс-баром
+        for current_date in tqdm(dates, desc="Игра по датам :"):
+            # Проверка условия завершения может быть внутри цикла
+            if self.terminal:
+                break
+
             actions = grouped_data[current_date]
             self.step(actions)
-            current_index += 1
 
     def __check__(self):
         # Проверка наличия атрибута predictions; при необходимости вызов метода для получения предсказаний
