@@ -472,9 +472,11 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
                 # Scale data for prediction
                 scale_data_classifire = models[f'classifier_scaler_{tic}'].transform(
                     filtered_data[models[f'classifier_indicators_{tic}']])
+                print('scale_data_classifire', scale_data_classifire)
 
                 # Generate predictions
                 predicted_classifire = models[f'classifier_model_{tic}'].predict_proba(scale_data_classifire)
+                print('predicted_classifire', predicted_classifire)
 
                 # Combine predictions into DataFrame
                 return pd.DataFrame({
