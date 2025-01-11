@@ -141,7 +141,7 @@ def calculate_indicators(data,
                          sp500_data=None,
                          sector_data=None,
                          macro_data=None,
-                         correlation_windows=[20, 60, 120]):
+                         correlation_windows=[20, 60, 120], shift: int = 1):
     """
     Feature Engineering
 
@@ -306,7 +306,7 @@ def calculate_indicators(data,
     # Параллельная обработка
     with tqdm(total=len(tickers), desc="Processing tickers") as pbar:
         parallel_results = Parallel(n_jobs=-1)(
-            delayed(process_ticker)(grp, name)
+            delayed(process_ticker)(grp, name, shift=shift)
             for name, grp in groups
         )
 
