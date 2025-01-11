@@ -472,11 +472,11 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
                 # Scale data for prediction
                 scale_data_classifire = models[f'classifier_scaler_{tic}'].transform(
                     filtered_data[models[f'classifier_indicators_{tic}']])
-                print('scale_data_classifire', scale_data_classifire)
+                #print('scale_data_classifire', scale_data_classifire)
 
                 # Generate predictions
                 predicted_classifire = models[f'classifier_model_{tic}'].predict_proba(scale_data_classifire)
-                print('predicted_classifire', predicted_classifire)
+                #print('predicted_classifire', predicted_classifire)
 
                 # Combine predictions into DataFrame
                 return pd.DataFrame({
@@ -509,6 +509,7 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(process_ticker, list_tickers))
 
+        print('results', results)
         # Concatenate results
         predicted_data = pd.concat(results, ignore_index=True)
 
@@ -526,6 +527,7 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         # Merge predicted data back into indicators DataFrame
         indicators = indicators.reset_index()
         indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+        print('predicted_data',predicted_data)
         indicators = indicators.set_index('timestamp')
 
         # нужно перезаписать индикаторы на диск
