@@ -288,8 +288,10 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
                 period_length = i - start_index
                 for j in range(start_index - short_period, i - short_period):
                     bins[j] = current_bin
-                    last_vr_lows = min(group_low[pred_index:j + short_period]) / group_close[pred_index] - 1
-                    last_vr_highs = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
+                    #last_vr_lows = min(group_low[pred_index:j + short_period]) / group_close[pred_index] - 1
+                    #last_vr_highs = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
+                    last_vr_lows = min(group_low[pred_index: i]) / group_close[pred_index] - 1
+                    last_vr_highs = max(group_high[pred_index: i]) / group_close[pred_index] - 1
                     last_returns = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
                     vr_lows[j] = last_vr_lows
                     vr_highs[j] = last_vr_highs
