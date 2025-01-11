@@ -177,7 +177,7 @@ def calculate_indicators(data,
         но при reset_index мы перенесём их в колонки.
     """
 
-    def process_ticker(group, tic):
+    def process_ticker(group, tic, shift: int = 1):
         """
         Вычисляет фичи для одного тикера (группа строк).
         """
@@ -185,10 +185,10 @@ def calculate_indicators(data,
         x = pd.DataFrame(index=group.index)
 
         # --- Сдвигаем видимый интервал на 1 шаг ---
-        data_row = group['close'].shift(1)
-        data_row_volume = group['volume'].shift(1)
-        data_row_vwap = group['vwap'].shift(1)
-        data_row_transactions = group['transactions'].shift(1)
+        data_row = group['close'].shift(shift)
+        data_row_volume = group['volume'].shift(shift)
+        data_row_vwap = group['vwap'].shift(shift)
+        data_row_transactions = group['transactions'].shift(shift)
 
         # --- Log Returns ---
         group["log_ret"] = np.log(data_row).diff()
