@@ -183,7 +183,7 @@ class ensemble_models:
         score_confusion_matrix(y_test, y_pred)
 
 
-def train_regression(labels, indicators, list_main_indicators, label, dropout_rate=0.3, base_folder='models_and_scalers', test_size=0.2, random_state = 42 ):
+def train_regression(labels, indicators, list_main_indicators, label, dropout_rate=0.3, base_folder='models_and_scalers', short_period:int= 1,test_size=0.2, random_state = 42 ):
     """
     Function to train regression models sequentially for unique tickers in the dataset.
 
@@ -268,8 +268,8 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
             columns=X_test.columns
         )
 
-        scaler_path = f"{base_folder}/regression_scaler_{ticker}.joblib"
-        list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}.lst")
+        scaler_path = f"{base_folder}/regression_scaler_{ticker}_{short_period}.joblib"
+        list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}_{short_period}.lst")
         joblib.dump(scaler, scaler_path)
         joblib.dump(list_main_indicators, list_main_indicators_name)
         print(f"    Scaler сохранён в файл: {scaler_path}")
@@ -314,7 +314,7 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         test_loss, test_mae = model.evaluate(test_dataset, verbose=0)
         print(f"    Test MSE = {test_loss:.4f}, Test MAE = {test_mae:.4f}")
 
-        model_path = f"{base_folder}/regression_model_{ticker}.joblib"
+        model_path = f"{base_folder}/regression_model_{ticker}_{short_period}.joblib"
         joblib.dump(model, model_path)
         print(f"    Полная модель сохранена в файл: {model_path}")
 
@@ -343,7 +343,7 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
     joblib.dump(total_score, score_file_name)
 
 
-def train_bagging(labels, indicators, list_main_indicators, label, base_folder='model bagging', test_size=0.2, random_state=42, n_estimators=20):
+def train_bagging(labels, indicators, list_main_indicators, label, base_folder='model bagging', short_period:int = 1, test_size=0.2, random_state=42, n_estimators=20):
 
 
     #base_folder = os.path.join('/content/drive/My Drive/DataTrading', base_folder)
@@ -412,9 +412,9 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         bagging_classifier.fit(X_train_scaled, y_train)
 
         # Сохранение обученного скейлера и модели
-        model_filename = os.path.join(base_folder, f"classifier_model_{ticker}.pkl")
-        scaler_filename = os.path.join(base_folder, f"classifier_scaler_{ticker}.pkl")
-        list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}.lst")
+        model_filename = os.path.join(base_folder, f"classifier_model_{ticker}_{short_period}.pkl")
+        scaler_filename = os.path.join(base_folder, f"classifier_scaler_{ticker}_{short_period}.pkl")
+        list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}_{short_period}.lst")
         joblib.dump(bagging_classifier, model_filename, compress=3)
         joblib.dump(scaler, scaler_filename)
         joblib.dump(list_main_indicators, list_main_indicators_name)
@@ -425,7 +425,7 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         y_pred = bagging_classifier.predict(X_test_scaled)
 
         # Оценка качества модели
-        print(f"\nEvaluation for ticker {ticker}:")
+        print(f"\nEvaluation for ticker {ticker}_{short_period}:")
         score = score_confusion_matrix(y_test, y_pred)
         total_score.append((f'{ticker} accuaracy', score))
 
@@ -433,7 +433,7 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
     score_file_name = os.path.join(base_folder, f"classifire_score.txt")
     joblib.dump(total_score, score_file_name)
 
-def update_indicators(labels, indicators, type='bagging'):
+def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
     # Extract list of tickers
     list_tickers = indicators['tic'].unique()
 
@@ -446,15 +446,15 @@ def update_indicators(labels, indicators, type='bagging'):
     for tic in list_tickers:
         try:
             if type == 'bagging':
-                models[f'classifier_model_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_model_{tic}.pkl')
-                models[f'classifier_scaler_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_scaler_{tic}.pkl')
+                models[f'classifier_model_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_model_{tic}_{short_period}.pkl')
+                models[f'classifier_scaler_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_scaler_{tic}_{short_period}.pkl')
                 models[f'classifier_indicators_{tic}'] = joblib.load(
-                    basefolder + folder_bagging + f'classifier_indicators_{tic}.lst')
+                    basefolder + folder_bagging + f'classifier_indicators_{tic}_{short_period}.lst')
             elif type == 'regression':
-                models[f'regression_model_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_model_{tic}.joblib')
-                models[f'regression_scaler_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_scaler_{tic}.joblib')
+                models[f'regression_model_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_model_{tic}_{short_period}.joblib')
+                models[f'regression_scaler_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_scaler_{tic}_{short_period}.joblib')
                 models[f'classifier_indicators_{tic}'] = joblib.load(
-                    basefolder + folder_regression + f'classifier_indicators_{tic}.lst')
+                    basefolder + folder_regression + f'classifier_indicators_{tic}_{short_period}.lst')
         except Exception as e:
             print(f"Error loading model or scaler for ticker {tic}: {e}")
             continue
