@@ -443,18 +443,6 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
     folder_regression = 'model regression/'
     models = {}
 
-    if indicators.index.name != 'timestamp':
-        pass
-    else:
-        # Проверяем, есть ли столбец 'timestamp' в DataFrame
-        if 'timestamp' in indicators.columns:
-            # Устанавливаем индекс 'timestamp', если он ещё не установлен
-            if indicators.index.name != 'timestamp':
-                # Установка столбца 'timestamp' в качестве индекса
-                indicators.set_index('timestamp', inplace=True)
-        else:
-            print("Столбец 'timestamp' отсутствует в DataFrame.")
-
     for tic in list_tickers:
         try:
             if type == 'bagging':
@@ -479,7 +467,7 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         try:
             # Filter data for the current ticker
             filtered_data = data_for_prediction[data_for_prediction['tic'] == tic]
-            print('filtered_data', filtered_data)
+            #print('filtered_data', filtered_data)
 
             if type == 'bagging':
                 # Scale data for prediction
@@ -522,7 +510,7 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(process_ticker, list_tickers))
 
-        print('results', results)
+        #print('results', results)
         # Concatenate results
         predicted_data = pd.concat(results, ignore_index=True)
 
