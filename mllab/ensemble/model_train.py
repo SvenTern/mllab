@@ -581,7 +581,7 @@ class StockPortfolioEnv(gym.Env):
 
         self.ticker_list = df['tic'].unique().tolist()
 
-        self.annual_risk_free_rate = 0.04
+        self.annual_risk_free_rate = 0.0385
         self.trading_days_per_year = 252
         self.minutes_per_day = 390
         self.minutes_per_year = self.trading_days_per_year * self.minutes_per_day
