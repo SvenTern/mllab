@@ -578,6 +578,8 @@ class StockPortfolioEnv(gym.Env):
         self.FEATURE_LENGTHS = FEATURE_LENGTHS
         self.minimal_cash = minimal_cash * initial_amount
         self.use_sltp = use_sltp
+        # play mode для тестирования label, predictions
+        self.play_mode = False
 
         self.ticker_list = df['tic'].unique().tolist()
 
@@ -849,6 +851,8 @@ class StockPortfolioEnv(gym.Env):
         Сбор всех чисел из столбца feature (по текущему tic_data) в один большой массив
         длины (lookback * desired_len), с «дополнением» или «обрезанием» при необходимости.
         """
+        if self.play_mode:
+            return self.state
 
         # Инициализируем state_data как NumPy-массив
         state_data = np.empty(0, dtype=np.float32)
@@ -1560,6 +1564,9 @@ class StockPortfolioEnv(gym.Env):
         return grouped_data
 
     def __run__(self, type: str = 'prediction'):
+
+        # включение play_mode для более быстрого проведения игры
+        self.play_mode = True
 
         grouped_data = self.__get_predictions__(type=type)
         dates = sorted(grouped_data.keys())
