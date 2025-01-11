@@ -479,6 +479,7 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         try:
             # Filter data for the current ticker
             filtered_data = data_for_prediction[data_for_prediction['tic'] == tic]
+            print('filtered_data', filtered_data)
 
             if type == 'bagging':
                 # Scale data for prediction
