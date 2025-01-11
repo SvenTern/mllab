@@ -288,9 +288,21 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
                 period_length = i - start_index
                 for j in range(start_index - short_period, i - short_period):
                     bins[j] = current_bin
-                    vr_lows[j] = min(group_low[pred_index:j + short_period]) / group_close[pred_index] - 1
-                    vr_highs[j] = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
-                    returns[j] = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
+                    last_vr_lows = min(group_low[pred_index:j + short_period]) / group_close[pred_index] - 1
+                    last_vr_highs = max(group_high[pred_index:j+ short_period]) / group_close[pred_index] - 1
+                    last_returns = (group_close[j+ short_period] - group_close[pred_index]) / group_close[pred_index]
+                    vr_lows[j] = last_vr_lows
+                    vr_highs[j] = last_vr_highs
+                    returns[j] = last_returns
+                    period_lengths[j] = period_length - (j - start_index) - 1
+                    # последний период i -  short_period -1
+
+                # дозаполняем разметку до конца short_period
+                for j in range(i - short_period, i - 1):
+                    bins[j] = current_bin
+                    vr_lows[j] = last_vr_lows
+                    vr_highs[j] = last_vr_highs
+                    returns[j] = last_returns
                     period_lengths[j] = period_length - (j - start_index) - 1
 
             start_index = i
@@ -438,6 +450,8 @@ def short_long_box(data: pd.DataFrame, short_period: int = 1, long_period: int =
         delayed(process_group)(tic, group) for tic, group in tqdm(groups, desc="Processing Groups", unit="group")
     )
 
+    # т.е алгоритм такой, в раздельности по Тикерам, идем вдоль массива и если находим в колонке period_length сочетание short_period, 0 то переносим в следующие short_period -1 строки содержание последней колонки
+
     # Combine results
     final_result = pd.concat(result_list, ignore_index=True)
     final_result.index = data.index  # Preserve the original index from the input DataFrame
@@ -514,7 +528,7 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                          f"цена выросла с {previous_close} до {period_end_close}")
                     )
             # нужно передвигать период, только если сменился тренд
-            if period_length == short_period:
+            if period_length == 1:
                 previous_close = tic_data.loc[idx + period_length - short_period + 1]['close']
                 #previous_end_time = period_end_time
 
