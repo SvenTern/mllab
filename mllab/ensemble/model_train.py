@@ -443,6 +443,18 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
     folder_regression = 'model regression/'
     models = {}
 
+    if indicators.index.name != 'timestamp':
+        pass
+    else:
+        # Проверяем, есть ли столбец 'timestamp' в DataFrame
+        if 'timestamp' in indicators.columns:
+            # Устанавливаем индекс 'timestamp', если он ещё не установлен
+            if indicators.index.name != 'timestamp':
+                # Установка столбца 'timestamp' в качестве индекса
+                indicators.set_index('timestamp', inplace=True)
+        else:
+            print("Столбец 'timestamp' отсутствует в DataFrame.")
+
     for tic in list_tickers:
         try:
             if type == 'bagging':
@@ -527,9 +539,9 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         # Merge predicted data back into indicators DataFrame
         indicators = indicators.reset_index()
         indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
-        print('predicted_data',predicted_data)
+        #print('predicted_data, shape',predicted_data, predicted_data.shape)
         indicators = indicators.set_index('timestamp')
-        print('indicators',indicators)
+        #print('indicators, shape',indicators, indicators.shape)
 
         # нужно перезаписать индикаторы на диск
 
