@@ -1553,7 +1553,7 @@ class StockPortfolioEnv(gym.Env):
         # Инициализация прогресс-бара для этапа группировки
         grouped_data = {}
         # Используем tqdm для отображения прогресса по группам
-        for date, group in tqdm(grouped, desc="Группировка данных по датам", total=len(grouped)):
+        for date, group in tqdm(grouped, desc="Подготовка массива actions: ", total=len(grouped)):
             matrix = group[['bin', 'sl', 'tp']].to_numpy()
             grouped_data[date] = matrix
 
