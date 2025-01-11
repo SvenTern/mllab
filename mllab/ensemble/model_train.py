@@ -1068,7 +1068,7 @@ class StockPortfolioEnv(gym.Env):
             begin_total_asset = self.asset_memory[0]['portfolio_value']
             end_total_asset = self.asset_memory[-1]['portfolio_value']
             total_reward = 100 * (end_total_asset - begin_total_asset) / begin_total_asset
-            total_drowdown = 100 * (self.drowdown) / begin_total_asset
+            total_drowdown = 0 if self.drowdown > 0 else 100 * (self.drowdown) / begin_total_asset
             print(f"begin_total_asset: {begin_total_asset:0.2f}")
             print(f"end_total_asset: {end_total_asset:0.2f}")
             print(f"total_reward: {total_reward:0.2f}")
