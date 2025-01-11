@@ -555,7 +555,9 @@ class StockPortfolioEnv(gym.Env):
                  previous_state=[],
                  minimal_cash = 0.1,
                  use_sltp = False,
-                 use_logging = 1
+                 use_logging = 1,
+                 sl_scale = 1.001,
+                 tp_scale = 1
                  ):
         """
         Initialize the environment with the given parameters.
@@ -586,11 +588,11 @@ class StockPortfolioEnv(gym.Env):
         self.risk_free_rate_per_min = (1 + self.annual_risk_free_rate) ** (1 / (self.minutes_per_year)) - 1
 
         if self.use_sltp:
-            self.sl_scale = 1.0
-            self.tp_scale = 1.0
+            self.sl_scale = sl_scale
+            self.tp_scale = tp_scale
         else:
-            self.sl_scale = 1
-            self.tp_scale = 2
+            self.sl_scale = sl_scale
+            self.tp_scale = tp_scale
 
         self.min = 0  # Current time index
         self.episode =0 # подсчет количества полных циклов через reset
