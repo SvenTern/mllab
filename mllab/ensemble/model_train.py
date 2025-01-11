@@ -529,6 +529,7 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
         print('predicted_data',predicted_data)
         indicators = indicators.set_index('timestamp')
+        print('indicators',indicators)
 
         # нужно перезаписать индикаторы на диск
 
