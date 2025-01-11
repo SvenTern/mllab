@@ -1553,7 +1553,7 @@ class StockPortfolioEnv(gym.Env):
         # Инициализация прогресс-бара для этапа группировки
         grouped_data = {}
         # Используем tqdm для отображения прогресса по группам
-        for date, group in tqdm(grouped, desc="Подготовка массива actions: ", total=len(grouped)):
+        for date, group in tqdm(grouped, desc="Подготовка массива actions: ", total=len(grouped), leave = False):
             matrix = group[['bin', 'sl', 'tp']].to_numpy()
             grouped_data[date] = matrix
 
@@ -1565,7 +1565,7 @@ class StockPortfolioEnv(gym.Env):
         dates = sorted(grouped_data.keys())
 
         # Используем tqdm для создания итератора с прогресс-баром
-        for current_date in tqdm(dates, desc="Игра по датам :"):
+        for current_date in tqdm(dates, desc="Игра по датам :", leave = False):
             # Проверка условия завершения может быть внутри цикла
             if self.terminal:
                 break
