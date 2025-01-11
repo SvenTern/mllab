@@ -528,7 +528,8 @@ def check_trend_labels_with_period_length(data: pd.DataFrame, labels: pd.DataFra
                          f"цена выросла с {previous_close} до {period_end_close}")
                     )
             # нужно передвигать период, только если сменился тренд
-            if period_length == 1:
+            # может уже начаться новый тренд .. поэтому нужно переключатся раньше ...
+            if period_length == short_period:
                 previous_close = tic_data.loc[idx + period_length - short_period + 1]['close']
                 #previous_end_time = period_end_time
 

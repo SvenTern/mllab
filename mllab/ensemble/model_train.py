@@ -1519,47 +1519,68 @@ class StockPortfolioEnv(gym.Env):
     import numpy as np
     import pandas as pd
 
-    def __get_predictions__(self):
-        predictions_array = np.stack(self.df['prediction'].values)
+    def __get_predictions__(self, type: str = 'prediction'):
 
-        # Применяем преобразования для поиска максимума
-        comparison_array = np.stack([
-            predictions_array[:, 0],
-            predictions_array[:, 1],
-            predictions_array[:, 2]
-        ], axis=1)
+        if type == 'prediction':
+            predictions_array = np.stack(self.df['prediction'].values)
 
-        # Вычисляем индексы столбцов с максимальным значением
-        max_indices = np.argmax(comparison_array, axis=1)
+            # Применяем преобразования для поиска максимума
+            comparison_array = np.stack([
+                predictions_array[:, 0],
+                predictions_array[:, 1],
+                predictions_array[:, 2]
+            ], axis=1)
 
-        # Извлекаем необходимые столбцы
-        tp = predictions_array[:, 4]
-        sl = predictions_array[:, 5]
+            # Вычисляем индексы столбцов с максимальным значением
+            max_indices = np.argmax(comparison_array, axis=1)
 
-        # Формируем значения для bin на основе max_indices
-        # Важно: используем исходные значения для bin_minus1, bin_0, bin_plus1 для правильного результата
-        bin_minus1 = predictions_array[:, 3] * -1
-        bin_0 = predictions_array[:, 1] * 0
-        bin_plus1 = predictions_array[:, 3]
-        chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
+            # Извлекаем необходимые столбцы
+            tp = predictions_array[:, 4]
+            sl = predictions_array[:, 5]
 
-        # Заполняем DataFrame
-        self.df['sl'] = sl
-        self.df['tp'] = tp
-        self.df['bin'] = chosen_values
+            # Формируем значения для bin на основе max_indices
+            # Важно: используем исходные значения для bin_minus1, bin_0, bin_plus1 для правильного результата
+            bin_minus1 = predictions_array[:, 3] * -1
+            bin_0 = predictions_array[:, 1] * 0
+            bin_plus1 = predictions_array[:, 3]
+            chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
 
-        # Сортировка и группировка как было раньше
-        self.df.sort_values(['date', 'tic'], inplace=True)
-        grouped_data = {}
-        grouped = self.df.groupby('date')
-        for date, group in grouped:
-            matrix = group[['bin', 'sl', 'tp']].to_numpy()
-            grouped_data[date] = matrix
+            # Заполняем DataFrame
+            self.df['sl'] = sl
+            self.df['tp'] = tp
+            self.df['bin'] = chosen_values
 
-        return grouped_data
+            # Сортировка и группировка как было раньше
+            self.df.sort_values(['date', 'tic'], inplace=True)
+            grouped_data = {}
+            grouped = self.df.groupby('date')
+            for date, group in grouped:
+                matrix = group[['bin', 'sl', 'tp']].to_numpy()
+                grouped_data[date] = matrix
 
-    def __run__(self):
-        grouped_data = self.__get_predictions__()
+            return grouped_data
+
+        elif type == 'label':
+
+            # Эти колонки уже есть
+            #self.df['sl'] = sl
+            #self.df['tp'] = tp
+            #self.df['bin'] = chosen_values
+
+            # Сортировка и группировка как было раньше
+            self.df.sort_values(['date', 'tic'], inplace=True)
+            grouped_data = {}
+            grouped = self.df.groupby('date')
+            for date, group in grouped:
+                matrix = group[['bin', 'sl', 'tp']].to_numpy()
+                grouped_data[date] = matrix
+
+            return grouped_data
+
+
+    def __run__(self, type: str = 'prediction'):
+
+        grouped_data = self.__get_predictions__(type = type)
         dates = sorted(grouped_data.keys())
         current_index = 0
         while not self.terminal and current_index < len(dates):
