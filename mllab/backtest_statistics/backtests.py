@@ -223,63 +223,63 @@ class CampbellBacktesting:
 
         pass
 
-    def test_label_game(data, labels):
-        # подготовим data для проверки разметки на торговле
+def test_label_game(data, labels):
+    # подготовим data для проверки разметки на торговле
 
-        # Исходная обработка
-        data_final = data[['open', 'low', 'high', 'close', 'tic']].copy()
-        data_final['date'] = data.index
-        data_final.sort_values(by=['date', 'tic'], inplace=True)
-        labels_final = labels.copy()
-        labels_final.sort_values(by=['timestamp', 'tic'], inplace=True)
-        data_final['volatility'] = 1.0
+    # Исходная обработка
+    data_final = data[['open', 'low', 'high', 'close', 'tic']].copy()
+    data_final['date'] = data.index
+    data_final.sort_values(by=['date', 'tic'], inplace=True)
+    labels_final = labels.copy()
+    labels_final.sort_values(by=['timestamp', 'tic'], inplace=True)
+    data_final['volatility'] = 1.0
 
-        # Сброс индексов для синхронизации строк
-        data_final.reset_index(drop=True, inplace=True)
-        labels_final.reset_index(drop=True, inplace=True)
+    # Сброс индексов для синхронизации строк
+    data_final.reset_index(drop=True, inplace=True)
+    labels_final.reset_index(drop=True, inplace=True)
 
-        # Присвоение новых столбцов
-        data_final[['bin', 'sl', 'tp']] = labels_final[['bin', 'vr_low', 'vr_high']]
+    # Присвоение новых столбцов
+    data_final[['bin', 'sl', 'tp']] = labels_final[['bin', 'vr_low', 'vr_high']]
 
-        stock_dimension = len(data.tic.unique())
-        risk_volume = 0.2
+    stock_dimension = len(data.tic.unique())
+    risk_volume = 0.2
 
-        FEATURE_LENGTHS = {
-            'prediction': 6,  # массив из 6 элементов
-            'covariance': 3  # массив из 3 элементов
-            # и т.д. для остальных feature...
-        }
-        # Constants and Transaction Cost Definitions
-        lookback = 5
-        features_list = ['prediction', 'covariance', 'volatility', 'last_return']
-        # 'base':0.0035 стоимость за акцию, 'minimal':0.35 минимальная комиссия в сделке, 'maximal':0.01 максимальный процент 1% комиссии, 'short_loan': 0.17 ставка займа в short 0.17% в день,
-        # 'short_rebate': 0.83 выплата rebate по коротким позициям 0.83% в день, 'short_rebate_limit':100000 лимит начиная с которого выплачивается rebate
-        transaction_cost_amount = {
-            'base': 0.0035,
-            'minimal': 0.35,
-            'maximal': 0.01,
-            'short_loan': 0.17,
-            'short_rebate': 0.83,
-            'short_rebate_limit': 100000
-        }
-        slippage = 0.02
+    FEATURE_LENGTHS = {
+        'prediction': 6,  # массив из 6 элементов
+        'covariance': 3  # массив из 3 элементов
+        # и т.д. для остальных feature...
+    }
+    # Constants and Transaction Cost Definitions
+    lookback = 5
+    features_list = ['prediction', 'covariance', 'volatility', 'last_return']
+    # 'base':0.0035 стоимость за акцию, 'minimal':0.35 минимальная комиссия в сделке, 'maximal':0.01 максимальный процент 1% комиссии, 'short_loan': 0.17 ставка займа в short 0.17% в день,
+    # 'short_rebate': 0.83 выплата rebate по коротким позициям 0.83% в день, 'short_rebate_limit':100000 лимит начиная с которого выплачивается rebate
+    transaction_cost_amount = {
+        'base': 0.0035,
+        'minimal': 0.35,
+        'maximal': 0.01,
+        'short_loan': 0.17,
+        'short_rebate': 0.83,
+        'short_rebate_limit': 100000
+    }
+    slippage = 0.02
 
-        env_kwargs = {
-            "stock_dim": stock_dimension,
-            "hmax": 100,
-            'risk_volume': risk_volume,
-            "initial_amount": 1000000,
-            "transaction_cost_amount": transaction_cost_amount,
-            "tech_indicator_list": [],
-            'features_list': features_list,
-            'FEATURE_LENGTHS': FEATURE_LENGTHS,
-            'use_logging': 0,
-            'use_sltp': True
-        }
+    env_kwargs = {
+        "stock_dim": stock_dimension,
+        "hmax": 100,
+        'risk_volume': risk_volume,
+        "initial_amount": 1000000,
+        "transaction_cost_amount": transaction_cost_amount,
+        "tech_indicator_list": [],
+        'features_list': features_list,
+        'FEATURE_LENGTHS': FEATURE_LENGTHS,
+        'use_logging': 0,
+        'use_sltp': True
+    }
 
-        e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
+    e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
 
-        e_train_gym.__run__(type='label')
+    e_train_gym.__run__(type='label')
 
 def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
     # подготовим data для проверки игры на predictions
