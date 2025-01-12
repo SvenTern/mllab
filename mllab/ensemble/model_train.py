@@ -1584,16 +1584,25 @@ class StockPortfolioEnv(gym.Env):
 
         grouped_data = self.__get_predictions__(type=type)
         dates = sorted(grouped_data.keys())
+        results = None
 
         # Используем tqdm для создания итератора с прогресс-баром
-        for current_date in tqdm(dates, desc="Игра по датам :", leave=False, position=2, dynamic_ncols=True):
+        pbar = tqdm(dates, desc="Игра по датам :", leave=False, position=2, dynamic_ncols=True)
+        try:
+            for current_date in pbar:
+                # ваши действия
+                actions = grouped_data[current_date]
+                results = self.step(actions)
 
-            actions = grouped_data[current_date]
-            results = self.step(actions)
+                if self.terminal:
+                    # прерываем цикл
+                    break
+        finally:
+            # Закрываем прогресс-бар, если нужно
+            pbar.close()
 
-            # Проверка условия завершения может быть внутри цикла
-            if self.terminal:
-                return results
+        return results
+
 
 
 
