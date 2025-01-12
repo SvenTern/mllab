@@ -1586,7 +1586,7 @@ class StockPortfolioEnv(gym.Env):
         dates = sorted(grouped_data.keys())
 
         # Используем tqdm для создания итератора с прогресс-баром
-        for current_date in tqdm(dates, desc="Игра по датам :", leave=False, position=3, dynamic_ncols=True):
+        for current_date in tqdm(dates, desc="Игра по датам :", leave=False, position=2, dynamic_ncols=True):
 
             actions = grouped_data[current_date]
             results = self.step(actions)
