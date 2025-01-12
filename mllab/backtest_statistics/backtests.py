@@ -288,7 +288,7 @@ def test_label_game(data, labels):
     return results
 
 
-def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
+def test_prediction_game(data, indicators, coeff_tp = 1.0, coeff_sl = 1.0):
     # подготовим data для проверки игры на predictions
     step = {}
     step['coeff_tp'] = coeff_tp
