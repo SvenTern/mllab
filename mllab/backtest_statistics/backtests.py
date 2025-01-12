@@ -4,6 +4,10 @@ import scipy.stats as ss
 from scipy import linalg
 from mllab.ensemble.model_train import StockPortfolioEnv
 from mllab.data_structures.preprocess_data import add_takeprofit_stoploss_volume
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # иногда нужен явный импорт
 
 
 class CampbellBacktesting:
@@ -279,7 +283,7 @@ def test_label_game(data, labels):
 
     e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
 
-    e_train_gym.__run__(type='label')
+    return e_train_gym.__run__(type='label')
 
 def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
     # подготовим data для проверки игры на predictions
@@ -365,4 +369,82 @@ def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
 
     e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
 
-    e_train_gym.__run__(type='predictions')
+    return e_train_gym.__run__(type='predictions')
+
+def show_heatmap(df_results):
+    # Предположим, df_results содержит:
+    # ['coeff_tp', 'coeff_sl', 'total_sharp_ratio', 'total_reward', 'total_drowdown']
+
+    # Для построения тепловой карты нам нужна сводная таблица (pivot)
+    df_pivot_sharp = df_results.pivot(
+        index='coeff_tp',  # строки
+        columns='coeff_sl',  # столбцы
+        values='total_sharp_ratio'  # значения в ячейках
+    )
+
+    df_pivot_reward = df_results.pivot(
+        index='coeff_tp',
+        columns='coeff_sl',
+        values='total_reward'
+    )
+
+    df_pivot_dd = df_results.pivot(
+        index='coeff_tp',
+        columns='coeff_sl',
+        values='total_drowdown'
+    )
+
+    plt.figure(figsize=(18, 5))  # Ширина 18 дюймов, высота 5
+
+    # Тепловая карта для total_sharp_ratio
+    plt.subplot(1, 3, 1)
+    sns.heatmap(df_pivot_sharp, annot=True, fmt=".2f", cmap='viridis')
+    plt.title("Heatmap: total_sharp_ratio")
+    plt.xlabel("coeff_sl")
+    plt.ylabel("coeff_tp")
+
+    # Тепловая карта для total_reward
+    plt.subplot(1, 3, 2)
+    sns.heatmap(df_pivot_reward, annot=True, fmt=".2f", cmap='viridis')
+    plt.title("Heatmap: total_reward")
+    plt.xlabel("coeff_sl")
+    plt.ylabel("coeff_tp")
+
+    # Тепловая карта для total_drowdown
+    plt.subplot(1, 3, 3)
+    sns.heatmap(df_pivot_dd, annot=True, fmt=".2f", cmap='viridis')
+    plt.title("Heatmap: total_drowdown")
+    plt.xlabel("coeff_sl")
+    plt.ylabel("coeff_tp")
+
+    plt.tight_layout()  # Чуть сожмём, чтобы подписи не налезали
+    plt.show()
+
+def d3_map(df_results, value):
+    # Сводная таблица (pivot) по total_reward
+    df_pivot_reward = df_results.pivot(
+        index='coeff_tp',
+        columns='coeff_sl',
+        values=value
+    )
+
+    # X и Y — это значения coeff_sl и coeff_tp, превращаем их в сетку
+    X = df_pivot_reward.columns.values  # coeff_sl
+    Y = df_pivot_reward.index.values  # coeff_tp
+    X, Y = np.meshgrid(X, Y)
+
+    # Z — сама метрика (размер должен совпадать с X, Y)
+    Z = df_pivot_reward.values
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none')
+    ax.set_title(f'3D Surface: {value}')
+    ax.set_xlabel('coeff_sl')
+    ax.set_ylabel('coeff_tp')
+    ax.set_zlabel(f'{value}')
+
+    fig.colorbar(surf, shrink=0.5, aspect=5)  # полоса цвета
+    plt.show()
+
