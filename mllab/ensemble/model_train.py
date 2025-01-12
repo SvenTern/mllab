@@ -1070,20 +1070,20 @@ class StockPortfolioEnv(gym.Env):
             plt.savefig('cumulative_reward.png')
             plt.close()
             #if self.episode % self.print_verbosity == 0:
-            print(f"day: {self.date_memory[-1]}, episode: {self.episode}")
+            #print(f"day: {self.date_memory[-1]}, episode: {self.episode}")
             begin_total_asset = self.asset_memory[0]['portfolio_value']
             end_total_asset = self.asset_memory[-1]['portfolio_value']
             total_reward = 100 * (end_total_asset - begin_total_asset) / begin_total_asset
             total_drowdown = 0 if self.drowdown > 0 else 100 * (self.drowdown) / begin_total_asset
-            print(f"begin_total_asset: {begin_total_asset:0.2f}")
-            print(f"end_total_asset: {end_total_asset:0.2f}")
-            print(f"total_reward: {total_reward:0.2f}")
-            print(f'maximal drowdown : {total_drowdown:0.2f}')
+            #print(f"begin_total_asset: {begin_total_asset:0.2f}")
+            #print(f"end_total_asset: {end_total_asset:0.2f}")
+            #print(f"total_reward: {total_reward:0.2f}")
+            #print(f'maximal drowdown : {total_drowdown:0.2f}')
             #print(f"total_cost: {self.cost:0.2f}")
             #print(f"total_trades: {self.trades}")
             total_sharp_ratio =  self.calculate_annual_sharpe_ratio(self.convert_absolute_to_relative_returns(df))
-            print(f"Annual Sharpe: {total_sharp_ratio:0.3f}")
-            print("=================================")
+            #print(f"Annual Sharpe: {total_sharp_ratio:0.3f}")
+            #print("=================================")
 
             return self.state, self.reward, self.terminal, {'total_sharp_ratio': total_sharp_ratio, 'total_reward':total_reward, 'total_drowdown': total_drowdown}
 
