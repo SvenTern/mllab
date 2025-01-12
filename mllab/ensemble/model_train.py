@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import joblib
 from mllab.cross_validation import score_confusion_matrix
 import os
