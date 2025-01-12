@@ -290,6 +290,9 @@ def test_label_game(data, labels):
 
 def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
     # подготовим data для проверки игры на predictions
+    step = {}
+    step['coeff_tp'] = coeff_tp
+    step['coeff_sl'] = coeff_sl
 
     # Исходная обработка
     data_final = data[['open', 'low', 'high', 'close', 'tic']].copy()
@@ -376,7 +379,10 @@ def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
 
     _, _, _, results = e_train_gym.__run__(type='prediction')
 
-    return results
+    for key in results.keys():
+        step[key] = results[key]
+
+    return step
 
 def show_heatmap(df_results):
     # Предположим, df_results содержит:
