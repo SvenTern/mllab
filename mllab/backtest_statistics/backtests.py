@@ -319,7 +319,7 @@ def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
     data_final['log_return'] = (
         data_final
         .groupby('tic')['close']
-        .apply(lambda x: np.log(x / x.shift(1)))
+        .transform(lambda x: np.log(x / x.shift(1)))
     )
 
     # 3. Вычисляем стандартное отклонение логарифмической доходности на 5-шаговом окне
