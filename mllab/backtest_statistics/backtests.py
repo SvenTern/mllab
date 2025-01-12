@@ -283,7 +283,10 @@ def test_label_game(data, labels):
 
     e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
 
-    return e_train_gym.__run__(type='label')
+    _, _, _, results = e_train_gym.__run__(type='label')
+
+    return results
+
 
 def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
     # подготовим data для проверки игры на predictions
@@ -371,7 +374,9 @@ def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
 
     e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
 
-    return e_train_gym.__run__(type='predictions')
+    _, _, _, results = e_train_gym.__run__(type='predictions')
+
+    return results
 
 def show_heatmap(df_results):
     # Предположим, df_results содержит:
