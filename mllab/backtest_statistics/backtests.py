@@ -374,7 +374,7 @@ def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
 
     e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
 
-    _, _, _, results = e_train_gym.__run__(type='predictions')
+    _, _, _, results = e_train_gym.__run__(type='prediction')
 
     return results
 
