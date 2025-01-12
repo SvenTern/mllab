@@ -293,8 +293,8 @@ def test_prediction_game(data, indicators, coeff_tp = 1, coeff_sl = 1):
     data_final['date'] = data.index
     data_final.sort_values(by=['date', 'tic'], inplace=True)
     indicators_final = indicators.copy()
-    if 'data' not in indicators_final.columns:
-        indicators_final['data'] = indicators_final.index
+    if 'date' not in indicators_final.columns:
+        indicators_final['date'] = indicators_final.index
     indicators_final.sort_values(by=['date', 'tic'], inplace=True)
 
     # Сброс индексов для синхронизации строк
