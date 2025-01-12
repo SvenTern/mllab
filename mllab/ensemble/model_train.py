@@ -1081,10 +1081,11 @@ class StockPortfolioEnv(gym.Env):
             print(f'maximal drowdown : {total_drowdown:0.2f}')
             #print(f"total_cost: {self.cost:0.2f}")
             #print(f"total_trades: {self.trades}")
-            print(f"Annual Sharpe: {self.calculate_annual_sharpe_ratio(self.convert_absolute_to_relative_returns(df)):0.3f}")
+            total_sharp_ratio =  self.calculate_annual_sharpe_ratio(self.convert_absolute_to_relative_returns(df))
+            print(f"Annual Sharpe: {total_sharp_ratio:0.3f}")
             print("=================================")
 
-            return self.state, self.reward, self.terminal, {}
+            return self.state, self.reward, self.terminal, {'total_sharp_ratio': total_sharp_ratio, 'total_reward':total_reward, 'total_drowdown': total_drowdown}
 
         last_minute_of_day = (
                 self.dates[self.min].floor('D') != self.dates[self.min + 1].floor('D')
@@ -1586,14 +1587,17 @@ class StockPortfolioEnv(gym.Env):
 
         # Используем tqdm для создания итератора с прогресс-баром
         for current_date in tqdm(dates, desc="Игра по датам :", leave = False):
-            # Проверка условия завершения может быть внутри цикла
-            if self.terminal:
-                break
 
             actions = grouped_data[current_date]
-            self.step(actions)
+            results = self.step(actions)
 
-    def __check__(self):
+            # Проверка условия завершения может быть внутри цикла
+            if self.terminal:
+                return results
+
+
+
+def __check__(self):
         # Проверка наличия атрибута predictions; при необходимости вызов метода для получения предсказаний
         if not hasattr(self, 'predictions') or self.predictions is None:
             self.predictions = self.__get_predictions__()
