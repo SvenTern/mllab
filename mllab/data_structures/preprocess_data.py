@@ -163,7 +163,69 @@ class FinancePreprocessor:
 
         return time_interval
 
-    def get_ticker_data(self, tickers=None) -> pd.DataFrame:
+    def get_ticker_data_by_ticker(self, ticker: str, clean: bool = True) -> pd.DataFrame:
+        """
+        Возвращает DataFrame по конкретному тикеру с диска:
+          - Если clean=True, пытается загрузить очищенный файл (..._cleaned.csv).
+            Если он отсутствует, автоматически вызывает clean_data(tickers=[ticker], clean=True)
+            и затем читает результат.
+          - Если clean=False, читает «сырые» (неочищенные) данные (...csv).
+
+        Параметры
+        ----------
+        ticker : str
+            Название тикера (например, "AAPL").
+        clean : bool
+            Если True, пытаемся работать с очищенными данными.
+            Если их нет, вызываем clean_data(...) для этого тикера и читаем результат.
+            Если False, читаем сырые данные.
+
+        Возвращает
+        ----------
+        pd.DataFrame
+            Данные тикера (очищенные или сырые, в зависимости от аргумента clean).
+        """
+        # Формируем имя файла (даты из self.start и self.end)
+        start_str = pd.Timestamp(self.start).strftime("%Y%m%d")
+        end_str = pd.Timestamp(self.end).strftime("%Y%m%d")
+
+        # Основной (сырой) файл
+        raw_file_name = f"{ticker}_{start_str}_{end_str}.csv"
+        raw_path = os.path.join(self.file_path, raw_file_name)
+
+        # «Очищенный» файл
+        cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
+        cleaned_path = os.path.join(self.file_path, cleaned_file_name)
+
+        # Если хотим работать с очищенными данными
+        if clean:
+            print(f"[get_ticker_data] Пытаемся загрузить очищенные данные: {cleaned_file_name}")
+            if os.path.isfile(cleaned_path):
+                print(f"[get_ticker_data] Найден файл {cleaned_file_name}, читаем...")
+                return pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+            else:
+                print(
+                    f"[get_ticker_data] Файл {cleaned_file_name} не найден. Запускаем clean_data для тикера {ticker}...")
+                # Вызываем clean_data, чтобы сгенерировать «очищенный» файл
+                self.clean_data(tickers=[ticker], clean=False)
+
+                # После успешной очистки файл должен появиться. Читаем.
+                if os.path.isfile(cleaned_path):
+                    print(f"[get_ticker_data] Очистка завершена. Читаем {cleaned_file_name}...")
+                    return pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                else:
+                    raise FileNotFoundError(
+                        f"[get_ticker_data] Ошибка! Не удалось найти файл после очистки: {cleaned_file_name}"
+                    )
+
+        # Иначе, если clean=False, читаем «сырые» данные
+        else:
+            print(f"[get_ticker_data] Запрошены сырые данные (clean=False). Файл: {raw_file_name}")
+            if not os.path.isfile(raw_path):
+                raise FileNotFoundError(f"[get_ticker_data] Сырой файл не найден: {raw_file_name}")
+            return pd.read_csv(raw_path, parse_dates=["timestamp"])
+
+    def get_ticker_data(self, tickers=None, clean:bool = True) -> pd.DataFrame:
         """
         Считывает данные по одному или нескольким тикерам с диска и
         возвращает единый DataFrame со всеми строчками.
@@ -191,17 +253,10 @@ class FinancePreprocessor:
 
         # Перебираем каждый тикер
         for ticker in tickers:
-            # Формируем имя файла точно так же, как в download_data
-            file_name = f"{ticker}_{start_str}_{end_str}.csv"
-            full_path = os.path.join(self.file_path, file_name)
-
-            if os.path.isfile(full_path):
-                # Считываем данные в DataFrame
-                df = pd.read_csv(full_path, parse_dates=["timestamp"])
-                # Добавляем в общий список
-                all_data.append(df)
-            else:
-                print(f"Файл не найден для тикера {ticker}: {file_name}")
+            # считываем данные отдельноого тикера, при необходимости очищаем данные
+            df = self.get_ticker_data_by_ticker(self, ticker, clean)
+            # Добавляем в общий список
+            all_data.append(df)
 
         # Объединяем все прочитанные данные в один DataFrame
         if not all_data:
