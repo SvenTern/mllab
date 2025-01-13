@@ -290,8 +290,8 @@ class FinancePreprocessor:
 
         # Предположим, self.start и self.end — строковые представления или объекты datetime
         # в UTC. Если другой часовой пояс, замените 'UTC' на нужный.
-        start_date = pd.Timestamp(self.start).tz_localize('UTC').tz_convert('America/New_York')
-        end_date = pd.Timestamp(self.end).tz_localize('UTC').tz_convert('America/New_York')
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
         delta = timedelta(days=1)
 
         # Объединяем тикеры из основного списка и списка «индикаторов»
