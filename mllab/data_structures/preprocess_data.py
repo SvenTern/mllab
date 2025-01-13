@@ -317,6 +317,7 @@ class FinancePreprocessor:
             # Формируем имя файла для сохранения
             file_name = f"{tic}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
             full_path = os.path.join(self.file_path, self.raw_data, file_name)
+            print('full_path', full_path)
 
             # Принудительная перезагрузка из Интернета
             if download_from_disk:
