@@ -327,11 +327,11 @@ class FinancePreprocessor:
                 existing_min_date = existing_min_date.tz_convert('America/New_York')
                 existing_max_date = existing_max_date.tz_convert('America/New_York')
 
-                #print('existing_min_date ', existing_min_date)
-                #print('existing_max_date ', existing_max_date)
+                print('existing_min_date ', existing_min_date)
+                print('existing_max_date ', existing_max_date)
 
-                #print('start_date', start_date)
-                #print('end_date', end_date)
+                print('start_date', start_date)
+                print('end_date', end_date)
 
                 # Проверяем, покрывает ли уже файл нужный диапазон
                 if existing_min_date <= start_date and existing_max_date >= end_date:
