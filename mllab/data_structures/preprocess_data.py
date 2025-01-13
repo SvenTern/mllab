@@ -288,8 +288,8 @@ class FinancePreprocessor:
           - Если локальный файл по тикеру есть, докачивает недостающие периоды.
         """
 
-        start_date = pd.Timestamp(self.start).tz_localize(None)
-        end_date = pd.Timestamp(self.end).tz_localize(None)
+        start_date = pd.Timestamp(self.start)
+        end_date = pd.Timestamp(self.end)
         delta = timedelta(days=1)
 
         # Объединяем тикеры из основного списка и списка «индикаторов»
@@ -323,9 +323,9 @@ class FinancePreprocessor:
                 existing_min_date = existing_df["timestamp"].min().normalize()
                 existing_max_date = existing_df["timestamp"].max().normalize()
 
-                # Приводим tz-aware даты к tz-naive (убираем tz)
-                #start_date = start_date.tz_localize(None)
-                #existing_max_date_naive = existing_max_date.tz_localize(None)
+                # Или установить/конвертировать в нужный tz:
+                existing_min_date = existing_min_date.tz_convert('America/New_York')
+                existing_max_date = existing_max_date.tz_convert('America/New_York')
 
                 # Проверяем, покрывает ли уже файл нужный диапазон
                 if existing_min_date <= start_date and existing_max_date >= end_date:
