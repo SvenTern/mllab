@@ -327,7 +327,7 @@ def calculate_segments(group_close, group_low, group_high, group_last_minute, gr
     return bins, vr_lows, vr_highs, returns, period_lengths
 
 
-def short_long_box(data: pd.DataFrame, short_period: int = 1, long_period: int = 5, threshold: float = 0.005):
+def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int = 5, threshold: float = 0.005):
     """
     Identifies price trends and outliers in the provided OHLC data, optionally grouped by 'tic'.
     Includes a progress indicator and optimized computation.

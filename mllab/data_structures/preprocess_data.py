@@ -33,6 +33,7 @@ from matplotlib import colors
 import json
 
 from pandas.errors import EmptyDataError
+from mllab.labeling.labeling import short_long_box
 
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
@@ -827,7 +828,83 @@ class FinancePreprocessor:
         else:
             raise ValueError("Unsupported time interval (only '1d' or '1m').")
 
+    def label_data(
+            self,
+            tickers=None,
+            label: bool = False
+    ) -> dict:
+        """
+        Применяет функцию short_long_box к очищённым данным для нескольких тикеров.
+        Использует tqdm для индикации прогресса и print(...) для вывода сообщений.
+        Возвращает словарь с DataFrame для каждого тикера, содержащим разметку.
+        """
+        if tickers is None:
+            tickers = np.concatenate((self.ticker_list, self.ticker_indicator_list))
 
+        required_columns = ['close']
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        for ticker in tqdm(tickers, desc="Labeling data", total=len(tickers)):
+            cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
+            cleaned_path = os.path.join(self.file_path, self.cleaned_data, cleaned_file_name)
+
+            labeled_file_name = f"{ticker}_{start_str}_{end_str}_labeled.csv"
+            labeled_path = os.path.join(self.file_path, self.labels, labeled_file_name)
+
+            print(f"\n[Ticker: {ticker}] Обработка очищённых данных для разметки...")
+
+            # Проверяем наличие очищённого файла
+            if not os.path.isfile(cleaned_path):
+                msg = f"[{ticker}] Очищённый файл не найден: {cleaned_file_name}"
+                print(msg)
+                continue  # или выбросить ошибку, если это критично
+
+            # Читаем очищённые данные
+            df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+
+            # Удаление устаревших очищенных файлов для данного тикера с другими датами
+            labels_dir = os.path.join(self.file_path, self.labels)
+            pattern = f"{ticker}_*_labeled.csv"
+            for filename in os.listdir(labels_dir):
+                if filename.startswith(f"{ticker}_") and filename.endswith(
+                        "_labeled.csv") and filename != cleaned_file_name:
+                    file_to_remove = os.path.join(labels_dir, filename)
+                    try:
+                        os.remove(file_to_remove)
+                        print(f"[{ticker}] Удалён устаревший файл: {filename}")
+                    except Exception as e:
+                        print(f"[{ticker}] Ошибка при удалении файла {filename}: {e}")
+
+            # Проверка наличия необходимых столбцов в очищённых данных
+            missing_columns = set(required_columns + ['tic', 'timestamp']) - set(df_cleaned.columns)
+            if missing_columns:
+                msg = f"[{ticker}] Missing required columns in cleaned data: {missing_columns}"
+                print(msg)
+                continue
+
+            # Применяем функцию short_long_box для разметки
+            try:
+                df_labeled = short_long_box(df_cleaned)
+            except Exception as e:
+                print(f"[{ticker}] Ошибка при разметке: {e}")
+                continue
+
+            # Сохраняем размеченные данные
+            try:
+                df_labeled.to_csv(labeled_path, index=False)
+                print(f"[{ticker}] Размеченные данные сохранены в {labeled_file_name}")
+            except Exception as e:
+                print(f"[{ticker}] Ошибка при сохранении файла {labeled_file_name}: {e}")
+                continue
+
+            #results[ticker] = df_labeled
+
+        print("\nРазметка данных завершена для всех тикеров.")
+        return True
 
     def add_technical_indicator(
         self, data: pd.DataFrame, tech_indicator_list: list[str]
