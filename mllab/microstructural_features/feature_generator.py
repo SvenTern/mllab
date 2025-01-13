@@ -177,7 +177,7 @@ def calculate_indicators(data,
         но при reset_index мы перенесём их в колонки.
     """
 
-    def process_ticker(group, tic, shift: int = 1):
+    def process_ticker(group, tic, shift: int = 0):
         """
         Вычисляет фичи для одного тикера (группа строк).
         """
@@ -253,9 +253,11 @@ def calculate_indicators(data,
         # --- VWAP (Volume Weighted Average Price) ---
         x["vwap_diff"] = (data_row_vwap - data_row) / data_row
 
+        # у нас есть индикаторы, нужно по ним сделать
+
         # --- Корреляции с бенчмарками / макро ---
         if sp500_data is not None and 'close' in sp500_data.columns:
-            sp500_close = sp500_data.loc[group.index, 'close'].shift(1)
+            sp500_close = sp500_data.loc[group.index, 'close'].shift(shift)
             sp500_logret = np.log(sp500_close).diff()
             for window in correlation_windows:
                 x[f"corr_sp500_{window}"] = (
@@ -265,7 +267,7 @@ def calculate_indicators(data,
                 )
 
         if sector_data is not None and 'close' in sector_data.columns:
-            sector_close = sector_data.loc[group.index, 'close'].shift(1)
+            sector_close = sector_data.loc[group.index, 'close'].shift(shift)
             sector_logret = np.log(sector_close).diff()
             for window in correlation_windows:
                 x[f"corr_sector_{window}"] = (
@@ -277,7 +279,7 @@ def calculate_indicators(data,
         if macro_data is not None:
             for col in macro_data.columns:
                 if col not in ['tic', 'close', 'volume']:
-                    macro_series = macro_data.loc[group.index, col].shift(1).fillna(method="ffill")
+                    macro_series = macro_data.loc[group.index, col].shift(shift).fillna(method="ffill")
                     macro_series_ret = macro_series.pct_change()
                     for window in correlation_windows:
                         x[f"corr_{col}_{window}"] = (
