@@ -461,3 +461,86 @@ def d3_map(df_results, value):
     fig.colorbar(surf, shrink=0.5, aspect=5)  # полоса цвета
     plt.show()
 
+
+def test_sltp_run(data, indicators, processor):
+    """
+    Запускает перебор coeff_tp и coeff_sl с учетом того,
+    какие значения уже были просчитаны и записаны в CSV.
+    Используем round(..., 5), чтобы избежать проблем
+    с точностью при сравнении float.
+    """
+
+    # Убедимся, что директория существует (если нет — создаём)
+    os.makedirs(processor.file_path, exist_ok=True)
+
+    # Файл, куда сохраняются результаты
+    csv_file_path = os.path.join(processor.file_path, 'results_sl_tp_test.csv')
+    # print("CSV file path:", csv_file_path)
+    # print("Exists?", os.path.exists(csv_file_path))
+
+    # Создаём диапазоны значений
+    tp_values = np.arange(0.4, 2.0, 0.1)
+    sl_values = np.arange(1.0, 3.0, 0.1)
+
+    # Считываем уже посчитанные результаты, если файл существует
+    if os.path.exists(csv_file_path):
+        existing_df = pd.read_csv(csv_file_path)
+
+        existing_df['coeff_tp'] = existing_df['coeff_tp'].astype(float)
+        existing_df['coeff_sl'] = existing_df['coeff_sl'].astype(float)
+
+        # Здесь считаем, что в CSV уже хранятся округлённые значения coeff_tp и coeff_sl
+        # (см. ниже блок кода, где мы делаем round())
+        processed_pairs = set(zip(existing_df['coeff_tp'], existing_df['coeff_sl']))
+        print('processed_pairs', processed_pairs)
+
+        # Превращаем в список словарей, чтобы удобно пополнять
+        list_results = existing_df.to_dict('records')
+    else:
+        existing_df = pd.DataFrame()
+        processed_pairs = set()
+        list_results = []
+
+    # Перебираем все пары (tp_val, sl_val)
+    for tp_val in tqdm(tp_values, desc="Перебор coeff_tp", leave=True, position=0, dynamic_ncols=True):
+        for sl_val in tqdm(sl_values, desc="Перебор coeff_sl", leave=True, position=1, dynamic_ncols=True):
+
+            # Округляем значения, чтобы избежать неточностей (например, 0.30000000000000004)
+            tp_rounded = round(tp_val, 5)
+            sl_rounded = round(sl_val, 5)
+
+            # print('(tp_rounded, sl_rounded)', (tp_rounded, sl_rounded))
+
+            # Проверяем, не было ли уже вычислений для этой пары
+            if (tp_rounded, sl_rounded) in processed_pairs:
+                continue  # Пропускаем, так как уже считали
+
+            # Если пары ещё нет, запускаем тест
+            result_dict = test_prediction_game(data, indicators, coeff_tp=tp_val, coeff_sl=sl_val)
+
+            # Добавляем в словарь «признаки» текущих tp/sl (в уже округлённом виде)
+            result_dict['coeff_tp'] = tp_rounded
+            result_dict['coeff_sl'] = sl_rounded
+
+            # Дописываем в общий список
+            list_results.append(result_dict)
+
+            # Обновляем processed_pairs
+            processed_pairs.add((tp_rounded, sl_rounded))
+
+            # На каждом шаге сохраняем результаты в CSV
+            # (или можно реже, если запись в CSV слишком долгая)
+            temp_df = pd.DataFrame([result_dict])
+            # mode='a' -> добавлять в конец файла
+            # header=not os.path.exists(...) -> шапка CSV только если файл ещё не создан
+            temp_df.to_csv(csv_file_path, mode='a', header=not os.path.exists(csv_file_path), index=False)
+
+    # После окончания всех итераций можно перезаписать CSV (итоговое «чистое» сохранение):
+    df_results = pd.DataFrame(list_results)
+    df_results.to_csv(csv_file_path, index=False)
+
+    # Вызовы функций визуализации (пример):
+    show_heatmap(df_results)
+    d3_map(df_results, 'total_sharp_ratio')
+    d3_map(df_results, 'total_reward')
+    d3_map(df_results, 'total_drowdown')
