@@ -662,88 +662,67 @@ class FinancePreprocessor:
 
         return all_dollar_bars_df
 
-
     def clean_data(
             self,
             tickers=None,
             required_columns=None,
-            clean: bool = True
+            clean: bool = False
     ) -> dict:
         """
         Очищает (или считывает уже очищенные) данные сразу для нескольких тикеров.
         Использует tqdm для индикации прогресса и print(...) для вывода сообщений.
-
-        Параметры
-        ----------
-        tickers : list или None
-            Список тикеров для очистки. Если None, берётся объединённый список
-            self.ticker_list + self.ticker_indicator_list.
-        required_columns : list или None
-            Список обязательных колонок (например ["open", "high", "low", "close", "volume"]).
-            Если None, будет использоваться некий дефолтный список.
-        clean : bool или None
-            - Если True, заново «чистим» (генерируем сплошной временной ряд, заполняем пропуски) и перезаписываем файлы.
-            - Если False, пытаемся считать уже очищенные файлы (если их нет, бросаем ошибку).
-            - Если None, используется текущее значение self.clean.
-
-        Возвращает
-        ----------
-        dict
-            Словарь {ticker: pd.DataFrame}, содержащий очищенные данные по каждому тикеру.
+        ...
         """
         if required_columns is None:
-            # По умолчанию, если явно не сказано, какие колонки обязательны
             required_columns = ["open", "high", "low", "close", "volume", "vwap", "transactions"]
 
-        # Если список тикеров не задан, берём объединённый
         if tickers is None:
             tickers = np.concatenate((self.ticker_list, self.ticker_indicator_list))
 
-        # Формируем удобные строки дат для имён файлов
         start_date = pd.Timestamp(self.start).tz_localize('UTC')
         end_date = pd.Timestamp(self.end).tz_localize('UTC')
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
 
-        # Результирующий словарь: {ticker: df_cleaned}
         results = {}
 
-        # Оборачиваем цикл по тикерам в tqdm для индикации прогресса
         for ticker in tqdm(tickers, desc="Cleaning data", total=len(tickers)):
-            # Имя исходного файла
             original_file_name = f"{ticker}_{start_str}_{end_str}.csv"
             original_path = os.path.join(self.file_path, self.raw_data, original_file_name)
 
-            # Имя очищенного файла
             cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
             cleaned_path = os.path.join(self.file_path, self.cleaned_data, cleaned_file_name)
 
             print(f"\n[Ticker: {ticker}] Обработка файла: {original_file_name}")
 
-            # Проверка существования исходного файла
             if not os.path.isfile(original_path):
                 msg = f"[{ticker}] Файл не найден: {original_file_name}"
                 print(msg)
-                # Можно пропускать или выбросить ошибку;
-                # здесь выбросим ошибку:
                 raise FileNotFoundError(msg)
 
-            # Если self.clean=False, значит НЕ хотим заново чистить
             if not clean:
                 print(f"[{ticker}] clean=False, ищем очищенный файл: {cleaned_file_name}")
                 if os.path.isfile(cleaned_path):
                     print(f"[{ticker}] Найден {cleaned_file_name}, читаем...")
-                    #df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
-                    #results[ticker] = df_cleaned
+                    # df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                    # results[ticker] = df_cleaned
                     continue
-                else:
-                    msg = f"[{ticker}] Очищенный файл не найден: {cleaned_file_name}"
-                    print(msg)
-                    raise FileNotFoundError(msg)
 
-            # Если self.clean=True, выполняем очистку заново
             print(f"[{ticker}] Загружаем сырой файл и выполняем очистку...")
             df_raw = pd.read_csv(original_path, parse_dates=["timestamp"])
+
+            # Удаление устаревших очищенных файлов для данного тикера с другими датами
+            cleaned_dir = os.path.join(self.file_path, self.cleaned_data)
+            pattern = f"{ticker}_*_cleaned.csv"
+            for filename in os.listdir(cleaned_dir):
+                if filename.startswith(f"{ticker}_") and filename.endswith(
+                        "_cleaned.csv") and filename != cleaned_file_name:
+                    file_to_remove = os.path.join(cleaned_dir, filename)
+                    try:
+                        os.remove(file_to_remove)
+                        print(f"[{ticker}] Удалён устаревший файл: {filename}")
+                    except Exception as e:
+                        print(f"[{ticker}] Ошибка при удалении файла {filename}: {e}")
 
             # Проверяем обязательные колонки
             missing_columns = set(required_columns) - set(df_raw.columns)
@@ -752,36 +731,27 @@ class FinancePreprocessor:
                 print(msg)
                 raise ValueError(msg)
 
-            ## убираем ошибочную колонку загрузки ...
+            #  корректировка ошибки загрузки данных ...
             if 'datetime_ny' in df_raw.columns:
                 df_raw['timestamp'] = pd.to_datetime(df_raw['datetime_ny'])
 
-            # Если 'timestamp' — это индекс, сбросим в колонку
             if df_raw.index.name == 'timestamp':
                 df_raw = df_raw.reset_index()
 
-
-            # Проверяем наличие 'timestamp' и 'tic'
             if 'timestamp' not in df_raw.columns or 'tic' not in df_raw.columns:
                 msg = f"[{ticker}] DataFrame must contain 'timestamp' and 'tic' columns."
                 print(msg)
                 raise KeyError(msg)
 
-            # Оставляем только нужные столбцы (+ 'tic', 'timestamp')
             df_raw = df_raw[required_columns + ['tic', 'timestamp']]
-
-            # Если в файле могут быть данные по разным тикерам,
-            # отфильтруем только нужный (обычно файл на 1 тикер, но на всякий случай)
             df_raw = df_raw.loc[df_raw['tic'] == ticker].copy()
 
-            # Собираем очищенный DataFrame
             df_cleaned = self._build_cleaned_df(df_raw, ticker, required_columns)
 
-            # Сохраняем очищенные данные
             df_cleaned.to_csv(cleaned_path, index=False)
             print(f"[{ticker}] Очищенные данные сохранены в {cleaned_file_name}")
 
-            #results[ticker] = df_cleaned
+            # results[ticker] = df_cleaned
 
         print("\nОчистка данных завершена для всех тикеров.")
         return results
