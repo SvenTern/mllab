@@ -429,7 +429,7 @@ class FinancePreprocessor:
                 if temp_df.empty:
                     current_date += delta
                     continue
-
+                print('temp_df', temp_df)
                 # Переводим timestamp из миллисекунд Unix (UTC) в datetime с таймзоной NYC
                 temp_df["timestamp"] = (
                     pd.to_datetime(temp_df["timestamp"], unit="ms")
