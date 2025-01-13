@@ -25,6 +25,7 @@ from stockstats import StockDataFrame as Sdf
 
 from google.colab import drive
 import os
+from tqdm.auto import tqdm
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -36,7 +37,7 @@ class FinancePreprocessor:
     Yahoo Finance API
     """
 
-    def __init__(self, source : str = 'Yahoo', ticker_list : list[str] = None, time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
+    def __init__(self, ticker_list, ticker_indicator_list, source : str = 'Yahoo', time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
         self.ticker_list = ticker_list
 
         self.time_interval = self.convert_interval(time_interval)
@@ -55,6 +56,9 @@ class FinancePreprocessor:
             file_path = '/content/drive/My Drive/DataTrading/polygon_api_keys.txt'
             with open(file_path, 'r') as file:
                 self.POLYGON_API_KEY =  file.read()
+        self.ticker_list = ticker_list
+        self.ticker_indicator_list = ticker_indicator_list
+        self.extended_interval = False
 
     """
     Param
@@ -104,7 +108,7 @@ class FinancePreprocessor:
             raise ValueError(f"Неверный формат даты: {e}")
 
     def read_csv(self, file_name: str = "", udate_dates = False):
-        data_return = pd.read_csv(self.file_path + file_name)
+        data_return = pd.read_csv(os.path.join(self.file_path, file_name))
 
         index_name = None
         # Determine index column
@@ -159,74 +163,255 @@ class FinancePreprocessor:
 
         return time_interval
 
-    def download_data(
-        self, download_from_disk : bool = False, clean_data : bool = False
-    ) -> pd.DataFrame:
-        if clean_data:
-            self.clean = True
-        if download_from_disk:
-          return self.read_csv('.csv', udate_dates = True)
+    def get_ticker_data(self, tickers=None) -> pd.DataFrame:
+        """
+        Считывает данные по одному или нескольким тикерам с диска и
+        возвращает единый DataFrame со всеми строчками.
 
-        # Download and save the data in a pandas DataFrame
+        Параметры:
+        -----------
+        tickers : list[str] или None
+            Список тикеров для загрузки. Если None, берём объединённый список:
+            self.ticker_list + self.ticker_indicator_list.
+
+        Возвращает:
+        -----------
+        pd.DataFrame
+            Объединённый DataFrame по всем тикерам. Если ни один файл не найден,
+            вернётся пустой DataFrame.
+        """
+        # Если список тикеров не задан, берём объединённый (например, чтобы загрузить все)
+        if tickers is None:
+            tickers = self.ticker_list + self.ticker_indicator_list
+
+        all_data = []
+
+        start_str = pd.Timestamp(self.start).strftime("%Y%m%d")
+        end_str = pd.Timestamp(self.end).strftime("%Y%m%d")
+
+        # Перебираем каждый тикер
+        for ticker in tickers:
+            # Формируем имя файла точно так же, как в download_data
+            file_name = f"{ticker}_{start_str}_{end_str}.csv"
+            full_path = os.path.join(self.file_path, file_name)
+
+            if os.path.isfile(full_path):
+                # Считываем данные в DataFrame
+                df = pd.read_csv(full_path, parse_dates=["timestamp"])
+                # Добавляем в общий список
+                all_data.append(df)
+            else:
+                print(f"Файл не найден для тикера {ticker}: {file_name}")
+
+        # Объединяем все прочитанные данные в один DataFrame
+        if not all_data:
+            print("Не удалось найти ни одного файла. Возвращаем пустой DataFrame.")
+            return pd.DataFrame()
+
+        final_df = pd.concat(all_data, ignore_index=True)
+
+        # На всякий случай удаляем дубликаты по timestamp + tic (если есть)
+        final_df.drop_duplicates(subset=["timestamp", "tic"], keep="last", inplace=True)
+        final_df.sort_values(by=["timestamp", "tic"], inplace=True)
+
+        return final_df
+
+    def download_data(self, download_from_disk: bool = False) -> None:
+        """
+        Загрузка данных по тикерам из self.ticker_list и self.ticker_indicator_list:
+        - Ничего не возвращает (return None).
+        - Сохраняет данные в отдельные CSV-файлы по каждому тикеру.
+        - Выводит сообщения через print(...).
+        - Отображает прогресс с помощью tqdm.
+        - Приводит время к локальному времени Нью-Йорка (America/New_York).
+        - При self.extended_interval=True захватывает период с 4:00 до 20:00, иначе 9:30–16:00.
+
+        Параметры:
+        download_from_disk=True:
+          - Игнорирует любые локальные файлы, принудительно перезагружает данные из Интернета.
+        download_from_disk=False:
+          - Если локальный файл по тикеру есть, докачивает недостающие периоды.
+        """
+
         start_date = pd.Timestamp(self.start)
         end_date = pd.Timestamp(self.end)
         delta = timedelta(days=1)
+
+        # Объединяем тикеры из основного списка и списка «индикаторов»
+        combined_tickers = self.ticker_list + self.ticker_indicator_list
+
+        print("Начинаем загрузку данных...")
+        # Проходимся по списку тикеров с помощью tqdm
+        for tic in tqdm(combined_tickers, desc="Downloading data", total=len(combined_tickers)):
+            # Формируем имя файла для сохранения
+            file_name = f"{tic}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
+            full_path = os.path.join(self.file_path, file_name)
+
+            # Принудительная перезагрузка из Интернета
+            if download_from_disk:
+                print(
+                    f"[{tic}] Принудительно перезагружаем весь период {start_date.date()} - {end_date.date()} из Интернета.")
+                new_df = self._download_for_ticker(tic, start_date, end_date, delta)
+                new_df.to_csv(full_path, index=False)
+                continue
+
+            # Если докачка (download_from_disk=False)
+            if os.path.isfile(full_path):
+                print(f"[{tic}] Найден файл: {file_name}. Проверяем недостающие периоды...")
+                existing_df = pd.read_csv(full_path, parse_dates=["timestamp"])
+
+                # Приводим к единому формату, если есть столбец 'adjclose'
+                if "adjclose" in existing_df.columns:
+                    existing_df["close"] = existing_df["adjclose"]
+                    existing_df.drop(columns=["adjclose"], inplace=True)
+
+                existing_min_date = existing_df["timestamp"].min().normalize()
+                existing_max_date = existing_df["timestamp"].max().normalize()
+
+                # Проверяем, покрывает ли уже файл нужный диапазон
+                if existing_min_date <= start_date and existing_max_date >= end_date:
+                    print(f"[{tic}] Файл уже содержит данные за весь период.")
+                    continue
+
+                # Докачиваем недостающие периоды
+                left_gap_df = pd.DataFrame()
+                right_gap_df = pd.DataFrame()
+
+                if existing_min_date > start_date:
+                    left_gap_start = start_date
+                    left_gap_end = existing_min_date - delta
+                    print(f"[{tic}] Докачиваем слева: {left_gap_start.date()} -> {left_gap_end.date()}")
+                    left_gap_df = self._download_for_ticker(tic, left_gap_start, left_gap_end, delta)
+
+                if existing_max_date < end_date:
+                    right_gap_start = existing_max_date + delta
+                    right_gap_end = end_date
+                    print(f"[{tic}] Докачиваем справа: {right_gap_start.date()} -> {right_gap_end.date()}")
+                    right_gap_df = self._download_for_ticker(tic, right_gap_start, right_gap_end, delta)
+
+                combined_df = pd.concat([existing_df, left_gap_df, right_gap_df], ignore_index=True)
+                combined_df.drop_duplicates(subset=["timestamp", "tic"], keep="last", inplace=True)
+                combined_df.sort_values(by=["timestamp"], inplace=True)
+                combined_df.to_csv(full_path, index=False)
+                print(f"[{tic}] Данные дополнены и сохранены в {file_name}.")
+
+            else:
+                # Файл не найден — скачиваем полностью
+                print(f"[{tic}] Файл не найден. Скачиваем весь период {start_date.date()} -> {end_date.date()}.")
+                new_df = self._download_for_ticker(tic, start_date, end_date, delta)
+                new_df.to_csv(full_path, index=False)
+                print(f"[{tic}] Данные сохранены в {file_name}.")
+
+        print("Загрузка всех данных завершена.")
+        return None
+
+    def _download_for_ticker(self,
+                             ticker: str,
+                             start_date: pd.Timestamp,
+                             end_date: pd.Timestamp,
+                             delta: timedelta) -> pd.DataFrame:
+        """
+        Вспомогательная функция для скачивания данных за период [start_date, end_date]
+        с шагом в 1 день. Возвращает DataFrame, где 'timestamp' переведён в локальное
+        время Нью-Йорка (America/New_York), отфильтрованный по нужному временному диапазону.
+        """
+        current_date = start_date
         data_df = pd.DataFrame()
-        total_tickers = len(self.ticker_list)
-        for idx, tic in enumerate(self.ticker_list, start=1):
-            current_tic_start_date = start_date
-            while (
-                current_tic_start_date <= end_date
-            ):  # downloading daily to workaround yfinance only allowing  max 7 calendar (not trading) days of 1 min data per single download
-                if self.source == "Yahoo":
-                    temp_df = yf.download(
-                    tic,
-                    start=current_tic_start_date,
-                    end=current_tic_start_date + delta,
+
+        while current_date <= end_date:
+            if self.source == "Yahoo":
+                # Для получения расширенных часов у Yahoo используем prepost=True
+                temp_df = yf.download(
+                    ticker,
+                    start=current_date,
+                    end=current_date + delta,
                     interval=self.time_interval,
                     proxy=self.proxy,
+                    prepost=True  # Расширенные часы
                 )
-                else:
-                    # загрузка polygon
-                    client = RESTClient(self.POLYGON_API_KEY)
-                    aggs = []
-                    for a in client.list_aggs(ticker=tic, multiplier=1, timespan="minute", from_=current_tic_start_date, to=current_tic_start_date + delta):
-                        aggs.append(a)
-                    temp_df = pd.DataFrame(aggs)
-                    if temp_df.empty:
-                        current_tic_start_date += delta
-                        continue
-                    temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('America/New_York')
-                    # Фильтрация по времени
-                    if self.extended_interval:
-                        temp_df = temp_df[(temp_df['timestamp'].dt.time >= pd.Timestamp("04:00:00").time()) &
-                                          (temp_df['timestamp'].dt.time <= pd.Timestamp("20:00:00").time())]
-                    else:
-                        temp_df = temp_df[(temp_df['timestamp'].dt.time >= pd.Timestamp("09:30:00").time()) &
-                                          (temp_df['timestamp'].dt.time <= pd.Timestamp("16:00:00").time())]
 
-                    print("Загружено % ", 100 * (current_tic_start_date -  start_date) / (end_date - start_date) / total_tickers + 100 * (idx - 1) / total_tickers )
-                    #break
-
-
+                # Сбрасываем индекс, чтобы получить столбец с датой/временем
                 temp_df = temp_df.reset_index()
-                if self.source == "Yahoo":
-                    temp_df.columns = [
-                      "timestamp",
-                      "adjclose",
-                      "close",
-                      "high",
-                      "low",
-                      "open",
-                      "volume"]
-                temp_df["tic"] = tic
 
-                data_df = pd.concat([data_df, temp_df])
-                current_tic_start_date += delta
-        if 'adjclose' in data_df.columns:
-            data_df["close"] = data_df["adjclose"]
-            data_df = data_df.reset_index(drop=True).drop(columns=["adjclose"])
-        data_df.to_csv(self.file_path + '.csv', index=False)
+                # yfinance обычно возвращает локально-наивные Timestamp'ы (без таймзоны).
+                # Считаем их "UTC" и конвертируем в "America/New_York".
+                temp_df["timestamp"] = (
+                    temp_df["Date"]
+                    .dt.tz_localize("UTC")  # считаем исходный datetime за UTC
+                    .dt.tz_convert("America/New_York")  # переводим в Нью-Йорк
+                )
+
+                # Приводим колонки к единому виду
+                temp_df.drop(columns=["Date"], inplace=True)
+                temp_df.columns = [
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "adjclose",
+                    "volume",
+                    "timestamp"
+                ]
+                # Часто для backtest используют close = adjclose
+                temp_df["close"] = temp_df["adjclose"]
+                temp_df.drop(columns=["adjclose"], inplace=True)
+
+            else:
+                # Загрузка с polygon
+                client = RESTClient(self.POLYGON_API_KEY)
+                aggs = []
+                from_str = current_date.strftime("%Y-%m-%d")
+                to_str = (current_date + delta).strftime("%Y-%m-%d")
+                for a in client.list_aggs(
+                        ticker=ticker,
+                        multiplier=1,
+                        timespan="minute",
+                        from_=from_str,
+                        to=to_str
+                ):
+                    aggs.append(a)
+                temp_df = pd.DataFrame(aggs)
+                if temp_df.empty:
+                    current_date += delta
+                    continue
+
+                # Переводим timestamp из миллисекунд Unix (UTC) в datetime с таймзоной NYC
+                temp_df["timestamp"] = (
+                    pd.to_datetime(temp_df["timestamp"], unit="ms")
+                    .tz_localize("UTC")
+                    .tz_convert("America/New_York")
+                )
+
+            # Если столбец с временными метками не называется 'timestamp' по умолчанию,
+            # обязательно убедитесь, что он именно 'timestamp' (выше в Yahoo-кейсе мы его явно задаём).
+
+            # Фильтрация по времени торгов
+            if self.extended_interval:
+                # Расширенные торги: 4:00 - 20:00
+                start_time = pd.Timestamp("04:00:00").time()
+                end_time = pd.Timestamp("20:00:00").time()
+            else:
+                # Обычная сессия: 9:30 - 16:00
+                start_time = pd.Timestamp("09:30:00").time()
+                end_time = pd.Timestamp("16:00:00").time()
+
+            # Применяем фильтр по локальному времени Нью-Йорка
+            temp_df = temp_df[
+                (temp_df["timestamp"].dt.time >= start_time) &
+                (temp_df["timestamp"].dt.time <= end_time)
+                ]
+
+            # Если данные с Polygon, там уже есть open, high, low, close, volume.
+            # Для Yahoo мы адаптировали выше, чтобы всё называлось аналогично.
+            # Убедимся, что есть столбцы open/close/high/low/volume в temp_df.
+
+            # Добавим столбец с тикером
+            temp_df["tic"] = ticker
+
+            data_df = pd.concat([data_df, temp_df], ignore_index=True)
+
+            current_date += delta
+
         return data_df
 
     def convert_local_time(self, local_time, time_zone):
@@ -297,7 +482,7 @@ class FinancePreprocessor:
 
         return optimal_thresholds
 
-    def create_dollar_bars(self, data: pd.DataFrame = None, download_from_disk: bool = False, evaluate: bool = False, optimal_thresholds: Union[Dict[str, float], float] = None) -> pd.DataFrame:
+    def create_dollar_bars(self, file_name:str, data: pd.DataFrame = None, download_from_disk: bool = False, evaluate: bool = False, optimal_thresholds: Union[Dict[str, float], float] = None) -> pd.DataFrame:
         """
         Создаёт долларовые бары из минутных данных для нескольких тикеров.
 
@@ -308,7 +493,7 @@ class FinancePreprocessor:
         :return: DataFrame с долларовыми барами, включая столбцы ['timestamp', 'open', 'high', 'low', 'close', 'tic'].
         """
         if data is None or download_from_disk:
-            return self.read_csv('_final.csv')
+            return self.read_csv(os.path.join(self.file_path, file_name))
 
         # Проверка на наличие обязательных столбцов
         required_columns = {'tic', 'close', 'volume'}
@@ -395,7 +580,7 @@ class FinancePreprocessor:
         all_dollar_bars_df.index = pd.to_datetime(all_dollar_bars_df.index)
 
         # сохраняем нормализованный датасет на диске
-        all_dollar_bars_df.to_csv(self.file_path + '_final.csv', index=True)
+        all_dollar_bars_df.to_csv(os.path.join(self.file_path, file_name), index=True)
 
         return all_dollar_bars_df
 
@@ -403,11 +588,11 @@ class FinancePreprocessor:
     # timestamp, tic - основные колонки
     # required_columns - список обязательных колонок
     # timestamp, tic - основные колонки
-    def clean_data(self, df: pd.DataFrame, required_columns: list, clean: bool = None) -> pd.DataFrame:
+    def clean_data(self, file_name: str, df: pd.DataFrame, required_columns: list, clean: bool = None) -> pd.DataFrame:
         if clean is not None:
             self.clean = clean
         if self.clean:
-            return self.read_csv('_clean.csv')
+            return self.read_csv(os.path.join(self.file_path, file_name))
 
         # Проверяем обязательные колонки
         missing_columns = set(required_columns) - set(df.columns)
@@ -485,7 +670,7 @@ class FinancePreprocessor:
         new_df = new_df.sort_values(['timestamp', 'tic'], ignore_index=True)
 
         # Сохраняем очищенные данные
-        new_df.to_csv(self.file_path + '_clean.csv', index=False)
+        new_df.to_csv(os.path.join(self.file_path, file_name), index=False)
         self.clean = True
         return new_df
 
