@@ -8,6 +8,9 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # иногда нужен явный импорт
+from tqdm.auto import tqdm
+from os.path import exists
+from os import makedirs
 
 
 class CampbellBacktesting:
@@ -471,7 +474,7 @@ def test_sltp_run(data, indicators, processor):
     """
 
     # Убедимся, что директория существует (если нет — создаём)
-    os.makedirs(processor.file_path, exist_ok=True)
+    makedirs(processor.file_path, exist_ok=True)
 
     # Файл, куда сохраняются результаты
     csv_file_path = os.path.join(processor.file_path, 'results_sl_tp_test.csv')
@@ -483,7 +486,7 @@ def test_sltp_run(data, indicators, processor):
     sl_values = np.arange(1.0, 3.0, 0.1)
 
     # Считываем уже посчитанные результаты, если файл существует
-    if os.path.exists(csv_file_path):
+    if exists(csv_file_path):
         existing_df = pd.read_csv(csv_file_path)
 
         existing_df['coeff_tp'] = existing_df['coeff_tp'].astype(float)
