@@ -484,7 +484,7 @@ def test_sltp_run(data, indicators, processor):
 
     # Создаём диапазоны значений
     tp_values = np.arange(0.4, 2.0, 0.1)
-    sl_values = np.arange(1.0, 3.0, 0.1)
+    sl_values = np.arange(1.5, 3.0, 0.1)
 
     # Считываем уже посчитанные результаты, если файл существует
     if exists(csv_file_path):
