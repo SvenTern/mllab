@@ -1599,6 +1599,7 @@ class StockPortfolioEnv(gym.Env):
                     break
         finally:
             # Закрываем прогресс-бар, если нужно
+            pbar.clear()
             pbar.close()
 
         return results
