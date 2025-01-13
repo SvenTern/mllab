@@ -32,6 +32,8 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import json
 
+from pandas.errors import EmptyDataError
+
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
     Yahoo Finance API
