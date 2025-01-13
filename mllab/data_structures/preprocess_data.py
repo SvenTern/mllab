@@ -329,11 +329,6 @@ class FinancePreprocessor:
                 existing_min_date = existing_min_date#.tz_convert('America/New_York')
                 existing_max_date = existing_max_date#.tz_convert('America/New_York')
 
-                #print('existing_min_date ', existing_min_date)
-                #print('existing_max_date ', existing_max_date)
-
-                #print('start_date', start_date)
-                #print('end_date', end_date)
 
                 # Проверяем, покрывает ли уже файл нужный диапазон
                 if existing_min_date <= start_date and existing_max_date >= end_date:
@@ -344,13 +339,13 @@ class FinancePreprocessor:
                 left_gap_df = pd.DataFrame()
                 right_gap_df = pd.DataFrame()
 
-                if existing_min_date > start_date:
+                if existing_min_date > start_date and ( existing_min_date - delta ) > start_date:
                     left_gap_start = start_date
                     left_gap_end = existing_min_date - delta
                     print(f"[{tic}] Докачиваем слева: {left_gap_start.date()} -> {left_gap_end.date()}")
                     left_gap_df = self._download_for_ticker(tic, left_gap_start, left_gap_end, delta)
 
-                if existing_max_date < end_date:
+                if existing_max_date < end_date and  end_date > (existing_max_date + delta):
                     right_gap_start = existing_max_date + delta
                     right_gap_end = end_date
                     print(f"[{tic}] Докачиваем справа: {right_gap_start.date()} -> {right_gap_end.date()}")
