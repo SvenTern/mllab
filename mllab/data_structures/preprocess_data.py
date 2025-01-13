@@ -317,7 +317,6 @@ class FinancePreprocessor:
             # Формируем имя файла для сохранения
             file_name = f"{tic}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
             full_path = os.path.join(self.file_path, self.raw_data, file_name)
-            print('full_path', full_path)
 
             # Принудительная перезагрузка из Интернета
             if download_from_disk:
@@ -458,7 +457,7 @@ class FinancePreprocessor:
                 temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms', utc=True)
 
                 # 2. Конвертируем время в часовой пояс Нью-Йорка
-                temp_df['datetime_ny'] = temp_df['timestamp'].dt.tz_convert('America/New_York')
+                temp_df['timestamp'] = temp_df['timestamp'].dt.tz_convert('America/New_York')
 
 
             # Если столбец с временными метками не называется 'timestamp' по умолчанию,
@@ -668,7 +667,7 @@ class FinancePreprocessor:
             self,
             tickers=None,
             required_columns=None,
-            clean: bool = None
+            clean: bool = True
     ) -> dict:
         """
         Очищает (или считывает уже очищенные) данные сразу для нескольких тикеров.
@@ -694,19 +693,15 @@ class FinancePreprocessor:
         """
         if required_columns is None:
             # По умолчанию, если явно не сказано, какие колонки обязательны
-            required_columns = ["open", "high", "low", "close", "volume"]
-
-        # Устанавливаем self.clean, если параметр clean не None
-        if clean is not None:
-            self.clean = clean
+            required_columns = ["open", "high", "low", "close", "volume", "vwap", "transactions"]
 
         # Если список тикеров не задан, берём объединённый
         if tickers is None:
-            tickers = self.ticker_list + self.ticker_indicator_list
+            tickers = np.concatenate((self.ticker_list, self.ticker_indicator_list))
 
         # Формируем удобные строки дат для имён файлов
-        start_str = pd.Timestamp(self.start).strftime("%Y%m%d")
-        end_str = pd.Timestamp(self.end).strftime("%Y%m%d")
+        start_str = pd.Timestamp(self.start).strftime("%Y%m%d").tz_localize('UTC')
+        end_str = pd.Timestamp(self.end).strftime("%Y%m%d").tz_localize('UTC')
 
         # Результирующий словарь: {ticker: df_cleaned}
         results = {}
@@ -732,12 +727,12 @@ class FinancePreprocessor:
                 raise FileNotFoundError(msg)
 
             # Если self.clean=False, значит НЕ хотим заново чистить
-            if not self.clean:
+            if not clean:
                 print(f"[{ticker}] clean=False, ищем очищенный файл: {cleaned_file_name}")
                 if os.path.isfile(cleaned_path):
                     print(f"[{ticker}] Найден {cleaned_file_name}, читаем...")
-                    df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
-                    results[ticker] = df_cleaned
+                    #df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                    #results[ticker] = df_cleaned
                     continue
                 else:
                     msg = f"[{ticker}] Очищенный файл не найден: {cleaned_file_name}"
@@ -755,9 +750,14 @@ class FinancePreprocessor:
                 print(msg)
                 raise ValueError(msg)
 
+            ## убираем ошибочную колонку загрузки ...
+            if 'datetime_ny' in df_raw.columns:
+                df_raw['timestamp'] = pd.to_datetime(df_raw['datetime_ny'])
+
             # Если 'timestamp' — это индекс, сбросим в колонку
             if df_raw.index.name == 'timestamp':
                 df_raw = df_raw.reset_index()
+
 
             # Проверяем наличие 'timestamp' и 'tic'
             if 'timestamp' not in df_raw.columns or 'tic' not in df_raw.columns:
@@ -779,7 +779,7 @@ class FinancePreprocessor:
             df_cleaned.to_csv(cleaned_path, index=False)
             print(f"[{ticker}] Очищенные данные сохранены в {cleaned_file_name}")
 
-            results[ticker] = df_cleaned
+            #results[ticker] = df_cleaned
 
         print("\nОчистка данных завершена для всех тикеров.")
         return results
