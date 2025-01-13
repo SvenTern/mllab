@@ -11,6 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D  # иногда нужен явный и
 from tqdm.auto import tqdm
 from os.path import exists
 from os import makedirs
+import os as os
 
 
 class CampbellBacktesting:
