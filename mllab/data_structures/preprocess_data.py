@@ -828,6 +828,69 @@ class FinancePreprocessor:
         else:
             raise ValueError("Unsupported time interval (only '1d' or '1m').")
 
+    def top_100_tickers_by_bin_share(self):
+        """
+        Для списка тикеров:
+          - Загружает соответствующие CSV-файлы из указанной директории.
+          - Подсчитывает значения в колонке `bin`.
+          - Сортирует тикеры по наибольшей доле значений -1 и 1.
+
+        Параметры:
+        ticker_list: список тикеров для обработки.
+        file_path: базовая директория, где хранятся файлы.
+        labels: подпапка в базовой директории, содержащая CSV-файлы.
+        start_str, end_str: строки, определяющие временной интервал в именах файлов.
+
+        Возвращает:
+        Список из 100 кортежей вида (тикер, доля), отсортированных по убыванию доли значений -1 и 1.
+        """
+        ticker_list = np.concatenate((self.ticker_list, self.ticker_indicator_list))
+
+        required_columns = ['bin']
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        bin_value_counts = {}
+
+        # Проходим по каждому тикеру и загружаем соответствующий файл
+        for ticker in ticker_list:
+            # Формируем имя файла по шаблону
+            labeled_file_name = f"{ticker}_{start_str}_{end_str}_labeled.csv"
+            # Полный путь к файлу
+            labeled_path = os.path.join(self.file_path, self.labels, labeled_file_name)
+
+            # Проверяем существование файла
+            if os.path.exists(labeled_path):
+                df = pd.read_csv(labeled_path)
+                if 'bin' in df.columns:
+                    # Подсчитываем значения -1, 0 и 1 в колонке 'bin'
+                    counts = df['bin'].value_counts().to_dict()
+                    # Обеспечиваем наличие ключей -1, 0, 1
+                    counts_complete = {k: counts.get(k, 0) for k in [-1, 0, 1]}
+                    bin_value_counts[ticker] = counts_complete
+                else:
+                    print(f"В файле для {ticker} отсутствует колонка 'bin'.")
+            else:
+                print(f"Файл для {ticker} не найден по пути: {labeled_path}")
+
+        # Список для хранения тикеров с вычисленной долей
+        ticker_shares = []
+
+        # Вычисляем долю значений -1 и 1 для каждого тикера
+        for ticker, counts in bin_value_counts.items():
+            total = sum(counts.values())
+            share = (counts.get(-1, 0) + counts.get(1, 0)) / total if total > 0 else 0
+            ticker_shares.append((ticker, share))
+
+        # Сортировка тикеров по доле в порядке убывания
+        ticker_shares_sorted = sorted(ticker_shares, key=lambda x: x[1], reverse=True)
+
+        # Возвращаем первые 100 элементов
+        return ticker_shares_sorted[:100], ticker_shares_sorted
+
     def label_data(
             self,
             tickers=None,
@@ -1061,6 +1124,8 @@ class FinancePreprocessor:
         yesterday_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
 
         self.start = self.TRAIN_START_DATE
+
+        end = '2025-01-10'
 
         if end is None:
             self.end = yesterday_date
