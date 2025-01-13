@@ -700,8 +700,10 @@ class FinancePreprocessor:
             tickers = np.concatenate((self.ticker_list, self.ticker_indicator_list))
 
         # Формируем удобные строки дат для имён файлов
-        start_str = pd.Timestamp(self.start).strftime("%Y%m%d").tz_localize('UTC')
-        end_str = pd.Timestamp(self.end).strftime("%Y%m%d").tz_localize('UTC')
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
 
         # Результирующий словарь: {ticker: df_cleaned}
         results = {}
