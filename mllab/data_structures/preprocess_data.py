@@ -323,6 +323,10 @@ class FinancePreprocessor:
                 existing_min_date = existing_df["timestamp"].min().normalize()
                 existing_max_date = existing_df["timestamp"].max().normalize()
 
+                # Приводим tz-aware даты к tz-naive (убираем tz)
+                existing_min_date_naive = existing_min_date.tz_localize(None)
+                existing_max_date_naive = existing_max_date.tz_localize(None)
+
                 # Проверяем, покрывает ли уже файл нужный диапазон
                 if existing_min_date <= start_date and existing_max_date >= end_date:
                     print(f"[{tic}] Файл уже содержит данные за весь период.")
