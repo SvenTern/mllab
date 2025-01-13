@@ -61,6 +61,18 @@ class FinancePreprocessor:
         self.ticker_list = ticker_list
         self.ticker_indicator_list = ticker_indicator_list
 
+        self.raw_data = 'raw_data'
+        self.cleaned_data = 'cleaned_data'
+        self.labels = 'labels'
+        self.indiicators = 'indiicators'
+
+        os.makedirs(os.path.join(self.file_path, self.raw_data), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.cleaned_data), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.labels), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.indiicators), exist_ok=True)
+
+
+
 
     """
     Param
@@ -193,11 +205,11 @@ class FinancePreprocessor:
 
         # Основной (сырой) файл
         raw_file_name = f"{ticker}_{start_str}_{end_str}.csv"
-        raw_path = os.path.join(self.file_path, raw_file_name)
+        raw_path = os.path.join(self.file_path, self.raw_data, raw_file_name)
 
         # «Очищенный» файл
         cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
-        cleaned_path = os.path.join(self.file_path, cleaned_file_name)
+        cleaned_path = os.path.join(self.file_path, self.cleaned_data, cleaned_file_name)
 
         # Если хотим работать с очищенными данными
         if clean:
@@ -304,7 +316,7 @@ class FinancePreprocessor:
         for tic in tqdm(combined_tickers, desc="Downloading data", total=len(combined_tickers)):
             # Формируем имя файла для сохранения
             file_name = f"{tic}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
-            full_path = os.path.join(self.file_path, file_name)
+            full_path = os.path.join(self.file_path, self.raw_data, file_name)
 
             # Принудительная перезагрузка из Интернета
             if download_from_disk:
@@ -702,11 +714,11 @@ class FinancePreprocessor:
         for ticker in tqdm(tickers, desc="Cleaning data", total=len(tickers)):
             # Имя исходного файла
             original_file_name = f"{ticker}_{start_str}_{end_str}.csv"
-            original_path = os.path.join(self.file_path, original_file_name)
+            original_path = os.path.join(self.file_path, self.raw_data, original_file_name)
 
             # Имя очищенного файла
             cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
-            cleaned_path = os.path.join(self.file_path, cleaned_file_name)
+            cleaned_path = os.path.join(self.file_path, self.cleaned_data, cleaned_file_name)
 
             print(f"\n[Ticker: {ticker}] Обработка файла: {original_file_name}")
 
