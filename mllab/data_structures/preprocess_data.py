@@ -293,7 +293,7 @@ class FinancePreprocessor:
         delta = timedelta(days=1)
 
         # Объединяем тикеры из основного списка и списка «индикаторов»
-        combined_tickers = self.ticker_list + self.ticker_indicator_list
+        combined_tickers = np.concatenate((self.ticker_list, self.ticker_indicator_list))
 
         print("Начинаем загрузку данных...")
         # Проходимся по списку тикеров с помощью tqdm
