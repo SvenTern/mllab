@@ -45,7 +45,7 @@ class FinancePreprocessor:
         folder_path = '/content/drive/My Drive/DataTrading'
         os.makedirs(folder_path, exist_ok=True)
         self.file_path = os.path.join(folder_path, file_path)
-        self.clean = False
+        os.makedirs(self.file_path, exist_ok=True)
         self.source = source
         self.extended_interval = extended_interval
         self.fill_dates()
@@ -58,7 +58,7 @@ class FinancePreprocessor:
                 self.POLYGON_API_KEY =  file.read()
         self.ticker_list = ticker_list
         self.ticker_indicator_list = ticker_indicator_list
-        self.extended_interval = False
+
 
     """
     Param
@@ -985,12 +985,12 @@ class FinancePreprocessor:
         else:
             self.TRAIN_START_DATE = start
 
-        current_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        yesterday_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
 
         self.start = self.TRAIN_START_DATE
 
         if end is None:
-            self.end = current_date
+            self.end = yesterday_date
         else:
             self.end = end
 
