@@ -326,8 +326,8 @@ class FinancePreprocessor:
                 existing_max_date = existing_df["timestamp"].max().normalize()
 
                 # Или установить/конвертировать в нужный tz:
-                existing_min_date = existing_min_date.tz_convert('America/New_York')
-                existing_max_date = existing_max_date.tz_convert('America/New_York')
+                existing_min_date = existing_min_date#.tz_convert('America/New_York')
+                existing_max_date = existing_max_date#.tz_convert('America/New_York')
 
                 #print('existing_min_date ', existing_min_date)
                 #print('existing_max_date ', existing_max_date)
