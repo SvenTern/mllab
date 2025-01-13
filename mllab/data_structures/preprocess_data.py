@@ -584,106 +584,198 @@ class FinancePreprocessor:
 
         return all_dollar_bars_df
 
-    # required_columns - список обязательных колонок
-    # timestamp, tic - основные колонки
-    # required_columns - список обязательных колонок
-    # timestamp, tic - основные колонки
-    def clean_data(self, file_name: str, df: pd.DataFrame, required_columns: list, clean: bool = None) -> pd.DataFrame:
+
+    def clean_data(
+            self,
+            tickers=None,
+            required_columns=None,
+            clean: bool = None
+    ) -> dict:
+        """
+        Очищает (или считывает уже очищенные) данные сразу для нескольких тикеров.
+        Использует tqdm для индикации прогресса и print(...) для вывода сообщений.
+
+        Параметры
+        ----------
+        tickers : list или None
+            Список тикеров для очистки. Если None, берётся объединённый список
+            self.ticker_list + self.ticker_indicator_list.
+        required_columns : list или None
+            Список обязательных колонок (например ["open", "high", "low", "close", "volume"]).
+            Если None, будет использоваться некий дефолтный список.
+        clean : bool или None
+            - Если True, заново «чистим» (генерируем сплошной временной ряд, заполняем пропуски) и перезаписываем файлы.
+            - Если False, пытаемся считать уже очищенные файлы (если их нет, бросаем ошибку).
+            - Если None, используется текущее значение self.clean.
+
+        Возвращает
+        ----------
+        dict
+            Словарь {ticker: pd.DataFrame}, содержащий очищенные данные по каждому тикеру.
+        """
+        if required_columns is None:
+            # По умолчанию, если явно не сказано, какие колонки обязательны
+            required_columns = ["open", "high", "low", "close", "volume"]
+
+        # Устанавливаем self.clean, если параметр clean не None
         if clean is not None:
             self.clean = clean
-        if self.clean:
-            return self.read_csv(os.path.join(self.file_path, file_name))
 
-        # Проверяем обязательные колонки
-        missing_columns = set(required_columns) - set(df.columns)
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
+        # Если список тикеров не задан, берём объединённый
+        if tickers is None:
+            tickers = self.ticker_list + self.ticker_indicator_list
 
-        # Если 'timestamp' это индекс, делаем ее колонкой
-        if df.index.name == 'timestamp':
-            df = df.reset_index()
+        # Формируем удобные строки дат для имён файлов
+        start_str = pd.Timestamp(self.start).strftime("%Y%m%d")
+        end_str = pd.Timestamp(self.end).strftime("%Y%m%d")
 
-        # Проверяем наличие ключевых колонок 'timestamp' и 'tic'
-        if 'timestamp' not in df.columns or 'tic' not in df.columns:
-            raise KeyError("DataFrame must contain 'timestamp' and 'tic' columns.")
+        # Результирующий словарь: {ticker: df_cleaned}
+        results = {}
 
-        # Оставляем только необходимые колонки
-        df = df[required_columns + ['tic', 'timestamp']]
+        # Оборачиваем цикл по тикерам в tqdm для индикации прогресса
+        for ticker in tqdm(tickers, desc="Cleaning data", total=len(tickers)):
+            # Имя исходного файла
+            original_file_name = f"{ticker}_{start_str}_{end_str}.csv"
+            original_path = os.path.join(self.file_path, original_file_name)
 
-        tic_list = df['tic'].unique()
-        NY = "America/New_York"
-        tz = pytz.timezone(NY)
+            # Имя очищенного файла
+            cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
+            cleaned_path = os.path.join(self.file_path, cleaned_file_name)
 
-        # Получаем список торговых дней
-        trading_days = self.get_trading_days()
+            print(f"\n[Ticker: {ticker}] Обработка файла: {original_file_name}")
+
+            # Проверка существования исходного файла
+            if not os.path.isfile(original_path):
+                msg = f"[{ticker}] Файл не найден: {original_file_name}"
+                print(msg)
+                # Можно пропускать или выбросить ошибку;
+                # здесь выбросим ошибку:
+                raise FileNotFoundError(msg)
+
+            # Если self.clean=False, значит НЕ хотим заново чистить
+            if not self.clean:
+                print(f"[{ticker}] clean=False, ищем очищенный файл: {cleaned_file_name}")
+                if os.path.isfile(cleaned_path):
+                    print(f"[{ticker}] Найден {cleaned_file_name}, читаем...")
+                    df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                    results[ticker] = df_cleaned
+                    continue
+                else:
+                    msg = f"[{ticker}] Очищенный файл не найден: {cleaned_file_name}"
+                    print(msg)
+                    raise FileNotFoundError(msg)
+
+            # Если self.clean=True, выполняем очистку заново
+            print(f"[{ticker}] Загружаем сырой файл и выполняем очистку...")
+            df_raw = pd.read_csv(original_path, parse_dates=["timestamp"])
+
+            # Проверяем обязательные колонки
+            missing_columns = set(required_columns) - set(df_raw.columns)
+            if missing_columns:
+                msg = f"[{ticker}] Missing required columns: {missing_columns}"
+                print(msg)
+                raise ValueError(msg)
+
+            # Если 'timestamp' — это индекс, сбросим в колонку
+            if df_raw.index.name == 'timestamp':
+                df_raw = df_raw.reset_index()
+
+            # Проверяем наличие 'timestamp' и 'tic'
+            if 'timestamp' not in df_raw.columns or 'tic' not in df_raw.columns:
+                msg = f"[{ticker}] DataFrame must contain 'timestamp' and 'tic' columns."
+                print(msg)
+                raise KeyError(msg)
+
+            # Оставляем только нужные столбцы (+ 'tic', 'timestamp')
+            df_raw = df_raw[required_columns + ['tic', 'timestamp']]
+
+            # Если в файле могут быть данные по разным тикерам,
+            # отфильтруем только нужный (обычно файл на 1 тикер, но на всякий случай)
+            df_raw = df_raw.loc[df_raw['tic'] == ticker].copy()
+
+            # Собираем очищенный DataFrame
+            df_cleaned = self._build_cleaned_df(df_raw, ticker, required_columns)
+
+            # Сохраняем очищенные данные
+            df_cleaned.to_csv(cleaned_path, index=False)
+            print(f"[{ticker}] Очищенные данные сохранены в {cleaned_file_name}")
+
+            results[ticker] = df_cleaned
+
+        print("\nОчистка данных завершена для всех тикеров.")
+        return results
+
+    def _build_cleaned_df(self, df: pd.DataFrame, ticker: str, required_columns: list) -> pd.DataFrame:
+        """
+        Формирует «чистый» DataFrame для заданного тикера:
+        - Генерирует сплошной временной индекс,
+        - Заполняет пропуски (forward-fill, backward-fill),
+        - Проверяет на NaN,
+        - Возвращает готовый DataFrame.
+        """
+        # Удаляем дубликаты по timestamp
+        df.drop_duplicates(subset='timestamp', keep='first', inplace=True)
+        df.set_index("timestamp", inplace=True)
 
         # Генерируем полный индекс времени
-        # Генерируем полный индекс времени для каждого дня
-        if self.time_interval == "1d":
-            times = pd.Index(trading_days)
-        elif self.time_interval == "1m":
-            times = []
-            for day in trading_days:
+        times = self._generate_time_index()
 
+        # Создаём DataFrame со сплошным временным индексом
+        tmp_df = pd.DataFrame(index=times, columns=required_columns)
+
+        # Переносим значения
+        tmp_df.update(df)
+
+        # Заполняем пропуски (ffill/bfill)
+        tmp_df.ffill(inplace=True)
+        tmp_df.bfill(inplace=True)
+
+        # Проверяем, остались ли NaN
+        if tmp_df[required_columns].isna().any().any():
+            msg = f"[{ticker}] NaN values remain in cleaned data."
+            print(msg)
+            raise ValueError(msg)
+
+        # Пропишем тикер
+        tmp_df["tic"] = ticker
+
+        # Сбросим индекс, получим колонку "timestamp"
+        final_df = tmp_df.reset_index().rename(columns={"index": "timestamp"})
+        final_df.sort_values("timestamp", inplace=True)
+        return final_df
+
+    def _generate_time_index(self) -> pd.Index:
+        """
+        Генерирует сплошной временной индекс с учётом self.time_interval и self.extended_interval.
+        """
+        trading_days = self.get_trading_days()
+        tz = pytz.timezone("America/New_York")
+
+        if self.time_interval == "1d":
+            # По торговым дням (Date)
+            return pd.Index(trading_days)  # array of date objects
+        elif self.time_interval == "1m":
+            all_minutes = []
+            for day in trading_days:
                 if self.extended_interval:
+                    # Расширенные торги: 04:00 - 20:00
                     day_times = pd.date_range(
                         start=pd.Timestamp(f"{day} 04:00:00", tz=tz),
                         end=pd.Timestamp(f"{day} 20:00:00", tz=tz),
                         freq='T'
                     )
                 else:
+                    # Обычная сессия: 09:30 - 16:00
                     day_times = pd.date_range(
                         start=pd.Timestamp(f"{day} 09:30:00", tz=tz),
                         end=pd.Timestamp(f"{day} 16:00:00", tz=tz),
                         freq='T'
                     )
-                times.extend(day_times)
-            times = pd.Index(times)  # Преобразуем в Index для дальнейшего использования
+                all_minutes.extend(day_times)
+            return pd.Index(all_minutes)
         else:
-            raise ValueError("Unsupported time interval for data cleaning.")
+            raise ValueError("Unsupported time interval (only '1d' or '1m').")
 
-        # Подготовка нового DataFrame с полным временным индексом
-        data_frames = []
-
-        df_grouped = df.groupby('tic')
-
-        for tic, tic_df in df_grouped:
-            # Удаляем дубликаты по индексу 'timestamp' для предотвращения ошибок
-            tic_df = tic_df[~tic_df['timestamp'].duplicated(keep='first')]
-
-            # Инициализируем DataFrame для текущего тикера
-            tmp_df = pd.DataFrame(index=times, columns=required_columns)
-
-            # Объединяем временные ряды
-            tic_df = tic_df.set_index("timestamp")
-            tmp_df.update(tic_df)
-
-            # Заполняем NaN-значения
-            tmp_df = self.fill_missing_data(tmp_df, required_columns, tic)
-
-            # Добавляем тикер в итоговый DataFrame
-            tmp_df["tic"] = tic
-            data_frames.append(tmp_df)
-
-        # Сбрасываем индекс и сортируем
-        new_df = pd.concat(data_frames).reset_index().rename(columns={"index": "timestamp"})
-        new_df = new_df.sort_values(['timestamp', 'tic'], ignore_index=True)
-
-        # Сохраняем очищенные данные
-        new_df.to_csv(os.path.join(self.file_path, file_name), index=False)
-        self.clean = True
-        return new_df
-
-    def fill_missing_data(self, df: pd.DataFrame, required_columns: list, tic: str) -> pd.DataFrame:
-        # Если первая строка содержит NaN, заполняем первым доступным значением для всех обязательных колонок
-        df.ffill(inplace=True)
-        df.bfill(inplace=True)
-
-        # Проверка остатков NaN
-        if df[required_columns].isna().any().any():
-            raise ValueError(f"NaN values remain in data for ticker {tic} in columns {required_columns}")
-
-        return df
 
 
     def add_technical_indicator(
