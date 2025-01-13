@@ -429,13 +429,14 @@ class FinancePreprocessor:
                 if temp_df.empty:
                     current_date += delta
                     continue
-                print('temp_df', temp_df)
+                #print('temp_df', temp_df)
                 # Переводим timestamp из миллисекунд Unix (UTC) в datetime с таймзоной NYC
-                temp_df["timestamp"] = (
-                    pd.to_datetime(temp_df["timestamp"], unit="ms")
-                    .tz_localize("UTC")
-                    .tz_convert("America/New_York")
-                )
+                # 1. Преобразуем столбец 'timestamp' в datetime, указывая, что значение – в миллисекундах и в UTC
+                temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'], unit='ms', utc=True)
+
+                # 2. Конвертируем время в часовой пояс Нью-Йорка
+                temp_df['datetime_ny'] = temp_df['timestamp'].dt.tz_convert('America/New_York')
+
 
             # Если столбец с временными метками не называется 'timestamp' по умолчанию,
             # обязательно убедитесь, что он именно 'timestamp' (выше в Yahoo-кейсе мы его явно задаём).
