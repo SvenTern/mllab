@@ -23,7 +23,7 @@ from polygon import RESTClient
 import mplfinance as mpf
 from stockstats import StockDataFrame as Sdf
 
-from google.colab import drive
+
 import os
 from tqdm.auto import tqdm
 
