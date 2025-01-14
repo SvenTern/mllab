@@ -40,7 +40,7 @@ class FinancePreprocessor:
     Yahoo Finance API
     """
 
-    def __init__(self, ticker_list, ticker_indicator_list, source : str = 'Yahoo', time_interval : str = "1d", file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
+    def __init__(self, ticker_list, ticker_indicator_list, source : str = 'Yahoo', time_interval : str = "1d", folder_path:str = '/content/drive/My Drive/DataTrading', file_path:str = None, extended_interval: bool = False, proxy: str | dict = None):
         self.ticker_list = ticker_list
 
         self.time_interval = self.convert_interval(time_interval)
