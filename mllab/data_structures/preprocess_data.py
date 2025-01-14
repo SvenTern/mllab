@@ -855,8 +855,8 @@ class FinancePreprocessor:
 
         bin_value_counts = {}
 
-        # Проходим по каждому тикеру и загружаем соответствующий файл
-        for ticker in ticker_list:
+        # Используем tqdm для отображения прогресса
+        for ticker in tqdm(ticker_list, desc="Processing tickers"):
             # Формируем имя файла по шаблону
             labeled_file_name = f"{ticker}_{start_str}_{end_str}_labeled.csv"
             # Полный путь к файлу
