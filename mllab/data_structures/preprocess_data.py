@@ -55,7 +55,7 @@ class FinancePreprocessor:
         self.end = self.TEST_END_DATE
 
         if self.source == "polygon":
-            file_path = folder_path + '\polygon_api_keys.txt'
+            file_path = os.path.join(folder_path,'polygon_api_keys.txt')
             with open(file_path, 'r') as file:
                 self.POLYGON_API_KEY =  file.read()
         self.ticker_list = ticker_list
