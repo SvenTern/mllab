@@ -355,13 +355,13 @@ class FinancePreprocessor:
                 left_gap_df = pd.DataFrame()
                 right_gap_df = pd.DataFrame()
 
-                if existing_min_date > start_date and (existing_min_date - delta) > start_date:
+                if existing_min_date.date() > start_date.date() and (existing_min_date - delta).date() > start_date.date():
                     left_gap_start = start_date
                     left_gap_end = existing_min_date - delta
                     print(f"[{tic}] Докачиваем слева: {left_gap_start.date()} -> {left_gap_end.date()}")
                     left_gap_df = self._download_for_ticker(tic, left_gap_start, left_gap_end, delta)
 
-                if existing_max_date < end_date and end_date > (existing_max_date + delta):
+                if existing_max_date.date() < end_date.date() and end_date.date() > (existing_max_date + delta).date():
                     right_gap_start = existing_max_date + delta
                     right_gap_end = end_date
                     print(f"[{tic}] Докачиваем справа: {right_gap_start.date()} -> {right_gap_end.date()}")
@@ -918,7 +918,14 @@ class FinancePreprocessor:
             labeled_file_name = f"{ticker}_{start_str}_{end_str}_labeled.csv"
             labeled_path = os.path.join(self.file_path, self.labels, labeled_file_name)
 
-            print(f"\n[Ticker: {ticker}] Обработка очищённых данных для разметки...")
+            if not os.path.isfile(labeled_path):
+                msg = f"[{ticker}] Размеченный файл не найден, формирование нового размеченного файла: {labeled_path}"
+                print(msg)
+            elif not label:
+                # не переделываем разметку, если она уже есть
+                msg = f"[{ticker}] Размеченный файл найден: {labeled_path}"
+                print(msg)
+                continue  # или выбросить ошибку, если это критично
 
             # Проверяем наличие очищённого файла
             if not os.path.isfile(cleaned_path):
