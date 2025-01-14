@@ -343,6 +343,11 @@ class FinancePreprocessor:
                     existing_df["close"] = existing_df["adjclose"]
                     existing_df.drop(columns=["adjclose"], inplace=True)
 
+                # Ensure 'timestamp' column is in datetime format
+                if not pd.api.types.is_datetime64_any_dtype(existing_df["timestamp"]):
+                    existing_df["timestamp"] = pd.to_datetime(existing_df["timestamp"])
+
+                # Check if the timestamp is naive or tz-aware
                 if existing_df["timestamp"].dt.tz is None:
                     # If the timestamp is naive, localize it
                     existing_min_date = existing_df["timestamp"].min().tz_localize('UTC')
