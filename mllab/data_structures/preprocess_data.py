@@ -343,11 +343,11 @@ class FinancePreprocessor:
                     existing_df["close"] = existing_df["adjclose"]
                     existing_df.drop(columns=["adjclose"], inplace=True)
 
-                existing_min_date = existing_df["timestamp"].min().normalize()
-                existing_max_date = existing_df["timestamp"].max().normalize()
+                existing_min_date = existing_df["timestamp"].min().tz_localize('UTC')
+                existing_max_date = existing_df["timestamp"].max().tz_localize('UTC')
 
                 # Проверяем, покрывает ли уже файл нужный диапазон
-                if existing_min_date <= start_date and existing_max_date >= end_date:
+                if existing_min_date.date() <= start_date.date() and existing_max_date.date() >= end_date.date():
                     print(f"[{tic}] Файл уже содержит данные за весь период.")
                     continue
 
