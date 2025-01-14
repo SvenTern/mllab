@@ -919,11 +919,11 @@ class FinancePreprocessor:
             labeled_path = os.path.join(self.file_path, self.labels, labeled_file_name)
 
             if not os.path.isfile(labeled_path):
-                msg = f"[{ticker}] Размеченный файл не найден, формирование нового размеченного файла: {labeled_path}"
+                msg = f"[{ticker}] Размеченный файл не найден, формирование нового размеченного файла: {labeled_file_name}"
                 print(msg)
             elif not label:
                 # не переделываем разметку, если она уже есть
-                msg = f"[{ticker}] Размеченный файл найден: {labeled_path}"
+                msg = f"[{ticker}] Размеченный файл найден: {labeled_file_name}"
                 print(msg)
                 continue  # или выбросить ошибку, если это критично
 
