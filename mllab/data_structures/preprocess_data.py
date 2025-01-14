@@ -343,8 +343,14 @@ class FinancePreprocessor:
                     existing_df["close"] = existing_df["adjclose"]
                     existing_df.drop(columns=["adjclose"], inplace=True)
 
-                existing_min_date = existing_df["timestamp"].min().tz_localize('UTC')
-                existing_max_date = existing_df["timestamp"].max().tz_localize('UTC')
+                if existing_df["timestamp"].dt.tz is None:
+                    # If the timestamp is naive, localize it
+                    existing_min_date = existing_df["timestamp"].min().tz_localize('UTC')
+                    existing_max_date = existing_df["timestamp"].max().tz_localize('UTC')
+                else:
+                    # If the timestamp is tz-aware, use tz_convert
+                    existing_min_date = existing_df["timestamp"].min().tz_convert('UTC')
+                    existing_max_date = existing_df["timestamp"].max().tz_convert('UTC')
 
                 # Проверяем, покрывает ли уже файл нужный диапазон
                 if existing_min_date.date() <= start_date.date() and existing_max_date.date() >= end_date.date():
