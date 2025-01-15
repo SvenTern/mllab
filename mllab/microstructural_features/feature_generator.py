@@ -186,7 +186,7 @@ def calculate_indicators(data,
             group = group.reset_index(level="tic")
 
         group = group.copy()
-        print('group',group)
+        #print('group',group)
         x = pd.DataFrame(index=group.index)
 
         # --- Сдвигаем видимый интервал на 1 шаг ---
@@ -278,7 +278,7 @@ def calculate_indicators(data,
         # Возвращаем 'tic' в мультииндекс
         x["tic"] = tic
         x.set_index("tic", append=True, inplace=True)
-        print('x', x)
+        #print('x', x)
         return x
 
     if 'timestamp' in data.index.names:
