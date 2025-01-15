@@ -202,8 +202,8 @@ def calculate_indicators(data,
         group["log_ret_volumes"] = np.log(data_row_volume).diff()
 
         # --- Волатильность на разных окнах ---
-        x["volatility_5"] = group["log_ret"].rolling(window=50, min_periods=50).std()
-        x["volatility_10"] = group["log_ret"].rolling(window=31, min_periods=31).std()
+        x["volatility_5"] = group["log_ret"].rolling(window=5, min_periods=5).std()
+        x["volatility_10"] = group["log_ret"].rolling(window=10, min_periods=10).std()
         x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15).std()
 
         # --- Моментум (log_return) ---
@@ -304,7 +304,12 @@ def calculate_indicators(data,
 
     # Склеиваем все результаты
     final_result = pd.concat(results)
-    print('final_result', final_result)
+    #print('final_result', final_result)
+
+    missing_indices = set(data.index) - set(final_result.index)
+    if missing_indices:
+        print(f"Предупреждение: Следующие индексы отсутствуют в результатах: {missing_indices}")
+
     # Перестраиваем индекс (tic, timestamp), если нужно
     final_result = final_result.reindex(data.index)
 
