@@ -308,8 +308,15 @@ def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_
     """
 
     # Преобразуем index в столбцы, чтобы можно было делать merge
-    labels_merged = labels.reset_index()  # получаем столбец 'timestamp'
-    indicators_merged = indicators.reset_index()
+    if labels.index.name == 'timestamp':
+        labels_merged = labels.reset_index()  # получаем столбец 'timestamp'
+    else:
+        labels_merged = labels
+
+    if indicators.index.name == 'timestamp':
+        indicators_merged = indicators.reset_index()  # получаем столбец 'timestamp'
+    else:
+        indicators_merged = indicators
 
     # Мерджим по ["timestamp", "tic"]
     merged_data = pd.merge(
