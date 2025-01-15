@@ -157,7 +157,7 @@ class FinancePreprocessor:
         if ext == ".pkl":
             joblib.dump(data, file_path, compress=3)
         elif ext == ".csv":
-            data.to_csv(file_path, index=False)
+            data.to_csv(file_path)
         else:
             pickle.dump(data, file_path)
 
@@ -184,7 +184,7 @@ class FinancePreprocessor:
         if ext == ".pkl":
             return joblib.load(file_path)
         elif ext == ".csv":
-            return pd.read_csv(file_path)
+            return pd.read_csv(file_path, parse_dates=["timestamp"])
         else:
             return pickle.load(file_path)
 
@@ -1129,9 +1129,9 @@ class FinancePreprocessor:
                 continue
 
             try:
-                df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                df_cleaned = self.load(cleaned_path)
                 df_labeled = calculate_indicators(df_cleaned, indicators_data)
-                df_labeled.to_csv(labeled_path, index=False)
+                self.save(df_labeled, labeled_path)
                 logging.info(f"[{ticker}] Indicators data saved to {labeled_path.name}")
             except Exception as e:
                 logging.error(f"[{ticker}] Error while processing indicators: {e}")
