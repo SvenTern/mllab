@@ -173,20 +173,13 @@ def calculate_indicators(data,
     -------
     pd.DataFrame
         Финальный DataFrame с вычисленными фичами.
-        Изначально индексом будет (tic, timestamp),
-        но при reset_index мы перенесём их в колонки.
     """
 
-    def process_ticker(group, tic, shift: int = 0):
+    def process_data(group, shift: int = 0):
         """
-        Вычисляет фичи для одного тикера (группа строк).
+        Вычисляет фичи для входящего набора данных.
         """
-        # Убираем 'tic' из мультииндекса
-        if isinstance(group.index, pd.MultiIndex) and "tic" in group.index.names:
-            group = group.reset_index(level="tic")
-
         group = group.copy()
-        #print('group',group)
         x = pd.DataFrame(index=group.index)
 
         # --- Сдвигаем видимый интервал на 1 шаг ---
@@ -275,51 +268,22 @@ def calculate_indicators(data,
                             .corr(macro_series_ret)
                         )
 
-        # Возвращаем 'tic' в мультииндекс
-        x["tic"] = tic
-        x.set_index("tic", append=True, inplace=True)
-        #print('x', x)
         return x
 
+    # --- Обработка данных ---
+    data = data.copy()
     if 'timestamp' in data.index.names:
-        data = data.reset_index()  # Сбрасываем индекс, чтобы преобразовать 'timestamp'
+        data = data.reset_index()
 
-    # --- Устанавливаем (tic, timestamp) как MultiIndex ---
-    data = data.set_index(['tic', 'timestamp']).sort_index()
+    # Убедимся, что 'timestamp' используется как индекс
+    data.set_index('timestamp', inplace=True)
+    final_result = process_data(data, shift=shift)
 
-    # Получаем список тикеров из уровня индекса 'tic'
-    tickers = data.index.get_level_values('tic').unique()
-
-    results = []
-
-    # Группируем по уровню 'tic'
-    groups = data.groupby(level='tic', group_keys=False)
-
-    # Перебор групп по тикерам
-    for name, group in groups:
-        # Обработка каждой группы (вызываем вашу функцию process_ticker)
-        res = process_ticker(group, name, shift=shift)
-
-        results.append(res)  # Добавляем результат в список
-
-    # Склеиваем все результаты
-    final_result = pd.concat(results)
-    #print('final_result', final_result)
-
-    missing_indices = set(data.index) - set(final_result.index)
-    if missing_indices:
-        print(f"Предупреждение: Следующие индексы отсутствуют в результатах: {missing_indices}")
-
-    # Перестраиваем индекс (tic, timestamp), если нужно
-    final_result = final_result.reindex(data.index)
-
-    # Заполняем NaN
+    # Заполняем NaN и возвращаем результат
     final_result.fillna(0, inplace=True)
-
-    # Теперь сбрасываем MultiIndex, перенесём 'tic' и 'timestamp' в колонки
     final_result.reset_index(inplace=True)
-    #print('final_result', final_result)
     return final_result
+
 
 def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_heatmap = True):
     """
