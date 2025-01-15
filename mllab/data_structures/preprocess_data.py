@@ -1038,26 +1038,26 @@ class FinancePreprocessor:
 
         for ticker in tqdm(tickers, desc="Prepare indicators data", total=len(tickers)):
             cleaned_path = Path(self.file_path, self.cleaned_data, f"{ticker}_{start_str}_{end_str}_cleaned.csv")
-            labeled_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_labeled.csv")
+            labeled_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_indicators.csv")
 
             if labeled_path.is_file() and not rebuild:
-                logging.info(f"[{ticker}] Labeled file already exists: {labeled_path.name}")
+                logging.info(f"[{ticker}] Indicators file already exists: {labeled_path.name}")
                 continue
 
             if not cleaned_path.is_file():
                 logging.warning(f"[{ticker}] Cleaned file not found: {cleaned_path.name}")
                 continue
 
-            #try:
-            df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
-            df_labeled = calculate_indicators(df_cleaned, indicators_data)
-            df_labeled.to_csv(labeled_path, index=False)
-            logging.info(f"[{ticker}] Labeled data saved to {labeled_path.name}")
-            #except Exception as e:
-            #    logging.error(f"[{ticker}] Error while processing indicators: {e}")
-            #    continue
+            try:
+                df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                df_labeled = calculate_indicators(df_cleaned, indicators_data)
+                df_labeled.to_csv(labeled_path, index=False)
+                logging.info(f"[{ticker}] Indicators data saved to {labeled_path.name}")
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while processing indicators: {e}")
+                continue
 
-        logging.info("Data labeling completed for all tickers.")
+        logging.info("Indicators completed for all tickers.")
         return True
 
     def add_technical_indicator(

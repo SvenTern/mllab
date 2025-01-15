@@ -304,7 +304,7 @@ def calculate_indicators(data,
 
     # Склеиваем все результаты
     final_result = pd.concat(results)
-
+    print('final_result', final_result)
     # Перестраиваем индекс (tic, timestamp), если нужно
     final_result = final_result.reindex(data.index)
 
