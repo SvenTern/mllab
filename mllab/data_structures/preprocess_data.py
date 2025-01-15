@@ -1015,8 +1015,10 @@ class FinancePreprocessor:
             logging.warning(f"[{ticker}] Parse indicators: {cleaned_path.name}")
             if cleaned_path.is_file():
                 indicators_data[ticker] = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+                indicators_data[ticker].index = indicators_data[ticker]['timestamp']
             elif raw_path.is_file():
                 indicators_data[ticker] = pd.read_csv(raw_path, parse_dates=["timestamp"])
+                indicators_data[ticker].index = indicators_data[ticker]['timestamp']
             else:
                 logging.warning(f"[{ticker}] File not found for indicators: {cleaned_path.name}")
                 continue

@@ -260,7 +260,7 @@ def calculate_indicators(data,
         # Getting Indicator Ticker and Data
         for indicators_ticker, sp500_data in Indicators_data.items():
             if sp500_data is not None and 'close' in sp500_data.columns:
-                print('sp500_data', sp500_data)
+                #print('sp500_data', sp500_data)
                 # Align and shift close data
                 sp500_close = sp500_data.loc[group.index, 'close'].shift(shift)
 
