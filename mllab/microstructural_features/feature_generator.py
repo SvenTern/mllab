@@ -181,6 +181,10 @@ def calculate_indicators(data,
         """
         Вычисляет фичи для одного тикера (группа строк).
         """
+        # Убираем 'tic' из мультииндекса
+        if isinstance(group.index, pd.MultiIndex) and "tic" in group.index.names:
+            group = group.reset_index(level="tic")
+
         group = group.copy()
         x = pd.DataFrame(index=group.index)
 
@@ -200,20 +204,6 @@ def calculate_indicators(data,
         x["volatility_5"] = group["log_ret"].rolling(window=50, min_periods=50).std()
         x["volatility_10"] = group["log_ret"].rolling(window=31, min_periods=31).std()
         x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15).std()
-
-        # --- Автокорреляция log_ret ---
-        #window_autocorr = 10
-        #autocorrs = (
-        #    group["log_ret"]
-        #    .rolling(window=window_autocorr, min_periods=window_autocorr)
-        #    .apply(
-        #        lambda series: np.corrcoef(series[:-1], series[1:])[0, 1]
-        #        if len(series) > 1 else np.nan,
-        #        raw=True
-        #    )
-        #)
-        #for lag in range(1, 6):
-        #    x[f"autocorr_{lag}"] = autocorrs.shift(lag - 1)
 
         # --- Моментум (log_return) ---
         for lag in range(1, 6):
@@ -253,25 +243,14 @@ def calculate_indicators(data,
         # --- VWAP (Volume Weighted Average Price) ---
         x["vwap_diff"] = (data_row_vwap - data_row) / data_row
 
-        # у нас есть индикаторы, нужно по ним сделать
-
         # --- Корреляции с бенчмарками / макро ---
-
-        # Getting Indicator Ticker and Data
         for indicators_ticker, sp500_data in Indicators_data.items():
             if sp500_data is not None and 'close' in sp500_data.columns:
-                #print('sp500_data', sp500_data)
-                # Align and shift close data
                 sp500_close = sp500_data.loc[group.index, 'close'].shift(shift)
-
-                # Calculate log returns
                 sp500_logret = np.log(sp500_close).diff()
-
-                # Generate lagged features
                 for lag in range(1, 6):
                     feature_name = f"indicators_{indicators_ticker}_log_t{lag}"
                     x[feature_name] = sp500_logret.shift(lag)
-
 
         if sector_data is not None and 'close' in sector_data.columns:
             sector_close = sector_data.loc[group.index, 'close'].shift(shift)
@@ -295,8 +274,10 @@ def calculate_indicators(data,
                             .corr(macro_series_ret)
                         )
 
+        # Возвращаем 'tic' в мультииндекс
         x["tic"] = tic
-        print('x', x)
+        x.set_index("tic", append=True, inplace=True)
+
         return x
 
     if 'timestamp' in data.index.names:
@@ -315,8 +296,6 @@ def calculate_indicators(data,
 
     # Перебор групп по тикерам
     for name, group in groups:
-        # Сброс индекса только по уровню 'tic'
-        group = group.reset_index(level='tic')
         # Обработка каждой группы (вызываем вашу функцию process_ticker)
         res = process_ticker(group, name, shift=shift)
         results.append(res)  # Добавляем результат в список
@@ -332,7 +311,7 @@ def calculate_indicators(data,
 
     # Теперь сбрасываем MultiIndex, перенесём 'tic' и 'timestamp' в колонки
     final_result.reset_index(inplace=True)
-
+    print('final_result', final_result)
     return final_result
 
 def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_heatmap = True):
