@@ -202,18 +202,18 @@ def calculate_indicators(data,
         x["volatility_15"] = group["log_ret"].rolling(window=15, min_periods=15).std()
 
         # --- Автокорреляция log_ret ---
-        window_autocorr = 10
-        autocorrs = (
-            group["log_ret"]
-            .rolling(window=window_autocorr, min_periods=window_autocorr)
-            .apply(
-                lambda series: np.corrcoef(series[:-1], series[1:])[0, 1]
-                if len(series) > 1 else np.nan,
-                raw=True
-            )
-        )
-        for lag in range(1, 6):
-            x[f"autocorr_{lag}"] = autocorrs.shift(lag - 1)
+        #window_autocorr = 10
+        #autocorrs = (
+        #    group["log_ret"]
+        #    .rolling(window=window_autocorr, min_periods=window_autocorr)
+        #    .apply(
+        #        lambda series: np.corrcoef(series[:-1], series[1:])[0, 1]
+        #        if len(series) > 1 else np.nan,
+        #        raw=True
+        #    )
+        #)
+        #for lag in range(1, 6):
+        #    x[f"autocorr_{lag}"] = autocorrs.shift(lag - 1)
 
         # --- Моментум (log_return) ---
         for lag in range(1, 6):
@@ -311,16 +311,11 @@ def calculate_indicators(data,
     # Группируем по уровню 'tic'
     groups = data.groupby(level='tic', group_keys=False)
 
-    # Параллельная обработка
-    with tqdm(total=len(tickers), desc="Processing tickers") as pbar:
-        parallel_results = Parallel(n_jobs=-1)(
-            delayed(process_ticker)(grp, name, shift=shift)
-            for name, grp in groups
-        )
-
-        for res in parallel_results:
-            results.append(res)
-            pbar.update(1)
+    # Перебор групп по тикерам
+    for name, group in groups:
+        # Обработка каждой группы (вызываем вашу функцию process_ticker)
+        res = process_ticker(group, name, shift=shift)
+        results.append(res)  # Добавляем результат в список
 
     # Склеиваем все результаты
     final_result = pd.concat(results)
