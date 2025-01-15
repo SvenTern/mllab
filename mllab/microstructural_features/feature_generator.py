@@ -313,6 +313,8 @@ def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_
     else:
         labels_merged = labels
 
+    print('labels_merged', labels_merged)
+
     if indicators.index.name == 'timestamp':
         indicators_merged = indicators.reset_index()  # получаем столбец 'timestamp'
     else:
