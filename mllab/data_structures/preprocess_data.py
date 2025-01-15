@@ -66,6 +66,14 @@ class FinancePreprocessor:
         self.labels = 'labels'
         self.indiicators = 'indiicators'
 
+        self.top100 = ['NVR', 'MPWR', 'TDG', 'FICO', 'KLAC', 'ORLY', 'REGN', 'MTD', 'URI', 'NOW', 'GWW', 'EQIX', 'LLY', 'TPL', 'NFLX',
+                       'LII', 'SNPS', 'INTU', 'MLM', 'COST', 'BKNG', 'IDXX', 'META', 'TYL', 'MSCI', 'PH', 'ERIE', 'AXON', 'HUBB', 'AZO',
+                       'DPZ', 'ULTA', 'TMO', 'POOL', 'CRWD', 'IT', 'BLK', 'MCK', 'FDS', 'WST', 'UNH', 'TSLA', 'WAT', 'MOH', 'TDY',
+                       'ELV', 'ROP', 'ZBRA', 'VRTX', 'ISRG', 'GS', 'HUM', 'CHTR', 'LULU', 'ADBE', 'EG', 'FSLR', 'NOC', 'GEV', 'MCO',
+                       'ALGN', 'CEG', 'DE', 'PODD', 'MKTX', 'LMT', 'AMP', 'PWR', 'SPGI', 'CDNS', 'CAT', 'HCA', 'TT', 'CRL', 'ETN',
+                       'EPAM', 'MSFT', 'ROK', 'CPAY', 'CI', 'NXPI', 'MSI', 'CMI', 'ANSS', 'MA', 'EFX', 'PSA', 'CRM', 'TFX', 'HD',
+                       'SYK', 'ESS', 'HII', 'LIN', 'SNA', 'NDSN', 'WDAY', 'BLDR', 'SHW', 'ODFL']
+
         os.makedirs(os.path.join(self.file_path, self.raw_data), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.cleaned_data), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.labels), exist_ok=True)
