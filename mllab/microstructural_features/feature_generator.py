@@ -275,14 +275,21 @@ def calculate_indicators(data,
     if 'timestamp' in data.index.names:
         data = data.reset_index()
 
+    # Сохраняем тикер как переменную
+    tic = data['tic'].iloc[0]
+
     # Убедимся, что 'timestamp' используется как индекс
     data.set_index('timestamp', inplace=True)
     final_result = process_data(data, shift=shift)
+
+    # Добавляем тикер как колонку
+    final_result['tic'] = tic
 
     # Заполняем NaN и возвращаем результат
     final_result.fillna(0, inplace=True)
     final_result.reset_index(inplace=True)
     return final_result
+
 
 
 def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_heatmap = True):
