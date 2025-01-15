@@ -313,6 +313,8 @@ def calculate_indicators(data,
 
     # Перебор групп по тикерам
     for name, group in groups:
+        # Сброс индекса только по уровню 'tic'
+        group = group.reset_index(level='tic')
         # Обработка каждой группы (вызываем вашу функцию process_ticker)
         res = process_ticker(group, name, shift=shift)
         results.append(res)  # Добавляем результат в список
