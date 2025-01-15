@@ -295,7 +295,8 @@ def calculate_indicators(data,
                             .corr(macro_series_ret)
                         )
 
-        # ВАЖНО: не добавляем x["tic"] = tic, т.к. tic у нас уже в индексе.
+        x["tic"] = tic
+        print('x', x)
         return x
 
     if 'timestamp' in data.index.names:
