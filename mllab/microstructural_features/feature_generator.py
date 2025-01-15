@@ -138,7 +138,7 @@ class MicrostructuralFeaturesGenerator:
 
 
 def calculate_indicators(data,
-                         sp500_data=None,
+                         Indicators_data=None,
                          sector_data=None,
                          macro_data=None,
                          correlation_windows=[20, 60, 120], shift: int = 1):
@@ -159,7 +159,7 @@ def calculate_indicators(data,
     data : pd.DataFrame
         Данные цен, объёмов и т. д. (обязательно содержит колонки
         ['tic', 'timestamp', 'close', 'volume', 'vwap', 'transactions']).
-    sp500_data : pd.DataFrame or None
+    Indicators_data : Dict 'Indicator ticker' + DataFrame
         Данные для индекса S&P 500 (или любого другого бенчмарка).
         Должен содержать колонку 'close' и те же даты, что и в data.
     sector_data : pd.DataFrame or None
@@ -256,15 +256,21 @@ def calculate_indicators(data,
         # у нас есть индикаторы, нужно по ним сделать
 
         # --- Корреляции с бенчмарками / макро ---
-        if sp500_data is not None and 'close' in sp500_data.columns:
-            sp500_close = sp500_data.loc[group.index, 'close'].shift(shift)
-            sp500_logret = np.log(sp500_close).diff()
-            for window in correlation_windows:
-                x[f"corr_sp500_{window}"] = (
-                    group["log_ret"]
-                    .rolling(window=window, min_periods=1)
-                    .corr(sp500_logret)
-                )
+
+        # Getting Indicator Ticker and Data
+        for indicators_ticker, sp500_data in Indicators_data.items():
+            if sp500_data is not None and 'close' in sp500_data.columns:
+                # Align and shift close data
+                sp500_close = sp500_data.loc[group.index, 'close'].shift(shift)
+
+                # Calculate log returns
+                sp500_logret = np.log(sp500_close).diff()
+
+                # Generate lagged features
+                for lag in range(1, 6):
+                    feature_name = f"indicators_{indicators_ticker}_log_t{lag}"
+                    x[feature_name] = sp500_logret.shift(lag)
+
 
         if sector_data is not None and 'close' in sector_data.columns:
             sector_close = sector_data.loc[group.index, 'close'].shift(shift)

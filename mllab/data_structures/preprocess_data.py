@@ -34,6 +34,7 @@ import json
 
 from pandas.errors import EmptyDataError
 from mllab.labeling.labeling import short_long_box
+from mllab.microstructural_features.feature_generator import calculate_indicators
 
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
@@ -988,6 +989,122 @@ class FinancePreprocessor:
                 print(f"[{ticker}] Размеченные данные сохранены в {labeled_file_name}")
             except Exception as e:
                 print(f"[{ticker}] Ошибка при сохранении файла {labeled_file_name}: {e}")
+                continue
+
+            #results[ticker] = df_labeled
+
+        print("\nРазметка данных завершена для всех тикеров.")
+        return True
+
+    def get_total_indicators_data(self):
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        indicators_data = {}
+
+        # нужно взять либо очищенные данные или если их нет, то сырые данные по индикаторам
+        for ticker in tqdm(self.ticker_indicator_list, desc="Prepare total indicators data", total=len(self.ticker_indicator_list)):
+            cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
+            cleaned_path = os.path.join(self.file_path, self.cleaned_data, cleaned_file_name)
+
+            raw_file_name = f"{ticker}_{start_str}_{end_str}.csv"
+            raw_path = os.path.join(self.file_path, self.raw_data, raw_file_name)
+
+            # Проверяем наличие очищённого файла
+            if os.path.isfile(cleaned_path):
+                indicators_data[ticker] = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+            elif os.path.isfile(raw_path):
+                indicators_data[ticker] = pd.read_csv(raw_path, parse_dates=["timestamp"])
+            else:
+                msg = f"[{ticker}] файл для общих индикаторов не найден: {cleaned_file_name}"
+                print(msg)
+                continue  # или выбросить ошибку, если это критично
+
+        return indicators_data
+
+
+
+    def prepare_indicators_data(
+            self,
+            tickers=None,
+            rebuild: bool = False
+    ) -> dict:
+        """
+        Применяет функцию short_long_box к очищённым данным для нескольких тикеров.
+        Использует tqdm для индикации прогресса и print(...) для вывода сообщений.
+        Возвращает словарь с DataFrame для каждого тикера, содержащим разметку.
+        """
+        if tickers is None:
+            tickers = self.ticker_list
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        Indicators_data = self.get_total_indicators_data()
+
+        for ticker in tqdm(tickers, desc="Prepare indicators data", total=len(tickers)):
+            cleaned_file_name = f"{ticker}_{start_str}_{end_str}_cleaned.csv"
+            cleaned_path = os.path.join(self.file_path, self.cleaned_data, cleaned_file_name)
+
+            indicators_file_name = f"{ticker}_{start_str}_{end_str}_labeled.csv"
+            indicators_path = os.path.join(self.file_path, self.indiicators, labeled_file_name)
+
+            if not os.path.isfile(indicators_path):
+                msg = f"[{ticker}] Файл с идикаторами не обнаружен, формирование нового файла индикаторов: {indicators_file_name}"
+                print(msg)
+            elif not rebuild:
+                # не переделываем разметку, если она уже есть
+                msg = f"[{ticker}] Размеченный файл найден: {indicators_file_name}"
+                print(msg)
+                continue  # или выбросить ошибку, если это критично
+
+            # Проверяем наличие очищённого файла
+            if not os.path.isfile(cleaned_path):
+                msg = f"[{ticker}] Очищённый файл не найден: {cleaned_file_name}"
+                print(msg)
+                continue  # или выбросить ошибку, если это критично
+
+            # Читаем очищённые данные
+            df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+
+            # Удаление устаревших очищенных файлов для данного тикера с другими датами
+            indicators_dir = os.path.join(self.file_path, self.indiicators)
+            pattern = f"{ticker}_*_indicators.csv"
+            for filename in os.listdir(indicators_dir):
+                if filename.startswith(f"{ticker}_") and filename.endswith(
+                        "_indicators.csv") and filename != indicators_file_name:
+                    file_to_remove = os.path.join(indicators_dir, filename)
+                    try:
+                        os.remove(file_to_remove)
+                        print(f"[{ticker}] Удалён устаревший файл: {filename}")
+                    except Exception as e:
+                        print(f"[{ticker}] Ошибка при удалении файла {filename}: {e}")
+
+            # Проверка наличия необходимых столбцов в очищённых данных
+            #missing_columns = set(required_columns + ['tic', 'timestamp']) - set(df_cleaned.columns)
+            #if missing_columns:
+            #    msg = f"[{ticker}] Missing required columns in cleaned data: {missing_columns}"
+            #    print(msg)
+            #    continue
+
+            # Применяем функцию  для разметки
+            try:
+                df_labeled = calculate_indicators(df_cleaned, Indicators_data)
+            except Exception as e:
+                print(f"[{ticker}] Ошибка при подготовке индикаторов: {e}")
+                continue
+
+            # Сохраняем размеченные данные
+            try:
+                df_labeled.to_csv(indicators_path, index=False)
+                print(f"[{ticker}] Размеченные данные сохранены в {indicators_file_name}")
+            except Exception as e:
+                print(f"[{ticker}] Ошибка при сохранении файла {indicators_file_name}: {e}")
                 continue
 
             #results[ticker] = df_labeled
