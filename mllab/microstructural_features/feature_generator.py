@@ -186,6 +186,7 @@ def calculate_indicators(data,
             group = group.reset_index(level="tic")
 
         group = group.copy()
+        print('group',group)
         x = pd.DataFrame(index=group.index)
 
         # --- Сдвигаем видимый интервал на 1 шаг ---
@@ -277,7 +278,7 @@ def calculate_indicators(data,
         # Возвращаем 'tic' в мультииндекс
         x["tic"] = tic
         x.set_index("tic", append=True, inplace=True)
-
+        print('x', x)
         return x
 
     if 'timestamp' in data.index.names:
@@ -298,6 +299,7 @@ def calculate_indicators(data,
     for name, group in groups:
         # Обработка каждой группы (вызываем вашу функцию process_ticker)
         res = process_ticker(group, name, shift=shift)
+
         results.append(res)  # Добавляем результат в список
 
     # Склеиваем все результаты
@@ -311,7 +313,7 @@ def calculate_indicators(data,
 
     # Теперь сбрасываем MultiIndex, перенесём 'tic' и 'timestamp' в колонки
     final_result.reset_index(inplace=True)
-    print('final_result', final_result)
+    #print('final_result', final_result)
     return final_result
 
 def get_correlation(labels, indicators, column_main='bin', threshold=0.03, show_heatmap = True):
