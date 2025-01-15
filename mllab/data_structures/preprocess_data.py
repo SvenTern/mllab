@@ -1012,6 +1012,7 @@ class FinancePreprocessor:
             cleaned_path = Path(self.file_path, self.cleaned_data, f"{ticker}_{start_str}_{end_str}_cleaned.csv")
             raw_path = Path(self.file_path, self.raw_data, f"{ticker}_{start_str}_{end_str}.csv")
 
+            logging.warning(f"[{ticker}] Parse indicators: {cleaned_path.name}")
             if cleaned_path.is_file():
                 indicators_data[ticker] = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
             elif raw_path.is_file():
