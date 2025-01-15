@@ -30,10 +30,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import json
+import joblib
+import pickle
 
 from pandas.errors import EmptyDataError
 from mllab.labeling.labeling import short_long_box
-from mllab.microstructural_features.feature_generator import calculate_indicators
+from mllab.microstructural_features.feature_generator import calculate_indicators, get_correlation
+from mllab.ensemble.model_train import train_regression, train_bagging, update_indicators
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -70,7 +73,21 @@ class FinancePreprocessor:
         self.labels = 'labels'
         self.indiicators = 'indiicators'
 
-        self.top100 = ['NVR', 'MPWR', 'TDG', 'FICO', 'KLAC', 'ORLY', 'REGN', 'MTD', 'URI', 'NOW', 'GWW', 'EQIX', 'LLY', 'TPL', 'NFLX',
+        # папки для модели bagging
+        self.bagging = 'bagging'
+        self.bagging_model = 'bagging_model'
+        self.bagging_scaler = 'bagging_scaler'
+        self.bagging_indicator = 'bagging_indicator'
+        self.bagging_accuracy = 'bagging_accuracy'
+
+        # папки для модели regrassion
+        self.regression = 'regression'
+        self.regression_model = 'regression_model'
+        self.regression_scaler = 'regression_scaler'
+        self.regression_indicator = 'regression_indicator'
+        self.regression_accuracy = 'regression_accuracy'
+
+        self.top100_tickers = ['NVR', 'MPWR', 'TDG', 'FICO', 'KLAC', 'ORLY', 'REGN', 'MTD', 'URI', 'NOW', 'GWW', 'EQIX', 'LLY', 'TPL', 'NFLX',
                        'LII', 'SNPS', 'INTU', 'MLM', 'COST', 'BKNG', 'IDXX', 'META', 'TYL', 'MSCI', 'PH', 'ERIE', 'AXON', 'HUBB', 'AZO',
                        'DPZ', 'ULTA', 'TMO', 'POOL', 'CRWD', 'IT', 'BLK', 'MCK', 'FDS', 'WST', 'UNH', 'TSLA', 'WAT', 'MOH', 'TDY',
                        'ELV', 'ROP', 'ZBRA', 'VRTX', 'ISRG', 'GS', 'HUM', 'CHTR', 'LULU', 'ADBE', 'EG', 'FSLR', 'NOC', 'GEV', 'MCO',
@@ -82,7 +99,16 @@ class FinancePreprocessor:
         os.makedirs(os.path.join(self.file_path, self.cleaned_data), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.labels), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.indiicators), exist_ok=True)
-
+        os.makedirs(os.path.join(self.file_path, self.bagging), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.regression), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.bagging, self.bagging_model), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.bagging, self.bagging_scaler), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.bagging, self.bagging_indicator), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.bagging, self.bagging_accuracy), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.regression, self.regression_model), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.regression, self.regression_scaler), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.regression, self.regression_indicator), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.regression, self.regression_accuracy), exist_ok=True)
 
 
 
@@ -111,6 +137,60 @@ class FinancePreprocessor:
     3	2009-01-02	BA	    42.799999	45.560001	42.779999	33.941093	7010200.0
     ...
     """
+
+    def save(self, data, file_path):
+        """
+        Save data to a file depending on the file extension.
+
+        - If the extension is .pkl, save using joblib with compression.
+        - If the extension is .csv, save as a CSV file.
+
+        :param data: The data to save (should be a Pandas DataFrame for CSV, or compatible with joblib for .pkl).
+        :param file_path: The full path to the file, including the extension.
+        """
+        if file_path is None:
+            raise ValueError("file_path cannot be None.")
+
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower()
+
+        if ext == ".pkl":
+            joblib.dump(data, file_path, compress=3)
+        elif ext == ".csv":
+            data.to_csv(file_path, index=False)
+        else:
+            pickle.dump(data, file_path)
+
+    def load(self, file_path):
+        """
+        Load data from a file depending on the file extension.
+
+        - If the extension is .pkl, load using joblib.
+        - If the extension is .csv, load as a Pandas DataFrame.
+        - For other extensions, raise a ValueError.
+
+        :param file_path: The full path to the file, including the extension.
+        :return: Loaded data (type depends on the file extension).
+        """
+        if file_path is None:
+            raise ValueError("file_path cannot be None.")
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower()
+
+        if ext == ".pkl":
+            return joblib.load(file_path)
+        elif ext == ".csv":
+            return pd.read_csv(file_path)
+        else:
+            return pickle.load(file_path)
+
+    def delete_file(self):
+        pass
+
 
     def convert_to_ny_time(self, date_str):
         """
@@ -1058,6 +1138,65 @@ class FinancePreprocessor:
                 continue
 
         logging.info("Indicators completed for all tickers.")
+        return True
+
+    def prepare_bagging_model(self, tickers=None, rebuild: bool = False) -> bool:
+
+        # обрабатываем топ 100 выбранных тикеров
+        if tickers is None:
+            tickers = self.top100_tickers
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        for ticker in tqdm(tickers, desc="Prepare bagging model", total=len(tickers)):
+
+            # нужно по тикеру считать данные label, данные indicators,
+            # нужно определить список индикаторов для обучения
+            # сохранить список индикаторов
+            #
+            indicators_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_indicators.csv")
+            labeled_path = Path(self.file_path, self.labels, f"{ticker}_{start_str}_{end_str}_labeled.csv")
+
+            if not labeled_path.is_file():
+                logging.info(f"[{ticker}] Labeled file dosn't exists: {labeled_path.name}")
+                continue
+            if not indicators_path.is_file():
+                logging.info(f"[{ticker}] Indicators file dosn't exists: {indicators_path.name}")
+                continue
+
+            labels = self.load(labeled_path)
+            indicators = self.load(indicators_path)
+
+            _, list_main_indicators = get_correlation(labels, indicators, column_main='bin', show_heatmap = False)
+            ## нужно сохранить список индикаторов
+            indicators_list_path = Path(self.file_path, self.bagging, self.bagging_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
+            self.save(list_main_indicators, indicators_list_path)
+
+            model_path = Path(self.file_path, self.bagging, self.bagging_model,
+                                        f"{ticker}_{start_str}_{end_str}_bagging_model.pkl")
+            accuracy_path = Path(self.file_path, self.bagging, self.bagging_accuracy,
+                              f"{ticker}_{start_str}_{end_str}_bagging_accuracy.lst")
+            scaler_path = Path(self.file_path, self.bagging, self.bagging_scaler,
+                                 f"{ticker}_{start_str}_{end_str}_bagging_scaler.pkl")
+
+            if model_path.is_file() and accuracy_path.is_file() and scaler_path.is_file() and not rebuild:
+                logging.info(f"[{ticker}] Model bagging already exists: {model_path.name}")
+                continue
+
+            try:
+                model, accuracy, scaler = train_bagging(labels, indicators, list_main_indicators, 'bin', test_size=0.2, random_state=42, n_estimators=20)
+                self.save(model, model_path)
+                self.save(accuracy, accuracy_path)
+                self.save(scaler, scaler_path)
+                logging.info(f"[{ticker}] Bagging model saved to {model_path.name}")
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while training bagging model: {e}")
+                continue
+
+        logging.info("Bagging model training completed for all tickers.")
         return True
 
     def add_technical_indicator(

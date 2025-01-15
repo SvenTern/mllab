@@ -343,14 +343,9 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
     joblib.dump(total_score, score_file_name)
 
 
-def train_bagging(labels, indicators, list_main_indicators, label, base_folder='model bagging', short_period:int = 1, test_size=0.2, random_state=42, n_estimators=20):
+def train_bagging(labels, indicators, list_main_indicators, label, test_size=0.2, random_state=42, n_estimators=20):
 
-
-    #base_folder = os.path.join('/content/drive/My Drive/DataTrading', base_folder)
-    # Создание базовой директории, если она не существует
-    os.makedirs(base_folder, exist_ok=True)
-
-    # Допустим, у нас есть список тикеров
+     # Допустим, у нас есть список тикеров
     unique_tickers = indicators['tic'].unique()
 
     total_score = []
@@ -411,27 +406,15 @@ def train_bagging(labels, indicators, list_main_indicators, label, base_folder='
         # Обучение модели
         bagging_classifier.fit(X_train_scaled, y_train)
 
-        # Сохранение обученного скейлера и модели
-        model_filename = os.path.join(base_folder, f"classifier_model_{ticker}_{short_period}.pkl")
-        scaler_filename = os.path.join(base_folder, f"classifier_scaler_{ticker}_{short_period}.pkl")
-        list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}_{short_period}.lst")
-        joblib.dump(bagging_classifier, model_filename, compress=3)
-        joblib.dump(scaler, scaler_filename)
-        joblib.dump(list_main_indicators, list_main_indicators_name)
-
-        print(f"Сохранены файлы: {model_filename}, {scaler_filename}, {list_main_indicators_name}")
-
         # Проверка модели на тестовой выборке
         y_pred = bagging_classifier.predict(X_test_scaled)
 
         # Оценка качества модели
-        print(f"\nEvaluation for ticker {ticker}_{short_period}:")
+        print(f"\nEvaluation bagging for ticker {ticker}:")
         score = score_confusion_matrix(y_test, y_pred)
         total_score.append((f'{ticker} accuaracy', score))
 
-    total_score.append((f'total accuaracy', np.mean([i[1] for i in total_score])))
-    score_file_name = os.path.join(base_folder, f"classifire_score.txt")
-    joblib.dump(total_score, score_file_name)
+    return bagging_classifier, total_score, scaler
 
 def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
     # Extract list of tickers
