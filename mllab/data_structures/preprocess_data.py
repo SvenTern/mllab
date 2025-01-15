@@ -997,7 +997,7 @@ class FinancePreprocessor:
     def label_data(
             self,
             tickers=None,
-            label: bool = False
+            rebuild: bool = False
     ) -> dict:
         """
         Применяет функцию short_long_box к очищённым данным для нескольких тикеров.
@@ -1024,7 +1024,7 @@ class FinancePreprocessor:
             if not os.path.isfile(labeled_path):
                 msg = f"[{ticker}] Размеченный файл не найден, формирование нового размеченного файла: {labeled_file_name}"
                 print(msg)
-            elif not label:
+            elif not rebuild:
                 # не переделываем разметку, если она уже есть
                 msg = f"[{ticker}] Размеченный файл найден: {labeled_file_name}"
                 print(msg)
@@ -1068,7 +1068,7 @@ class FinancePreprocessor:
 
             # Сохраняем размеченные данные
             try:
-                df_labeled.to_csv(labeled_path, index=False)
+                self.save(df_labeled, labeled_path)
                 print(f"[{ticker}] Размеченные данные сохранены в {labeled_file_name}")
             except Exception as e:
                 print(f"[{ticker}] Ошибка при сохранении файла {labeled_file_name}: {e}")

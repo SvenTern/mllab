@@ -457,6 +457,7 @@ def short_long_box(data: pd.DataFrame, short_period: int = 2, long_period: int =
     # Combine results
     final_result = pd.concat(result_list, ignore_index=True)
     final_result.index = data.index  # Preserve the original index from the input DataFrame
+    print('final_result', final_result)
     return final_result
 
 
