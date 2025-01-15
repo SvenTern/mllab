@@ -1046,14 +1046,14 @@ class FinancePreprocessor:
                 logging.warning(f"[{ticker}] Cleaned file not found: {cleaned_path.name}")
                 continue
 
-            try:
-                df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
-                df_labeled = calculate_indicators(df_cleaned, indicators_data)
-                df_labeled.to_csv(labeled_path, index=False)
-                logging.info(f"[{ticker}] Labeled data saved to {labeled_path.name}")
-            except Exception as e:
-                logging.error(f"[{ticker}] Error while processing indicators: {e}")
-                continue
+            #try:
+            df_cleaned = pd.read_csv(cleaned_path, parse_dates=["timestamp"])
+            df_labeled = calculate_indicators(df_cleaned, indicators_data)
+            df_labeled.to_csv(labeled_path, index=False)
+            logging.info(f"[{ticker}] Labeled data saved to {labeled_path.name}")
+            #except Exception as e:
+            #    logging.error(f"[{ticker}] Error while processing indicators: {e}")
+            #    continue
 
         logging.info("Data labeling completed for all tickers.")
         return True
