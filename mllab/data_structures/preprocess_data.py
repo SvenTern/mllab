@@ -159,7 +159,8 @@ class FinancePreprocessor:
         elif ext == ".csv":
             data.to_csv(file_path)
         else:
-            pickle.dump(data, file_path)
+            with open(file_path, 'wb') as file:  # Open the file in write-binary mode
+                pickle.dump(data, file)
 
     def load(self, file_path):
         """
@@ -186,7 +187,8 @@ class FinancePreprocessor:
         elif ext == ".csv":
             return pd.read_csv(file_path, parse_dates=["timestamp"])
         else:
-            return pickle.load(file_path)
+            with open(file_path, 'rb') as file:  # Open the file in read-binary mode
+                return pickle.load(file)
 
     def delete_file(self):
         pass
