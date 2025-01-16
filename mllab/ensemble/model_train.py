@@ -470,24 +470,11 @@ def update_indicators(labels, indicators, models_data,  type='bagging'):
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(process_ticker, list_tickers))
 
-        #print('results', results)
-        # Concatenate results
-        predicted_data = pd.concat(results, ignore_index=True)
-
-        # Merge predicted data back into indicators DataFrame
-        result = indicators.reset_index()
-        result = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
-        #print('predicted_data, shape',predicted_data, predicted_data.shape)
-        result = indicators.set_index('timestamp')
-        #print('indicators, shape',indicators, indicators.shape)
-
-        # нужно перезаписать индикаторы на диск
-
         return result
 
     except Exception as e:
         print(f"Error during parallel processing: {e}")
-        return indicators
+        return None
 
 
 class StockPortfolioEnv(gym.Env):

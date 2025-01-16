@@ -1330,21 +1330,45 @@ class FinancePreprocessor:
             try:
                 labels = self.load(labeled_path)
                 indicators = self.load(indicators_path)
+                models_data = {}
+                models_data['model'] = self.load(model_path)
+                models_data['scaler'] = self.load(scaler_path)
+                models_data['indicators'] = self.load(indicators_path)
 
                 list_main_indicators = self.load(indicators_list_path)
 
-                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
-                self.save(model, model_path)
-                self.save(accuracy, accuracy_path)
-                self.save(scaler, scaler_path)
-                logging.info(f"[{ticker}] regression model saved to {model_path.name}")
+                prediction = update_indicators(labels, indicators, models_data,  type=type)
+                if prediction is None:
+                    raise Exception
+
+                # нужно добавить результаты предсказаний везде где нужно
+                # Concatenate results
+                predicted_data = pd.concat(results, ignore_index=True)
+
+                if type == 'bagging':
+                    # Merge predicted data back into indicators DataFrame
+                    result = indicators.reset_index()
+                    result = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+                    # print('predicted_data, shape',predicted_data, predicted_data.shape)
+                    result = indicators.set_index('timestamp')
+                    self.save(result, indicators_result_path)
+                else:
+                    # Merge predicted data back into indicators DataFrame
+                    result = labeled_path.reset_index()
+                    result = labeled_path.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+                    # print('predicted_data, shape',predicted_data, predicted_data.shape)
+                    result = labeled_path.set_index('timestamp')
+                    self.save(result, indicators_result_path)
+
+
+                logging.info(f"[{ticker}] updated indicators saved to  {indicators_result_path.name}")
 
                 previous_ticker_model_path = model_path
             except Exception as e:
-                logging.error(f"[{ticker}] Error while training regression model: {e}")
+                logging.error(f"[{ticker}] Error while updating indicators: {e}")
                 continue
 
-        logging.info("regression model training completed for all tickers.")
+        logging.info("updating indicators completed for all tickers.")
         return True
 
 
