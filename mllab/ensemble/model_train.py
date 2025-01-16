@@ -402,7 +402,7 @@ def train_bagging(labels, indicators, list_main_indicators, label, test_size=0.2
 
     return bagging_classifier, total_score, scaler
 
-def update_indicators(labels, indicators, models_data,  type='bagging'):
+def update_indicators(labels, indicators, models_data, type='bagging'):
     # Extract list of tickers
     list_tickers = indicators['tic'].unique()
 

@@ -1330,10 +1330,11 @@ class FinancePreprocessor:
             try:
                 labels = self.load(labeled_path)
                 indicators = self.load(indicators_path)
+
                 models_data = {}
                 models_data['model'] = self.load(model_path)
                 models_data['scaler'] = self.load(scaler_path)
-                models_data['indicators'] = self.load(indicators_path)
+                models_data['indicators'] = self.load(indicators_list_path)
 
                 list_main_indicators = self.load(indicators_list_path)
 
