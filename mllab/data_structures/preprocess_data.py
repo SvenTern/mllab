@@ -1339,6 +1339,7 @@ class FinancePreprocessor:
                 list_main_indicators = self.load(indicators_list_path)
 
                 prediction = update_indicators(labels, indicators, models_data,  type=type)
+                print('prediction', prediction)
                 if prediction is None:
                     raise Exception
 
@@ -1346,14 +1347,15 @@ class FinancePreprocessor:
                 if type == 'bagging':
                     # Merge predicted data back into indicators DataFrame
                     result = indicators.reset_index()
-                    result = indicators.merge(prediction, on=['timestamp', 'tic'], how='left')
+                    print('result1', result)
+                    result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
                     result = result.set_index('timestamp')
                     self.save(result, indicators_result_path)
                 else:
                     # Merge predicted data back into indicators DataFrame
                     result = labels.reset_index()
-                    result = labels.merge(prediction, on=['timestamp', 'tic'], how='left')
+                    result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
                     result = result.set_index('timestamp')
                     self.save(result, indicators_result_path)
