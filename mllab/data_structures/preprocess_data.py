@@ -1172,10 +1172,7 @@ class FinancePreprocessor:
             labels = self.load(labeled_path)
             indicators = self.load(indicators_path)
 
-            _, list_main_indicators = get_correlation(labels, indicators, column_main='bin', show_heatmap = False)
-            ## нужно сохранить список индикаторов
             indicators_list_path = Path(self.file_path, self.bagging, self.bagging_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
-            self.save(list_main_indicators, indicators_list_path)
 
             model_path = Path(self.file_path, self.bagging, self.bagging_model,
                                         f"{ticker}_{start_str}_{end_str}_bagging_model.pkl")
@@ -1184,11 +1181,15 @@ class FinancePreprocessor:
             scaler_path = Path(self.file_path, self.bagging, self.bagging_scaler,
                                  f"{ticker}_{start_str}_{end_str}_bagging_scaler.pkl")
 
-            if model_path.is_file() and accuracy_path.is_file() and scaler_path.is_file() and not rebuild:
+            if model_path.is_file() and accuracy_path.is_file() and scaler_path.is_file() and indicators_list_path.is_file() and not rebuild:
                 logging.info(f"[{ticker}] Model bagging already exists: {model_path.name}")
                 continue
 
             try:
+                _, list_main_indicators = get_correlation(labels, indicators, column_main='bin', show_heatmap=False)
+                ## нужно сохранить список индикаторов
+                self.save(list_main_indicators, indicators_list_path)
+
                 model, accuracy, scaler = train_bagging(labels, indicators, list_main_indicators, 'bin', test_size=0.2, random_state=42, n_estimators=20)
                 self.save(model, model_path)
                 self.save(accuracy, accuracy_path)
