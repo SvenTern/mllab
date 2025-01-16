@@ -1285,7 +1285,7 @@ class FinancePreprocessor:
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
 
-        for ticker in tqdm(tickers, desc="Prepare regression model", total=len(tickers)):
+        for ticker in tqdm(tickers, desc=f"Updating indicators after {type}", total=len(tickers)):
 
             # нужно по тикеру считать данные label, данные indicators,
             # нужно определить список индикаторов для обучения
