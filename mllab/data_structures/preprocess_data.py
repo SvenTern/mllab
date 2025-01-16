@@ -1169,9 +1169,6 @@ class FinancePreprocessor:
                 logging.info(f"[{ticker}] Indicators file dosn't exists: {indicators_path.name}")
                 continue
 
-            labels = self.load(labeled_path)
-            indicators = self.load(indicators_path)
-
             indicators_list_path = Path(self.file_path, self.bagging, self.bagging_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
 
             model_path = Path(self.file_path, self.bagging, self.bagging_model,
@@ -1186,6 +1183,9 @@ class FinancePreprocessor:
                 continue
 
             try:
+                labels = self.load(labeled_path)
+                indicators = self.load(indicators_path)
+
                 _, list_main_indicators = get_correlation(labels, indicators, column_main='bin', show_heatmap=False)
                 ## нужно сохранить список индикаторов
                 self.save(list_main_indicators, indicators_list_path)
@@ -1201,6 +1201,71 @@ class FinancePreprocessor:
 
         logging.info("Bagging model training completed for all tickers.")
         return True
+
+    def prepare_regression_model(self, tickers=None, rebuild: bool = False) -> bool:
+
+        # обрабатываем топ 100 выбранных тикеров
+        if tickers is None:
+            tickers = self.top100_tickers
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        previous_ticker_model_path = None
+
+        for ticker in tqdm(tickers, desc="Prepare regression model", total=len(tickers)):
+
+            # нужно по тикеру считать данные label, данные indicators,
+            # нужно определить список индикаторов для обучения
+            # сохранить список индикаторов
+            #
+            indicators_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_indicators.csv")
+            labeled_path = Path(self.file_path, self.labels, f"{ticker}_{start_str}_{end_str}_labeled.csv")
+
+            if not labeled_path.is_file():
+                logging.info(f"[{ticker}] Labeled file dosn't exists: {labeled_path.name}")
+                continue
+            if not indicators_path.is_file():
+                logging.info(f"[{ticker}] Indicators file dosn't exists: {indicators_path.name}")
+                continue
+
+            indicators_list_path = Path(self.file_path, self.regression, self.regression_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
+
+            model_path = Path(self.file_path, self.regression, self.regression_model,
+                                        f"{ticker}_{start_str}_{end_str}_regression_model.pkl")
+            accuracy_path = Path(self.file_path, self.regression, self.regression_accuracy,
+                              f"{ticker}_{start_str}_{end_str}_regression_accuracy.lst")
+            scaler_path = Path(self.file_path, self.regression, self.regression_scaler,
+                                 f"{ticker}_{start_str}_{end_str}_regression_scaler.pkl")
+
+            if model_path.is_file() and accuracy_path.is_file() and scaler_path.is_file() and indicators_list_path.is_file() and not rebuild:
+                logging.info(f"[{ticker}] Model regression already exists: {model_path.name}")
+                continue
+
+            try:
+                labels = self.load(labeled_path)
+                indicators = self.load(indicators_path)
+
+                _, list_main_indicators = get_correlation(labels, indicators, column_main='return', show_heatmap=False)
+                ## нужно сохранить список индикаторов
+                self.save(list_main_indicators, indicators_list_path)
+
+                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
+                self.save(model, model_path)
+                self.save(accuracy, accuracy_path)
+                self.save(scaler, scaler_path)
+                logging.info(f"[{ticker}] regression model saved to {model_path.name}")
+
+                previous_ticker_model_path = model_path
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while training regression model: {e}")
+                continue
+
+        logging.info("regression model training completed for all tickers.")
+        return True
+
 
     def add_technical_indicator(
         self, data: pd.DataFrame, tech_indicator_list: list[str]

@@ -183,7 +183,7 @@ class ensemble_models:
         score_confusion_matrix(y_test, y_pred)
 
 
-def train_regression(labels, indicators, list_main_indicators, label, dropout_rate=0.3, base_folder='models_and_scalers', short_period:int= 1,test_size=0.2, random_state = 42 ):
+def train_regression(labels, indicators, list_main_indicators, label, previous_ticker_model_path = None, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
     """
     Function to train regression models sequentially for unique tickers in the dataset.
 
@@ -227,8 +227,6 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         return model
 
     unique_tickers = indicators['tic'].unique()
-    #base_folder = os.path.join('/content/drive/My Drive/DataTrading', base_folder)
-    os.makedirs(base_folder, exist_ok=True)
 
     previous_ticker_model_path = None
 
@@ -267,12 +265,6 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
             scaler.transform(X_test),
             columns=X_test.columns
         )
-
-        scaler_path = f"{base_folder}/regression_scaler_{ticker}_{short_period}.joblib"
-        list_main_indicators_name = os.path.join(base_folder, f"classifier_indicators_{ticker}_{short_period}.lst")
-        joblib.dump(scaler, scaler_path)
-        joblib.dump(list_main_indicators, list_main_indicators_name)
-        print(f"    Scaler сохранён в файл: {scaler_path}")
 
         num_features = X_train_scaled.shape[1]
 
@@ -313,12 +305,8 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
 
         test_loss, test_mae = model.evaluate(test_dataset, verbose=0)
         print(f"    Test MSE = {test_loss:.4f}, Test MAE = {test_mae:.4f}")
-
-        model_path = f"{base_folder}/regression_model_{ticker}_{short_period}.joblib"
-        joblib.dump(model, model_path)
-        print(f"    Полная модель сохранена в файл: {model_path}")
-
-        previous_ticker_model_path = model_path
+        total_score.append((f'Test MSE {ticker}', test_loss))
+        total_score.append((f'Test MAE {ticker}', test_mae))
 
         #sample_for_prediction = X_test
         #sample_dataset = tf.data.Dataset.from_tensor_slices(sample_for_prediction).batch(1)
@@ -329,18 +317,16 @@ def train_regression(labels, indicators, list_main_indicators, label, dropout_ra
         # 1. Коэффициент Пирсона (Pearson)
         pearson_corr, pearson_pval = pearsonr(y_test, predictions)
         print(f"Pearson correlation: {pearson_corr:.4f}")
-        print(f"Pearson p-value: {pearson_pval:.6f}")
+        #print(f"Pearson p-value: {pearson_pval:.6f}")
 
         # 2. Коэффициент Спирмена (Spearman)
-        spearman_corr, spearman_pval = spearmanr(y_test, predictions)
-        print(f"Spearman correlation: {spearman_corr:.4f}")
-        print(f"Spearman p-value: {spearman_pval:.6f}")
+        #spearman_corr, spearman_pval = spearmanr(y_test, predictions)
+        #print(f"Spearman correlation: {spearman_corr:.4f}")
+        #print(f"Spearman p-value: {spearman_pval:.6f}")
 
         total_score.append((f'Pearson correlation {ticker}', pearson_corr))
 
-    total_score.append((f'total accuaracy', np.mean([i[1] for i in total_score])))
-    score_file_name = os.path.join(base_folder, f"regression_score.txt")
-    joblib.dump(total_score, score_file_name)
+    return model, total_score, scaler
 
 
 def train_bagging(labels, indicators, list_main_indicators, label, test_size=0.2, random_state=42, n_estimators=20):
