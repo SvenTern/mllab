@@ -87,6 +87,10 @@ class FinancePreprocessor:
         self.regression_indicator = 'regression_indicator'
         self.regression_accuracy = 'regression_accuracy'
 
+        # папки для результирующих индикаторов
+        self.indicators_after_bagging = 'indicators_after_bagging'
+        self.indicators_after_regression = 'indicators_after_regression'
+
         self.top100_tickers = ['NVR', 'MPWR', 'TDG', 'FICO', 'KLAC', 'ORLY', 'REGN', 'MTD', 'URI', 'NOW', 'GWW', 'EQIX', 'LLY', 'TPL', 'NFLX',
                        'LII', 'SNPS', 'INTU', 'MLM', 'COST', 'BKNG', 'IDXX', 'META', 'TYL', 'MSCI', 'PH', 'ERIE', 'AXON', 'HUBB', 'AZO',
                        'DPZ', 'ULTA', 'TMO', 'POOL', 'CRWD', 'IT', 'BLK', 'MCK', 'FDS', 'WST', 'UNH', 'TSLA', 'WAT', 'MOH', 'TDY',
@@ -110,6 +114,8 @@ class FinancePreprocessor:
         os.makedirs(os.path.join(self.file_path, self.regression, self.regression_indicator), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.regression, self.regression_accuracy), exist_ok=True)
 
+        os.makedirs(os.path.join(self.file_path, self.indicators_after_bagging), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.indicators_after_regression), exist_ok=True)
 
 
     """
@@ -1248,9 +1254,84 @@ class FinancePreprocessor:
                 labels = self.load(labeled_path)
                 indicators = self.load(indicators_path)
 
-                _, list_main_indicators = get_correlation(labels, indicators, column_main='return', show_heatmap=False)
+                _, list_main_indicators = get_correlation(labels, indicators, column_main='regression', show_heatmap=False)
                 ## нужно сохранить список индикаторов
                 self.save(list_main_indicators, indicators_list_path)
+
+                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='regression', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
+                self.save(model, model_path)
+                self.save(accuracy, accuracy_path)
+                self.save(scaler, scaler_path)
+                logging.info(f"[{ticker}] regression model saved to {model_path.name}")
+
+                previous_ticker_model_path = model_path
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while training regression model: {e}")
+                continue
+
+        logging.info("regression model training completed for all tickers.")
+        return True
+
+    def update_indicators(self, tickers=None, type = 'bagging', rebuild: bool = False) -> bool:
+
+        # нужно обновить индикаторы в индикаторы нужно добавить bin-1, bin-0 bin+1
+        # нужно в label добаавить regression
+        # обрабатываем топ 100 выбранных тикеров
+        if tickers is None:
+            tickers = self.top100_tickers
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        for ticker in tqdm(tickers, desc="Prepare regression model", total=len(tickers)):
+
+            # нужно по тикеру считать данные label, данные indicators,
+            # нужно определить список индикаторов для обучения
+            # сохранить список индикаторов
+            #
+            if type == 'bagging':
+                indicators_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_indicators.csv")
+                indicators_result_path = Path(self.file_path, self.indicators_after_bagging,
+                                       f"{ticker}_{start_str}_{end_str}_indicators.csv")
+                labeled_path = Path(self.file_path, self.labels, f"{ticker}_{start_str}_{end_str}_labeled.csv")
+
+                model_path = Path(self.file_path, self.bagging, self.bagging_model,
+                                  f"{ticker}_{start_str}_{end_str}_bagging_model.pkl")
+                scaler_path = Path(self.file_path, self.bagging, self.bagging_scaler,
+                                   f"{ticker}_{start_str}_{end_str}_bagging_scaler.pkl")
+                indicators_list_path = Path(self.file_path, self.bagging, self.bagging_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
+            else:
+                indicators_path = Path(self.file_path, self.indiicators,
+                                       f"{ticker}_{start_str}_{end_str}_indicators.csv")
+                indicators_result_path = Path(self.file_path, self.indicators_after_regression,
+                                              f"{ticker}_{start_str}_{end_str}_indicators.csv")
+                labeled_path = Path(self.file_path, self.labels, f"{ticker}_{start_str}_{end_str}_labeled.csv")
+
+                model_path = Path(self.file_path, self.regression, self.regression_model,
+                                        f"{ticker}_{start_str}_{end_str}_regression_model.pkl")
+                scaler_path = Path(self.file_path, self.regression, self.regression_scaler,
+                                 f"{ticker}_{start_str}_{end_str}_regression_scaler.pkl")
+                indicators_list_path = Path(self.file_path, self.regression, self.regression_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
+
+            if not labeled_path.is_file():
+                logging.info(f"[{ticker}] Labeled file dosn't exists: {labeled_path.name}")
+                continue
+            if not indicators_path.is_file():
+                logging.info(f"[{ticker}] Indicators file dosn't exists: {indicators_path.name}")
+                continue
+
+
+            if indicators_result_path.is_file() and not rebuild:
+                logging.info(f"[{ticker}] Indicators already exists: {model_path.name}")
+                continue
+
+            try:
+                labels = self.load(labeled_path)
+                indicators = self.load(indicators_path)
+
+                list_main_indicators = self.load(indicators_list_path)
 
                 model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
                 self.save(model, model_path)

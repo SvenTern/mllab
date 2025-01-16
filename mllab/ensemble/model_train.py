@@ -402,28 +402,19 @@ def train_bagging(labels, indicators, list_main_indicators, label, test_size=0.2
 
     return bagging_classifier, total_score, scaler
 
-def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
+def update_indicators(labels, indicators, models_data,  type='bagging'):
     # Extract list of tickers
     list_tickers = indicators['tic'].unique()
 
-    # Load models
-    basefolder = '/content/drive/My Drive/DataTrading/'
-    folder_bagging = 'model bagging/'
-    folder_regression = 'model regression/'
     models = {}
 
     for tic in list_tickers:
         try:
-            if type == 'bagging':
-                models[f'classifier_model_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_model_{tic}_{short_period}.pkl')
-                models[f'classifier_scaler_{tic}'] = joblib.load(basefolder + folder_bagging + f'classifier_scaler_{tic}_{short_period}.pkl')
-                models[f'classifier_indicators_{tic}'] = joblib.load(
-                    basefolder + folder_bagging + f'classifier_indicators_{tic}_{short_period}.lst')
-            elif type == 'regression':
-                models[f'regression_model_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_model_{tic}_{short_period}.joblib')
-                models[f'regression_scaler_{tic}'] = joblib.load(basefolder + folder_regression + f'regression_scaler_{tic}_{short_period}.joblib')
-                models[f'classifier_indicators_{tic}'] = joblib.load(
-                    basefolder + folder_regression + f'classifier_indicators_{tic}_{short_period}.lst')
+
+            models[f'classifier_model_{tic}'] = models_data['model']
+            models[f'classifier_scaler_{tic}'] = models_data['scaler']
+            models[f'classifier_indicators_{tic}'] = models_data['indicators']
+
         except Exception as e:
             print(f"Error loading model or scaler for ticker {tic}: {e}")
             continue
@@ -483,27 +474,16 @@ def update_indicators(labels, indicators, type='bagging', short_period:int = 1):
         # Concatenate results
         predicted_data = pd.concat(results, ignore_index=True)
 
-        if type == 'bagging':
-            # Удалить колонки bin+1, bin-0, bin-1, если они есть в indicators
-            columns_to_remove = ['bin+1', 'bin-0', 'bin-1']
-            indicators = indicators.drop(
-                columns=[col for col in columns_to_remove if col in indicators.columns]
-            )
-        elif type == 'regression':
-            # Удалить колонку 'regression', если она есть
-            if 'regression' in indicators.columns:
-                indicators = indicators.drop('regression', axis=1)
-
         # Merge predicted data back into indicators DataFrame
-        indicators = indicators.reset_index()
-        indicators = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+        result = indicators.reset_index()
+        result = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
         #print('predicted_data, shape',predicted_data, predicted_data.shape)
-        indicators = indicators.set_index('timestamp')
+        result = indicators.set_index('timestamp')
         #print('indicators, shape',indicators, indicators.shape)
 
         # нужно перезаписать индикаторы на диск
 
-        return indicators
+        return result
 
     except Exception as e:
         print(f"Error during parallel processing: {e}")
