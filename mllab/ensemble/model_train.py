@@ -470,7 +470,7 @@ def update_indicators(labels, indicators, models_data, type='bagging'):
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(process_ticker, list_tickers))
 
-        return result
+        return results
 
     except Exception as e:
         print(f"Error during parallel processing: {e}")
