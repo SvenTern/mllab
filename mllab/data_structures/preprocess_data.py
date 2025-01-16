@@ -1342,23 +1342,20 @@ class FinancePreprocessor:
                 if prediction is None:
                     raise Exception
 
-                # нужно добавить результаты предсказаний везде где нужно
-                # Concatenate results
-                predicted_data = pd.concat(results, ignore_index=True)
 
                 if type == 'bagging':
                     # Merge predicted data back into indicators DataFrame
                     result = indicators.reset_index()
-                    result = indicators.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+                    result = indicators.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
-                    result = indicators.set_index('timestamp')
+                    result = result.set_index('timestamp')
                     self.save(result, indicators_result_path)
                 else:
                     # Merge predicted data back into indicators DataFrame
-                    result = labeled_path.reset_index()
-                    result = labeled_path.merge(predicted_data, on=['timestamp', 'tic'], how='left')
+                    result = labels.reset_index()
+                    result = labels.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
-                    result = labeled_path.set_index('timestamp')
+                    result = result.set_index('timestamp')
                     self.save(result, indicators_result_path)
 
 
