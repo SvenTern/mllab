@@ -195,7 +195,7 @@ class FinancePreprocessor:
             # Prepare data for prediction
             if result.index.name != 'timestamp':
                 if 'timestamp' in result.columns:
-                    result =  indicators.set_index('timestamp')
+                    result =  result.set_index('timestamp')
                 else:
                     raise ValueError("The 'timestamp' column is not present in the DataFrame.")
             return result
