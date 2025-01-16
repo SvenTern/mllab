@@ -420,7 +420,6 @@ def update_indicators(labels, indicators, models_data, type='bagging'):
             continue
 
 
-    # Prepare data for prediction
     data_for_prediction = indicators
 
     def process_ticker(tic):

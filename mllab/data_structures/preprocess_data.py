@@ -191,7 +191,15 @@ class FinancePreprocessor:
         if ext == ".pkl":
             return joblib.load(file_path)
         elif ext == ".csv":
-            return pd.read_csv(file_path, parse_dates=["timestamp"])
+            result = pd.read_csv(file_path, parse_dates=["timestamp"])
+            # Prepare data for prediction
+            if result.index.name != 'timestamp':
+                if 'timestamp' in result.columns:
+                    result =  indicators.set_index('timestamp')
+                else:
+                    raise ValueError("The 'timestamp' column is not present in the DataFrame.")
+            return result
+
         else:
             with open(file_path, 'rb') as file:  # Open the file in read-binary mode
                 return pickle.load(file)
