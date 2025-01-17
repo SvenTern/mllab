@@ -414,46 +414,46 @@ def update_indicators(labels, indicators, models_data, type_update='bagging'):
     data_for_prediction = indicators
 
     def process_ticker(tic):
-        try:
-            # Filter data for the current ticker
-            filtered_data = data_for_prediction[data_for_prediction['tic'] == tic]
-            #print('filtered_data', filtered_data)
+        #try:
+        # Filter data for the current ticker
+        filtered_data = data_for_prediction[data_for_prediction['tic'] == tic]
+        #print('filtered_data', filtered_data)
 
-            if type_update == 'bagging':
-                # Scale data for prediction
-                scale_data_classifire = models[f'classifier_scaler_{tic}'].transform(
-                    filtered_data[models[f'classifier_indicators_{tic}']])
-                #print('scale_data_classifire', scale_data_classifire)
+        if type_update == 'bagging':
+            # Scale data for prediction
+            scale_data_classifire = models[f'classifier_scaler_{tic}'].transform(
+                filtered_data[models[f'classifier_indicators_{tic}']])
+            #print('scale_data_classifire', scale_data_classifire)
 
-                # Generate predictions
-                predicted_classifire = models[f'classifier_model_{tic}'].predict_proba(scale_data_classifire)
-                #print('predicted_classifire', predicted_classifire)
+            # Generate predictions
+            predicted_classifire = models[f'classifier_model_{tic}'].predict_proba(scale_data_classifire)
+            #print('predicted_classifire', predicted_classifire)
 
-                # Combine predictions into DataFrame
-                return pd.DataFrame({
-                    'timestamp': filtered_data.index,
-                    'tic': tic,
-                    'bin-1': [predicted_classifire[i, 0] for i in range(len(filtered_data.index))],
-                    'bin-0': [predicted_classifire[i, 1] for i in range(len(filtered_data.index))],
-                    'bin+1': [predicted_classifire[i, 2] for i in range(len(filtered_data.index))]
-                })
-            elif type_update == 'regression':
-                # Scale data for prediction
-                scale_data_regression = models[f'regression_scaler_{tic}'].transform(
-                    filtered_data[models[f'classifier_indicators_{tic}']])
+            # Combine predictions into DataFrame
+            return pd.DataFrame({
+                'timestamp': filtered_data.index,
+                'tic': tic,
+                'bin-1': [predicted_classifire[i, 0] for i in range(len(filtered_data.index))],
+                'bin-0': [predicted_classifire[i, 1] for i in range(len(filtered_data.index))],
+                'bin+1': [predicted_classifire[i, 2] for i in range(len(filtered_data.index))]
+            })
+        elif type_update == 'regression':
+            # Scale data for prediction
+            scale_data_regression = models[f'regression_scaler_{tic}'].transform(
+                filtered_data[models[f'classifier_indicators_{tic}']])
 
-                # Generate predictions
-                predicted_regression = models[f'regression_model_{tic}'].predict(scale_data_regression).flatten()
+            # Generate predictions
+            predicted_regression = models[f'regression_model_{tic}'].predict(scale_data_regression).flatten()
 
-                # Combine predictions into DataFrame
-                return pd.DataFrame({
-                    'timestamp': filtered_data.index,
-                    'tic': tic,
-                    'regression': [predicted_regression[i] for i in range(len(filtered_data.index))]
-                })
-        except Exception as e:
-            print(f"Error processing ticker {tic}: {e}")
-            return pd.DataFrame()
+            # Combine predictions into DataFrame
+            return pd.DataFrame({
+                'timestamp': filtered_data.index,
+                'tic': tic,
+                'regression': [predicted_regression[i] for i in range(len(filtered_data.index))]
+            })
+        #except Exception as e:
+        #    print(f"Error processing ticker {tic}: {e}")
+        #    return pd.DataFrame()
 
     # Parallel processing of tickers
     #try:
