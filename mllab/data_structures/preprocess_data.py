@@ -1323,9 +1323,9 @@ class FinancePreprocessor:
         data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
 
 
-        print('data_prediction', data_prediction)
+        #print('data_prediction', data_prediction)
         data_prediction = add_takeprofit_stoploss_volume(data_prediction, coeff_tp=coeff_tp, coeff_sl=coeff_sl)
-        print('data_prediction2', data_prediction)
+        #print('data_prediction2', data_prediction)
 
         return data_prediction
 
@@ -1368,7 +1368,7 @@ class FinancePreprocessor:
             #try:
             indicators = self.load(indicators_path)
             data = self.load(cleaned_data_path)
-            predictions = self.create_predictions(data, indicators, coeff_tp = coeff_tp, coeff_sl = coeff_sl)
+            predictions = self.create_predictions_data(data, indicators, coeff_tp = coeff_tp, coeff_sl = coeff_sl)
             self.save(predictions, predictions_path)
 
             logging.info(f"[{ticker}] Predictions saved to  {predictions_path.name}")
