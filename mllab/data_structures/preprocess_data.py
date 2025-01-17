@@ -1280,7 +1280,7 @@ class FinancePreprocessor:
         logging.info("regression model training completed for all tickers.")
         return True
 
-    def update_indicators(self, tickers=None, type = 'bagging', rebuild: bool = False) -> bool:
+    def update_indicators(self, tickers=None, type_update = 'bagging', rebuild: bool = False) -> bool:
 
         # нужно обновить индикаторы в индикаторы нужно добавить bin-1, bin-0 bin+1
         # нужно в label добаавить regression
@@ -1299,7 +1299,7 @@ class FinancePreprocessor:
             # нужно определить список индикаторов для обучения
             # сохранить список индикаторов
             #
-            if type == 'bagging':
+            if type_update == 'bagging':
                 indicators_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_indicators.csv")
                 indicators_result_path = Path(self.file_path, self.indicators_after_bagging,
                                        f"{ticker}_{start_str}_{end_str}_indicators.csv")
@@ -1346,13 +1346,13 @@ class FinancePreprocessor:
 
                 list_main_indicators = self.load(indicators_list_path)
 
-                prediction = update_indicators(labels, indicators, models_data,  type=type)
+                prediction = update_indicators(labels, indicators, models_data,  type_update=type_update)
                 print('prediction', prediction)
                 if prediction is None:
                     raise Exception
 
 
-                if type == 'bagging':
+                if type_update == 'bagging':
                     # Merge predicted data back into indicators DataFrame
                     result = indicators.reset_index()
                     print('result1', result)

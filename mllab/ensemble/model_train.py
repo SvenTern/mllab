@@ -402,7 +402,7 @@ def train_bagging(labels, indicators, list_main_indicators, label, test_size=0.2
 
     return bagging_classifier, total_score, scaler
 
-def update_indicators(labels, indicators, models_data, type='bagging'):
+def update_indicators(labels, indicators, models_data, type_update='bagging'):
     # Extract list of tickers
     list_tickers = indicators['tic'].unique()
 
@@ -428,7 +428,7 @@ def update_indicators(labels, indicators, models_data, type='bagging'):
             filtered_data = data_for_prediction[data_for_prediction['tic'] == tic]
             #print('filtered_data', filtered_data)
 
-            if type == 'bagging':
+            if type_update == 'bagging':
                 # Scale data for prediction
                 scale_data_classifire = models[f'classifier_scaler_{tic}'].transform(
                     filtered_data[models[f'classifier_indicators_{tic}']])
@@ -446,7 +446,7 @@ def update_indicators(labels, indicators, models_data, type='bagging'):
                     'bin-0': [predicted_classifire[i, 1] for i in range(len(filtered_data.index))],
                     'bin+1': [predicted_classifire[i, 2] for i in range(len(filtered_data.index))]
                 })
-            elif type == 'regression':
+            elif type_update == 'regression':
                 # Scale data for prediction
                 scale_data_regression = models[f'regression_scaler_{tic}'].transform(
                     filtered_data[models[f'classifier_indicators_{tic}']])
