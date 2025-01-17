@@ -218,8 +218,6 @@ def train_regression(labels, indicators, list_main_indicators, strategy, label, 
 
     unique_tickers = indicators['tic'].unique()
 
-    previous_ticker_model_path = None
-
     early_stopping = EarlyStopping(
         monitor='val_loss',
         patience=10,
@@ -263,7 +261,7 @@ def train_regression(labels, indicators, list_main_indicators, strategy, label, 
             continue
 
         with strategy.scope():
-            if idx > 0 and previous_ticker_model_path is not None:
+            if previous_ticker_model_path is not None:
                 print(f"    Загрузка полной модели из: {previous_ticker_model_path}")
                 model = joblib.load(previous_ticker_model_path)
             else:

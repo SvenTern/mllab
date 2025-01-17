@@ -1278,6 +1278,7 @@ class FinancePreprocessor:
 
             if model_path.is_file() and accuracy_path.is_file() and scaler_path.is_file() and indicators_list_path.is_file() and not rebuild:
                 logging.info(f"[{ticker}] Model regression already exists: {model_path.name}")
+                previous_ticker_model_path = model_path
                 continue
 
             try:
