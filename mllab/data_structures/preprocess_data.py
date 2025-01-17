@@ -1412,7 +1412,7 @@ class FinancePreprocessor:
                                    f"{ticker}_{start_str}_{end_str}_bagging_scaler.pkl")
                 indicators_list_path = Path(self.file_path, self.bagging, self.bagging_indicator, f"{ticker}_{start_str}_{end_str}_list_indicators.lst")
             else:
-                indicators_path = Path(self.file_path, self.indiicators,
+                indicators_path = Path(self.file_path, self.indicators_after_bagging,
                                        f"{ticker}_{start_str}_{end_str}_indicators.csv")
                 indicators_result_path = Path(self.file_path, self.indicators_after_regression,
                                               f"{ticker}_{start_str}_{end_str}_indicators.csv")
