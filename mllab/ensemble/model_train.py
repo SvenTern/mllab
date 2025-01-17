@@ -182,7 +182,7 @@ class ensemble_models:
         print("Confusion Matrix:")
         score_confusion_matrix(y_test, y_pred)
 
-def train_regression(labels, indicators, list_main_indicators, label, strategy, previous_ticker_model_path = None, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
+def train_regression(labels, indicators, list_main_indicators, strategy, label, previous_ticker_model_path = None, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
     """
     Function to train regression models sequentially for unique tickers in the dataset.
 

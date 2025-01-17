@@ -1288,7 +1288,7 @@ class FinancePreprocessor:
                 ## нужно сохранить список индикаторов
                 self.save(list_main_indicators, indicators_list_path)
 
-                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', self._global_strategy, previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
+                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, self._global_strategy, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
                 self.save(model, model_path)
                 self.save(accuracy, accuracy_path)
                 self.save(scaler, scaler_path)
