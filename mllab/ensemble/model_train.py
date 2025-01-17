@@ -288,7 +288,7 @@ def train_regression(labels, indicators, list_main_indicators, strategy, label, 
             train_dataset,
             validation_data=val_dataset,
             epochs=50,
-            verbose=1,
+            verbose=0,
             callbacks=[early_stopping]
         )
 
