@@ -1362,18 +1362,17 @@ class FinancePreprocessor:
                 logging.info(f"[{ticker}] Predictions already exists: {model_path.name}")
                 continue
 
-            try:
-                indicators = self.load(indicators_path)
-                data = self.load(cleaned_data_path)
-                predictions = self.create_predictions(data, indicators, coeff_tp = coeff_tp, coeff_sl = coeff_sl)
-                self.save(predictions, predictions_path)
+            #try:
+            indicators = self.load(indicators_path)
+            data = self.load(cleaned_data_path)
+            predictions = self.create_predictions(data, indicators, coeff_tp = coeff_tp, coeff_sl = coeff_sl)
+            self.save(predictions, predictions_path)
 
-                logging.info(f"[{ticker}] Predictions saved to  {predictions_path.name}")
+            logging.info(f"[{ticker}] Predictions saved to  {predictions_path.name}")
 
-                previous_ticker_model_path = model_path
-            except Exception as e:
-                logging.error(f"[{ticker}] Error while creating predictions: {e}")
-                continue
+            #except Exception as e:
+            #    logging.error(f"[{ticker}] Error while creating predictions: {e}")
+            #    continue
 
         logging.info("Creating predictions completed for all tickers.")
         return True
