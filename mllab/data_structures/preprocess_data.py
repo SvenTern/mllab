@@ -13,6 +13,7 @@ from typing import Optional
 from typing import Type
 from typing import TypeVar
 from typing import Union
+import tensorflow as tf
 
 import exchange_calendars as tc
 import numpy as np
@@ -118,6 +119,25 @@ class FinancePreprocessor:
 
         os.makedirs(os.path.join(self.file_path, self.indicators_after_bagging), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.indicators_after_regression), exist_ok=True)
+
+        self._global_strategy = None
+        self.get_strategy()
+
+    def get_strategy(self):
+
+        if self._global_strategy is None:  # Проверяем, создана ли стратегия
+            try:
+                tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+                print("TPU найден. Адрес:", tpu.master())
+                tf.config.experimental_connect_to_cluster(tpu)
+                tf.tpu.experimental.initialize_tpu_system(tpu)
+                self._global_strategy = tf.distribute.TPUStrategy(tpu)
+            except ValueError:
+                print("TPU не найден. Используем стратегию по умолчанию (CPU/GPU).")
+                self._global_strategy = tf.distribute.get_strategy()
+        else:
+            print("Стратегия уже создана, используем существующую.")
+
 
 
     """
@@ -1268,7 +1288,7 @@ class FinancePreprocessor:
                 ## нужно сохранить список индикаторов
                 self.save(list_main_indicators, indicators_list_path)
 
-                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
+                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', self._global_strategy, previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
                 self.save(model, model_path)
                 self.save(accuracy, accuracy_path)
                 self.save(scaler, scaler_path)

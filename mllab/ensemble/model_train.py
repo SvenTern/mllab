@@ -182,25 +182,7 @@ class ensemble_models:
         print("Confusion Matrix:")
         score_confusion_matrix(y_test, y_pred)
 
-def get_strategy():
-    global _global_strategy
-    if _global_strategy is None:  # Проверяем, создана ли стратегия
-        try:
-            tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
-            print("TPU найден. Адрес:", tpu.master())
-            tf.config.experimental_connect_to_cluster(tpu)
-            tf.tpu.experimental.initialize_tpu_system(tpu)
-            _global_strategy = tf.distribute.TPUStrategy(tpu)
-        except ValueError:
-            print("TPU не найден. Используем стратегию по умолчанию (CPU/GPU).")
-            _global_strategy = tf.distribute.get_strategy()
-    else:
-        print("Стратегия уже создана, используем существующую.")
-
-    return _global_strategy
-
-
-def train_regression(labels, indicators, list_main_indicators, label, previous_ticker_model_path = None, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
+def train_regression(labels, indicators, list_main_indicators, label, strategy, previous_ticker_model_path = None, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
     """
     Function to train regression models sequentially for unique tickers in the dataset.
 
@@ -214,7 +196,6 @@ def train_regression(labels, indicators, list_main_indicators, label, previous_t
         test_size (float): Proportion of test data.
         random_state (int): Random state for reproducibility.
     """
-    strategy = get_strategy()
 
     print("Используемая стратегия:", strategy)
 
