@@ -93,6 +93,7 @@ class FinancePreprocessor:
         # папки для результирующих индикаторов
         self.indicators_after_bagging = 'indicators_after_bagging'
         self.indicators_after_regression = 'indicators_after_regression'
+        self.predictions = 'predictions'
 
         self.top100_tickers = ['NVR', 'MPWR', 'TDG', 'FICO', 'KLAC', 'ORLY', 'REGN', 'MTD', 'URI', 'NOW', 'GWW', 'EQIX', 'LLY', 'TPL', 'NFLX',
                        'LII', 'SNPS', 'INTU', 'MLM', 'COST', 'BKNG', 'IDXX', 'META', 'TYL', 'MSCI', 'PH', 'ERIE', 'AXON', 'HUBB', 'AZO',
@@ -104,6 +105,7 @@ class FinancePreprocessor:
 
         os.makedirs(os.path.join(self.file_path, self.raw_data), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.cleaned_data), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.predictions), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.labels), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.indiicators), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.bagging), exist_ok=True)
@@ -1301,11 +1303,86 @@ class FinancePreprocessor:
         logging.info("regression model training completed for all tickers.")
         return True
 
-    def update_indicators(self, tickers=None, type_update = 'bagging', rebuild: bool = False) -> bool:
+    def create_predictions_data(self, data, indicators, coeff_tp = 1, coeff_sl = 1):
+
+
+        # нужно из clened data взять колонки
+        # нужно собрать из датасета indicators только колонки timestamp, tic
+        # потом сделать колонку prediction - которая есть массив из данных колонок bin-1, bin-0, bin+1, regression
+        data.sort_values(by=['timestamp', 'tic'], inplace=True)
+        indicators.sort_values(by=['timestamp', 'tic'], inplace=True)
+
+        # Собираем нужные колонки
+        data_prediction = data[['open', 'low', 'high', 'close', 'tic']].copy()
+        data_prediction.index = indicators.index
+
+        # Создаём новую колонку, в которую упакуем нужные значения в виде списка
+        data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
+
+        data_prediction = add_takeprofit_stoploss_volume(data_prediction, coeff_tp=coeff_tp, coeff_sl=coeff_sl)
+
+        return data_prediction
+
+    def create_predictions(self, tickers=None, rebuild: bool = False, coeff_tp = 1, coeff_sl = 1) -> bool:
+
+         # predictions
+
+        if tickers is None:
+            tickers = self.top100_tickers
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        for ticker in tqdm(tickers, desc=f"Creating predictions ", total=len(tickers)):
+
+            # нужно по тикеру считать данные label, данные indicators,
+            # нужно определить список индикаторов для обучения
+            # сохранить список индикаторов
+            #
+
+            indicators_path = Path(self.file_path, self.indicators_after_regression,
+                                          f"{ticker}_{start_str}_{end_str}_indicators.csv")
+            predictions_path = Path(self.file_path, self.predictions,
+                                   f"{ticker}_{start_str}_{end_str}_predictions.csv")
+
+            cleaned_data_path = Path(self.file_path, self.cleaned_data,
+                                   f"{ticker}_{start_str}_{end_str}_cleaned.csv")
+
+            if not indicators_path.is_file():
+                logging.info(f"[{ticker}] Indicators file dosn't exists: {indicators_path.name}")
+                continue
+
+
+            if predictions_path.is_file() and not rebuild:
+                logging.info(f"[{ticker}] Predictions already exists: {model_path.name}")
+                continue
+
+            try:
+                indicators = self.load(indicators_path)
+                data = self.load(cleaned_data_path)
+                predictions = self.create_predictions(data, indicators, coeff_tp = coeff_tp, coeff_sl = coeff_sl)
+                self.save(predictions, predictions_path)
+
+                logging.info(f"[{ticker}] Predictions saved to  {predictions_path.name}")
+
+                previous_ticker_model_path = model_path
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while creating predictions: {e}")
+                continue
+
+        logging.info("Creating predictions completed for all tickers.")
+        return True
+
+    def update_indicators(self, tickers=None, type_update = 'bagging', rebuild: bool = False, coeff_tp = 1, coeff_sl = 1) -> bool:
 
         # нужно обновить индикаторы в индикаторы нужно добавить bin-1, bin-0 bin+1
         # нужно в label добаавить regression
         # обрабатываем топ 100 выбранных тикеров
+        # нужно добавить создание отдельного датасета для третьей модели обучения
+        # predictions
+
         if tickers is None:
             tickers = self.top100_tickers
 
@@ -1376,14 +1453,18 @@ class FinancePreprocessor:
                 if type_update == 'bagging':
                     # Merge predicted data back into indicators DataFrame
                     result = indicators.reset_index()
-
+                    if 'bin+1' in result.columns:
+                        result = result.drop(columns=['bin-1','bin-0','bin+1'])
                     result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
                     result = result.set_index('timestamp')
                     self.save(result, indicators_result_path)
                 else:
                     # Merge predicted data back into indicators DataFrame
-                    result = labels.reset_index()
+                    result = indicators.reset_index()
+
+                    if 'regression' in result.columns:
+                        result = result.drop(columns=['regression'])
                     result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
                     result = result.set_index('timestamp')
