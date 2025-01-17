@@ -1447,7 +1447,6 @@ class FinancePreprocessor:
                 list_main_indicators = self.load(indicators_list_path)
 
                 prediction = update_indicators(labels, indicators, models_data,  type_update=type_update)
-                print('prediction', prediction)
 
                 if prediction is None:
                     raise Exception
@@ -1465,7 +1464,6 @@ class FinancePreprocessor:
                 else:
                     # Merge predicted data back into indicators DataFrame
                     result = indicators.reset_index()
-                    print('result', result)
 
                     if 'regression' in result.columns:
                         result = result.drop(columns=['regression'])
@@ -1919,7 +1917,7 @@ def add_takeprofit_stoploss_volume(
           * НЕ сохраняется исходный 4-й элемент (return)
           * Добавляются значения vol, tp, sl
     """
-
+    print('predicted_data', predicted_data)
     if 'prediction' not in predicted_data.columns:
         raise KeyError("В DataFrame отсутствует колонка 'prediction'.")
 
