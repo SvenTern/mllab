@@ -37,7 +37,7 @@ import pickle
 from pandas.errors import EmptyDataError
 from mllab.labeling.labeling import short_long_box
 from mllab.microstructural_features.feature_generator import calculate_indicators, get_correlation
-from mllab.ensemble.model_train import train_regression, train_bagging, update_indicators
+from mllab.ensemble.model_train import train_regression, train_bagging, update_indicators, StockPortfolioEnv
 
 # Настройка логирования
 logging.basicConfig(
@@ -1884,6 +1884,93 @@ class FinancePreprocessor:
 
         return data_normalized
 
+    def test_prediction_game(self, tickers):
+
+        if tickers is None:
+            tickers = self.top100_tickers
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        combined_data = []
+
+        for ticker in tqdm(tickers, desc="Prepare predictions for game", total=len(tickers)):
+            predictions_path = Path(self.file_path, self.predictions,
+                                    f"{ticker}_{start_str}_{end_str}_predictions.csv")
+
+            if not predictions_path.is_file():
+                logging.info(f"[{ticker}] Predictions file doesn't exist: {predictions_path.name}")
+                continue
+
+            try:
+                predictions = self.load(predictions_path)
+
+                if 'timestamp' not in predictions.columns or 'tic' not in predictions.columns:
+                    logging.warning(f"[{ticker}] Predictions file missing required columns.")
+                    continue
+
+                # Ensure 'timestamp' and 'tic' are available and valid
+                combined_data.append(predictions)
+
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while creating predictions: {e}")
+                continue
+
+        if not combined_data:
+            logging.error("No valid predictions data available.")
+            return None
+
+        # Combine all predictions into a single DataFrame
+        data = pd.concat(combined_data, ignore_index=True)
+
+        # Rename and sort as required
+        data.rename(columns={'timestamp': 'date'}, inplace=True)
+        data.sort_values(by=['date', 'tic'], inplace=True)
+
+        stock_dimension = len(data.tic.unique())
+        risk_volume = 0.2
+
+        FEATURE_LENGTHS = {
+            'prediction': 6,  # массив из 6 элементов
+            'covariance': 3  # массив из 3 элементов
+            # и т.д. для остальных feature...
+        }
+        # Constants and Transaction Cost Definitions
+        lookback = 5
+        features_list = ['prediction', 'covariance', 'volatility', 'last_return']
+        # 'base':0.0035 стоимость за акцию, 'minimal':0.35 минимальная комиссия в сделке, 'maximal':0.01 максимальный процент 1% комиссии, 'short_loan': 0.17 ставка займа в short 0.17% в день,
+        # 'short_rebate': 0.83 выплата rebate по коротким позициям 0.83% в день, 'short_rebate_limit':100000 лимит начиная с которого выплачивается rebate
+        transaction_cost_amount = {
+            'base': 0.0035,
+            'minimal': 0.35,
+            'maximal': 0.01,
+            'short_loan': 0.17,
+            'short_rebate': 0.83,
+            'short_rebate_limit': 100000
+        }
+        slippage = 0.02
+
+        env_kwargs = {
+            "stock_dim": stock_dimension,
+            "hmax": 100,
+            'risk_volume': risk_volume,
+            "initial_amount": 1000000,
+            "transaction_cost_amount": transaction_cost_amount,
+            "tech_indicator_list": [],
+            'features_list': features_list,
+            'FEATURE_LENGTHS': FEATURE_LENGTHS,
+            'use_logging': 0,
+            'use_sltp': True
+        }
+
+        e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
+
+        _, _, _, results = e_train_gym.__run__(type='prediction')
+
+
+        return results
 
 def add_takeprofit_stoploss_volume(
         predicted_data: pd.DataFrame,
