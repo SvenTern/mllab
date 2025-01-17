@@ -443,6 +443,8 @@ def update_indicators(labels, indicators, models_data, type_update='bagging'):
             })
         elif type_update == 'regression':
             # Scale data for prediction
+            print('list indicators',models[f'regression_indicators_{tic}'])
+            print('filtered_data', filtered_data)
             scale_data_regression = models[f'regression_scaler_{tic}'].transform(
                 filtered_data[models[f'regression_indicators_{tic}']])
 
