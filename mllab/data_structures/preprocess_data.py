@@ -1322,7 +1322,10 @@ class FinancePreprocessor:
         # Создаём новую колонку, в которую упакуем нужные значения в виде списка
         data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
 
+
+        print('data_prediction', data_prediction)
         data_prediction = add_takeprofit_stoploss_volume(data_prediction, coeff_tp=coeff_tp, coeff_sl=coeff_sl)
+        print('data_prediction2', data_prediction)
 
         return data_prediction
 
@@ -1917,7 +1920,7 @@ def add_takeprofit_stoploss_volume(
           * НЕ сохраняется исходный 4-й элемент (return)
           * Добавляются значения vol, tp, sl
     """
-    print('predicted_data', predicted_data)
+    #print('predicted_data', predicted_data)
     if 'prediction' not in predicted_data.columns:
         raise KeyError("В DataFrame отсутствует колонка 'prediction'.")
 
