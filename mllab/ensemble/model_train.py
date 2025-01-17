@@ -401,10 +401,14 @@ def update_indicators(labels, indicators, models_data, type_update='bagging'):
 
     for tic in list_tickers:
         try:
-
-            models[f'classifier_model_{tic}'] = models_data['model']
-            models[f'classifier_scaler_{tic}'] = models_data['scaler']
-            models[f'classifier_indicators_{tic}'] = models_data['indicators']
+            if type_update == 'bagging':
+                models[f'classifier_model_{tic}'] = models_data['model']
+                models[f'classifier_scaler_{tic}'] = models_data['scaler']
+                models[f'classifier_indicators_{tic}'] = models_data['indicators']
+            else:
+                models[f'regression_model_{tic}'] = models_data['model']
+                models[f'regression_scaler_{tic}'] = models_data['scaler']
+                models[f'regression_indicators_{tic}'] = models_data['indicators']
 
         except Exception as e:
             print(f"Error loading model or scaler for ticker {tic}: {e}")
@@ -440,7 +444,7 @@ def update_indicators(labels, indicators, models_data, type_update='bagging'):
         elif type_update == 'regression':
             # Scale data for prediction
             scale_data_regression = models[f'regression_scaler_{tic}'].transform(
-                filtered_data[models[f'classifier_indicators_{tic}']])
+                filtered_data[models[f'regression_indicators_{tic}']])
 
             # Generate predictions
             predicted_regression = models[f'regression_model_{tic}'].predict(scale_data_regression).flatten()
