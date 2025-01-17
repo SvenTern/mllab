@@ -456,15 +456,15 @@ def update_indicators(labels, indicators, models_data, type_update='bagging'):
             return pd.DataFrame()
 
     # Parallel processing of tickers
-    try:
-        with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_ticker, list_tickers))
+    #try:
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_ticker, list_tickers))
 
-        return pd.concat(results, ignore_index=True)
+    return pd.concat(results, ignore_index=True)
 
-    except Exception as e:
-        print(f"Error during parallel processing: {e}")
-        return None
+    #except Exception as e:
+    #    print(f"Error during parallel processing: {e}")
+    #    return None
 
 
 class StockPortfolioEnv(gym.Env):
