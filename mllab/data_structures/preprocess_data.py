@@ -39,11 +39,14 @@ from mllab.labeling.labeling import short_long_box
 from mllab.microstructural_features.feature_generator import calculate_indicators, get_correlation
 from mllab.ensemble.model_train import train_regression, train_bagging, update_indicators
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,  # Уровень логов
+    format='%(asctime)s [%(levelname)s] %(message)s',  # Формат вывода
+    handlers=[logging.StreamHandler()]  # Обеспечивает вывод в консоль
+)
 
-# Глобальная переменная для хранения стратегии
-_global_strategy = None
+
 
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
