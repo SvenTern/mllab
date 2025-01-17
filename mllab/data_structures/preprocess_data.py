@@ -1335,46 +1335,46 @@ class FinancePreprocessor:
                 logging.info(f"[{ticker}] Indicators already exists: {model_path.name}")
                 continue
 
-            #try:
-            labels = self.load(labeled_path)
-            indicators = self.load(indicators_path)
+            try:
+                labels = self.load(labeled_path)
+                indicators = self.load(indicators_path)
 
-            models_data = {}
-            models_data['model'] = self.load(model_path)
-            models_data['scaler'] = self.load(scaler_path)
-            models_data['indicators'] = self.load(indicators_list_path)
+                models_data = {}
+                models_data['model'] = self.load(model_path)
+                models_data['scaler'] = self.load(scaler_path)
+                models_data['indicators'] = self.load(indicators_list_path)
 
-            list_main_indicators = self.load(indicators_list_path)
+                list_main_indicators = self.load(indicators_list_path)
 
-            prediction = update_indicators(labels, indicators, models_data,  type_update=type_update)
-            print('prediction', prediction)
-            if prediction is None:
-                raise Exception
-
-
-            if type_update == 'bagging':
-                # Merge predicted data back into indicators DataFrame
-                result = indicators.reset_index()
-                print('result1', result)
-                result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
-                # print('predicted_data, shape',predicted_data, predicted_data.shape)
-                result = result.set_index('timestamp')
-                self.save(result, indicators_result_path)
-            else:
-                # Merge predicted data back into indicators DataFrame
-                result = labels.reset_index()
-                result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
-                # print('predicted_data, shape',predicted_data, predicted_data.shape)
-                result = result.set_index('timestamp')
-                self.save(result, indicators_result_path)
+                prediction = update_indicators(labels, indicators, models_data,  type_update=type_update)
+                print('prediction', prediction)
+                if prediction is None:
+                    raise Exception
 
 
-            logging.info(f"[{ticker}] updated indicators saved to  {indicators_result_path.name}")
+                if type_update == 'bagging':
+                    # Merge predicted data back into indicators DataFrame
+                    result = indicators.reset_index()
+                    print('result1', result)
+                    result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
+                    # print('predicted_data, shape',predicted_data, predicted_data.shape)
+                    result = result.set_index('timestamp')
+                    self.save(result, indicators_result_path)
+                else:
+                    # Merge predicted data back into indicators DataFrame
+                    result = labels.reset_index()
+                    result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
+                    # print('predicted_data, shape',predicted_data, predicted_data.shape)
+                    result = result.set_index('timestamp')
+                    self.save(result, indicators_result_path)
+
+
+                logging.info(f"[{ticker}] updated indicators saved to  {indicators_result_path.name}")
 
                 previous_ticker_model_path = model_path
-            #except Exception as e:
-                #logging.error(f"[{ticker}] Error while updating indicators: {e}")
-                #continue
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while updating indicators: {e}")
+                continue
 
         logging.info("updating indicators completed for all tickers.")
         return True
