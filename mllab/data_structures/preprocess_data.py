@@ -41,6 +41,8 @@ from mllab.ensemble.model_train import train_regression, train_bagging, update_i
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
+# Глобальная переменная для хранения стратегии
+_global_strategy = None
 
 class FinancePreprocessor:
     """Provides methods for retrieving daily stock data from
