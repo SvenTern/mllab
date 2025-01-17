@@ -1448,6 +1448,7 @@ class FinancePreprocessor:
             list_main_indicators = self.load(indicators_list_path)
 
             prediction = update_indicators(labels, indicators, models_data,  type_update=type_update)
+            print('prediction', prediction)
 
             if prediction is None:
                 raise Exception
@@ -1465,6 +1466,7 @@ class FinancePreprocessor:
             else:
                 # Merge predicted data back into indicators DataFrame
                 result = indicators.reset_index()
+                print('result', result)
 
                 if 'regression' in result.columns:
                     result = result.drop(columns=['regression'])
