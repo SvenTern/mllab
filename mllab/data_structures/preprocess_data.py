@@ -1249,7 +1249,6 @@ class FinancePreprocessor:
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
 
-        previous_ticker_model_path = None
 
         for ticker in tqdm(tickers, desc="Prepare regression model", total=len(tickers)):
 
@@ -1278,7 +1277,6 @@ class FinancePreprocessor:
 
             if model_path.is_file() and accuracy_path.is_file() and scaler_path.is_file() and indicators_list_path.is_file() and not rebuild:
                 logging.info(f"[{ticker}] Model regression already exists: {model_path.name}")
-                previous_ticker_model_path = model_path
                 continue
 
             try:
@@ -1289,13 +1287,13 @@ class FinancePreprocessor:
                 ## нужно сохранить список индикаторов
                 self.save(list_main_indicators, indicators_list_path)
 
-                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, self._global_strategy, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
+                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, self._global_strategy, label='return', dropout_rate=0.3, test_size=0.2, random_state = 42 )
                 self.save(model, model_path)
                 self.save(accuracy, accuracy_path)
                 self.save(scaler, scaler_path)
                 logging.info(f"[{ticker}] regression model saved to {model_path.name}")
 
-                previous_ticker_model_path = model_path
+
             except Exception as e:
                 logging.error(f"[{ticker}] Error while training regression model: {e}")
                 continue

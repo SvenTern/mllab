@@ -182,7 +182,7 @@ class ensemble_models:
         print("Confusion Matrix:")
         score_confusion_matrix(y_test, y_pred)
 
-def train_regression(labels, indicators, list_main_indicators, strategy, label, previous_ticker_model_path = None, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
+def train_regression(labels, indicators, list_main_indicators, strategy, label, dropout_rate=0.3, test_size=0.2, random_state = 42 ):
     """
     Function to train regression models sequentially for unique tickers in the dataset.
 
@@ -225,6 +225,7 @@ def train_regression(labels, indicators, list_main_indicators, strategy, label, 
         verbose=1
     )
     total_score = []
+    previous_model = None
 
     for idx, ticker in enumerate(unique_tickers):
         print(f"\n=== Обработка тикера: {ticker} ===")
@@ -261,9 +262,9 @@ def train_regression(labels, indicators, list_main_indicators, strategy, label, 
             continue
 
         with strategy.scope():
-            if previous_ticker_model_path is not None:
+            if previous_model is not None:
                 print(f"    Загрузка полной модели из: {previous_ticker_model_path}")
-                model = joblib.load(previous_ticker_model_path)
+                model = previous_model
             else:
                 model = create_complex_model(num_features, dropout_rate)
                 model.compile(optimizer='adam', loss='mse', metrics=['mae'])
@@ -290,6 +291,8 @@ def train_regression(labels, indicators, list_main_indicators, strategy, label, 
             verbose=1,
             callbacks=[early_stopping]
         )
+
+        previous_model = model
 
         test_loss, test_mae = model.evaluate(test_dataset, verbose=0)
         print(f"    Test MSE = {test_loss:.4f}, Test MAE = {test_mae:.4f}")
