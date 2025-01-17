@@ -1235,7 +1235,7 @@ class FinancePreprocessor:
             # нужно определить список индикаторов для обучения
             # сохранить список индикаторов
             #
-            indicators_path = Path(self.file_path, self.indiicators, f"{ticker}_{start_str}_{end_str}_indicators.csv")
+            indicators_path = Path(self.file_path, self.indicators_after_bagging, f"{ticker}_{start_str}_{end_str}_indicators.csv")
             labeled_path = Path(self.file_path, self.labels, f"{ticker}_{start_str}_{end_str}_labeled.csv")
 
             if not labeled_path.is_file():
@@ -1262,11 +1262,11 @@ class FinancePreprocessor:
                 labels = self.load(labeled_path)
                 indicators = self.load(indicators_path)
 
-                _, list_main_indicators = get_correlation(labels, indicators, column_main='regression', show_heatmap=False)
+                _, list_main_indicators = get_correlation(labels, indicators, column_main='return', show_heatmap=False)
                 ## нужно сохранить список индикаторов
                 self.save(list_main_indicators, indicators_list_path)
 
-                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='regression', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
+                model, accuracy, scaler = train_regression(labels, indicators, list_main_indicators, label='return', previous_ticker_model_path = previous_ticker_model_path, dropout_rate=0.3, test_size=0.2, random_state = 42 )
                 self.save(model, model_path)
                 self.save(accuracy, accuracy_path)
                 self.save(scaler, scaler_path)
@@ -1293,7 +1293,7 @@ class FinancePreprocessor:
         start_str = start_date.strftime("%Y%m%d")
         end_str = end_date.strftime("%Y%m%d")
 
-        for ticker in tqdm(tickers, desc=f"Updating indicators after {type}", total=len(tickers)):
+        for ticker in tqdm(tickers, desc=f"Updating indicators after {type_update}", total=len(tickers)):
 
             # нужно по тикеру считать данные label, данные indicators,
             # нужно определить список индикаторов для обучения
@@ -1347,7 +1347,7 @@ class FinancePreprocessor:
                 list_main_indicators = self.load(indicators_list_path)
 
                 prediction = update_indicators(labels, indicators, models_data,  type_update=type_update)
-                print('prediction', prediction)
+
                 if prediction is None:
                     raise Exception
 
@@ -1355,7 +1355,7 @@ class FinancePreprocessor:
                 if type_update == 'bagging':
                     # Merge predicted data back into indicators DataFrame
                     result = indicators.reset_index()
-                    print('result1', result)
+
                     result = result.merge(prediction, on=['timestamp', 'tic'], how='left')
                     # print('predicted_data, shape',predicted_data, predicted_data.shape)
                     result = result.set_index('timestamp')
