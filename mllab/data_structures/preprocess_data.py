@@ -1346,7 +1346,7 @@ class FinancePreprocessor:
         data_prediction['volatility'].fillna(0, inplace=True)
 
 
-        #print('data_prediction', data_prediction)
+        print('data_prediction', data_prediction)
         data_prediction = add_takeprofit_stoploss_volume(data_prediction, coeff_tp=coeff_tp, coeff_sl=coeff_sl)
         #print('data_prediction2', data_prediction)
 
