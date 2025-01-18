@@ -1907,9 +1907,9 @@ class FinancePreprocessor:
             try:
                 predictions = self.load(predictions_path)
 
-                if 'timestamp' not in predictions.columns or 'tic' not in predictions.columns:
-                    logging.warning(f"[{ticker}] Predictions file missing required columns.")
-                    continue
+                #if 'timestamp' not in predictions.columns or 'tic' not in predictions.columns:
+                #    logging.warning(f"[{ticker}] Predictions file missing required columns.")
+                #    continue
 
                 # Ensure 'timestamp' and 'tic' are available and valid
                 combined_data.append(predictions)
