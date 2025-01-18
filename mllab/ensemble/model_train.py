@@ -494,8 +494,8 @@ class StockPortfolioEnv(gym.Env):
                  minimal_cash = 0.1,
                  use_sltp = False,
                  use_logging = 1,
-                 sl_scale = 1.001,
-                 tp_scale = 1
+                 sl_scale = 1.0,
+                 tp_scale = 1.0
                  ):
         """
         Initialize the environment with the given parameters.

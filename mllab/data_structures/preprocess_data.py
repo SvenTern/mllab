@@ -1901,7 +1901,7 @@ class FinancePreprocessor:
 
         return data_normalized
 
-    def test_prediction_game(self, tickers = None, risk_volume = 0.2):
+    def test_prediction_game(self, tickers = None, risk_volume = 0.2, sl_scale = 1.0, tp_scale = 1.0):
 
         if tickers is None:
             tickers = self.top100_tickers
@@ -1982,15 +1982,21 @@ class FinancePreprocessor:
             'features_list': features_list,
             'FEATURE_LENGTHS': FEATURE_LENGTHS,
             'use_logging': 0,
-            'use_sltp': True
+            'use_sltp': True,
+            'sl_scale' : sl_scale,
+            'tp_scale' : tp_scale
         }
 
         e_train_gym = StockPortfolioEnv(df=data, **env_kwargs)
 
-        _, _, _, results = e_train_gym.__run__(type='prediction')
+        _, _, _, results = e_train_gym.__run__(type='prediction', )
 
 
         return results
+
+    def test_sltp_game(self, sl, tp, risk_volume=0.02):
+
+        self.test_prediction_game(risk_volume = risk_volume, )
 
 def add_takeprofit_stoploss_volume(
         predicted_data: pd.DataFrame,
