@@ -1884,7 +1884,7 @@ class FinancePreprocessor:
 
         return data_normalized
 
-    def test_prediction_game(self, tickers):
+    def test_prediction_game(self, tickers, risk_volume = 0.2):
 
         if tickers is None:
             tickers = self.top100_tickers
@@ -1930,7 +1930,7 @@ class FinancePreprocessor:
         data.sort_values(by=['date', 'tic'], inplace=True)
 
         stock_dimension = len(data.tic.unique())
-        risk_volume = 0.2
+        risk_volume = risk_volume
 
         FEATURE_LENGTHS = {
             'prediction': 6,  # массив из 6 элементов
