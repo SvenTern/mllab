@@ -1323,10 +1323,10 @@ class FinancePreprocessor:
         #data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
 
         # Создаём новую колонку, в которую упакуем нужные значения в виде списка
-        data_prediction['bin-1'] = indicators[['bin-1']].values.tolist()
-        data_prediction['bin-0'] = indicators[['bin-0']].values.tolist()
-        data_prediction['bin+1'] = indicators[['bin+1']].values.tolist()
-        data_prediction['regression'] = indicators[['regression']].values.tolist()
+        data_prediction['bin-1'] = indicators['bin-1'].values.tolist()
+        data_prediction['bin-0'] = indicators['bin-0'].values.tolist()
+        data_prediction['bin+1'] = indicators['bin+1'].values.tolist()
+        data_prediction['regression'] = indicators['regression'].values.tolist()
 
         # 2. Считаем логарифмическую доходность для каждого тикера
         #    groupby('tic') нужен, чтобы сдвигать close только внутри одного тикера.
