@@ -1956,7 +1956,7 @@ class FinancePreprocessor:
             "stock_dim": stock_dimension,
             "hmax": 100,
             'risk_volume': risk_volume,
-            "initial_amount": 1000000,
+            "initial_amount": 400000,
             "transaction_cost_amount": transaction_cost_amount,
             "tech_indicator_list": [],
             'features_list': features_list,
