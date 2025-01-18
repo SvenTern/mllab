@@ -1995,11 +1995,13 @@ class FinancePreprocessor:
         e_train_gym = StockPortfolioEnv(df=data, **env_kwargs)
 
         if prediction_cash is None:
-            _, _, _, results, prediction_cash = e_train_gym.__run__(type='prediction')
+            results, prediction_cash = e_train_gym.__run__(type='prediction')
         else:
-            _, _, _, results, prediction_cash = e_train_gym.__run__(type='prediction', prediction_cash = prediction_cash)
+            results, prediction_cash = e_train_gym.__run__(type='prediction', prediction_cash = prediction_cash)
 
-        return results, prediction_cash
+        _ , _ , _ , result = results
+
+        return result, prediction_cash
 
 
 
