@@ -1915,7 +1915,7 @@ class FinancePreprocessor:
 
         return data_normalized
 
-    def test_prediction_game(self, tickers = None, risk_volume = 0.2, sl_scale = 1.0, tp_scale = 1.0, prediction_cash = None):
+    def test_prediction_game(self, tickers = None, risk_volume = 0.02, sl_scale = 1.0, tp_scale = 1.0, prediction_cash = None):
 
         if tickers is None:
             tickers = self.top100_tickers
@@ -2012,7 +2012,7 @@ class FinancePreprocessor:
 
         return result, prediction_cash
 
-    def train_game(self, tickers = None, risk_volume = 0.2, sl_scale = 1.0, tp_scale = 1.0, prediction_cash = None):
+    def train_game(self, tickers = None, risk_volume = 0.02):
 
         if tickers is None:
             tickers = self.top100_tickers
