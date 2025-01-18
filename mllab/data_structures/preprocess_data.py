@@ -1968,7 +1968,7 @@ class FinancePreprocessor:
             'use_sltp': True
         }
 
-        e_train_gym = StockPortfolioEnv(df=data_final, **env_kwargs)
+        e_train_gym = StockPortfolioEnv(df=data, **env_kwargs)
 
         _, _, _, results = e_train_gym.__run__(type='prediction')
 
