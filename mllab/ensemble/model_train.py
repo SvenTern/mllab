@@ -1481,41 +1481,29 @@ class StockPortfolioEnv(gym.Env):
         return final_price
 
     def __get_predictions__(self, type: str = 'prediction'):
+        # Теперь данные уже хранятся в отдельных колонках bin-1, bin-0, bin+1, sl, tp
         if type == 'prediction':
-            # Преобразуем строки в массивы
-            self.df['prediction'] = self.df['prediction'].apply(
-                lambda x: np.array(ast.literal_eval(x)) if isinstance(x, str) else x
-            )
+            # Проверяем, что необходимые колонки присутствуют в DataFrame
+            required_columns = ['bin-1', 'bin-0', 'bin+1', 'sl', 'tp']
+            for col in required_columns:
+                if col not in self.df.columns:
+                    raise ValueError(f"Колонка '{col}' отсутствует в DataFrame.")
 
-            # Проверяем, что все элементы в prediction являются массивами одинаковой формы
-            first_shape = None
-            for pred in self.df['prediction']:
-                if not isinstance(pred, np.ndarray):
-                    raise ValueError("Все элементы в колонке 'prediction' должны быть numpy массивами.")
-                if first_shape is None:
-                    first_shape = pred.shape
-                elif pred.shape != first_shape:
-                    raise ValueError("Все массивы в колонке 'prediction' должны иметь одинаковую форму.")
-
-            # Формируем массив прогнозов
-            predictions_array = np.array(self.df['prediction'].tolist())
-
-            # Используем первые три столбца для сравнения
-            comparison_array = predictions_array[:, :3]
+            # Формируем массив значений из колонок bin-1, bin-0, bin+1
+            comparison_array = self.df[['bin-1', 'bin-0', 'bin+1']].to_numpy()
             max_indices = np.argmax(comparison_array, axis=1)
 
-            # Извлекаем необходимые столбцы из массива
-            tp = predictions_array[:, 4]
-            sl = predictions_array[:, 5]
+            # Извлекаем значения sl и tp
+            sl = self.df['sl'].to_numpy()
+            tp = self.df['tp'].to_numpy()
 
-            # Вычисляем значения столбца 'bin' на основе max_indices
-            col3 = predictions_array[:, 3]
-            bin_minus1 = -col3
-            bin_0 = np.zeros_like(col3)
-            bin_plus1 = col3
-            chosen_values = np.choose(max_indices, [bin_minus1, bin_0, bin_plus1])
+            # Вычисляем значения для новой колонки 'bin' на основе max_indices
+            col_bin_minus1 = self.df['bin-1'].to_numpy()
+            col_bin_0 = self.df['bin-0'].to_numpy()
+            col_bin_plus1 = self.df['bin+1'].to_numpy()
+            chosen_values = np.choose(max_indices, [col_bin_minus1, col_bin_0, col_bin_plus1])
 
-            # Записываем результаты в DataFrame
+            # Добавляем новые колонки в DataFrame
             self.df['sl'] = sl
             self.df['tp'] = tp
             self.df['bin'] = chosen_values

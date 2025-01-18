@@ -1320,7 +1320,13 @@ class FinancePreprocessor:
         data_prediction.index = indicators.index
 
         # Создаём новую колонку, в которую упакуем нужные значения в виде списка
-        data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
+        #data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
+
+        # Создаём новую колонку, в которую упакуем нужные значения в виде списка
+        data_prediction['bin-1'] = indicators[['bin-1']].values.tolist()
+        data_prediction['bin-0'] = indicators[['bin-0']].values.tolist()
+        data_prediction['bin+1'] = indicators[['bin+1']].values.tolist()
+        data_prediction['regression'] = indicators[['regression']].values.tolist()
 
         # 2. Считаем логарифмическую доходность для каждого тикера
         #    groupby('tic') нужен, чтобы сдвигать close только внутри одного тикера.
@@ -2003,20 +2009,13 @@ def add_takeprofit_stoploss_volume(
         eps: float = 1e-6
 ) -> pd.DataFrame:
     """
-    Оптимизирует массивы в колонке 'prediction' DataFrame для работы на TPU.
-    При этом финальный массив НЕ будет содержать исходный 4-й элемент (return).
-
-    Структура входных данных (каждая строка в колонке 'prediction'):
-        [p(-1), p(0), p(+1), return, ...]
-
-    Итоговая структура после обработки:
-        [p(-1), p(0), p(+1), vol, tp, sl]
+    Оптимизирует массивы в DataFrame с явными колонками вероятностей и регрессии.
+    Добавляет vol, tp, sl.
 
     Parameters
     ----------
     predicted_data : pd.DataFrame
-        DataFrame с колонкой 'prediction', содержащей массивы вида
-        [p(-1), p(0), p(+1), return, ...].
+        DataFrame с колонками 'bin-1', 'bin+1', 'bin-0', 'regression'.
     coeff_tp : float, optional
         Коэффициент для расчёта take-profit, по умолчанию 1.
     coeff_sl : float, optional
@@ -2027,94 +2026,57 @@ def add_takeprofit_stoploss_volume(
     Returns
     -------
     pd.DataFrame
-        Обновлённый DataFrame, где в каждом элементе 'prediction':
-          * НЕ сохраняется исходный 4-й элемент (return)
-          * Добавляются значения vol, tp, sl
+        Обновлённый DataFrame с колонками vol, tp, sl.
     """
-    #print('predicted_data', predicted_data)
-    if 'prediction' not in predicted_data.columns:
-        raise KeyError("В DataFrame отсутствует колонка 'prediction'.")
+    # Проверяем наличие необходимых колонок
+    required_columns = ['bin-1', 'bin-0', 'bin+1', 'regression']
+    for col in required_columns:
+        if col not in predicted_data.columns:
+            raise KeyError(f"В DataFrame отсутствует колонка '{col}'.")
 
-    # Преобразуем 'prediction' в объект np.ndarray (список списков -> 2D-массив dtype=object)
-    predictions = np.array(predicted_data['prediction'].tolist(), dtype=object)
-    if len(predictions) == 0:
-        return predicted_data
+    # Извлекаем данные
+    p_minus1 = predicted_data['bin-1'].clip(eps, 1 - eps)
+    p_plus1 = predicted_data['bin+1'].clip(eps, 1 - eps)
+    regression = predicted_data['regression']
 
-    # Извлекаем первые три элемента (вероятности) и четвёртый элемент (return)
-    first_three = []
-    fourth_element = []
-    for row in predictions:
-        # Если меньше трёх элементов, дополним нулями
-        if len(row) >= 3:
-            first_three.append(row[:3])
-        else:
-            first_three.append([0.0, 0.0, 0.0])
-
-        # Берём return, если он есть; иначе 0
-        if len(row) >= 4 and row[3] is not None:
-            fourth_element.append(row[3])
-        else:
-            fourth_element.append(0.0)
-
-    first_three = np.array(first_three, dtype=float)
-    return_value = np.array(fourth_element, dtype=float)
-
-    # Определяем bin = argmax по первым трём элементам => значения 1, 2 или 3
-    max_bin = np.argmax(first_three, axis=1) + 1
-
-    # Корректируем return_value по знаку:
-    #   bin=3 (long): если return < 0 => берем модуль
-    #   bin=1 (short): если return > 0 => берем отрицательный модуль
-    cond_long_negative = (max_bin == 3) & (return_value < 0)
-    return_value[cond_long_negative] = np.abs(return_value[cond_long_negative])
-
-    cond_short_positive = (max_bin == 1) & (return_value > 0)
-    return_value[cond_short_positive] = -np.abs(return_value[cond_short_positive])
+    # Вычисляем bin: 1 (short), 2 (neutral), 3 (long)
+    max_bin = predicted_data[['bin-1', 'bin-0', 'bin+1']].idxmax(axis=1).map({
+        'bin-1': 1,
+        'bin-0': 2,
+        'bin+1': 3
+    })
 
     # Инициализация vol, tp, sl
-    vol = np.zeros_like(return_value, dtype=float)
-    tp = np.zeros_like(return_value, dtype=float)
-    sl = np.zeros_like(return_value, dtype=float)
+    vol = np.zeros_like(regression, dtype=float)
+    tp = np.zeros_like(regression, dtype=float)
+    sl = np.zeros_like(regression, dtype=float)
 
     # --- bin = 1 (short) ---
     mask_bin_minus1 = (max_bin == 1)
-    p_minus1 = first_three[mask_bin_minus1, 0]
-    # Зажимаем вероятности, чтобы не было деления на ноль
-    p_minus1 = np.clip(p_minus1, eps, 1 - eps)
-    b_minus1 = p_minus1 / (1.0 - p_minus1)
+    b_minus1 = p_minus1[mask_bin_minus1] / (1.0 - p_minus1[mask_bin_minus1])
 
-    # vol = p(-1) - (1 - p(-1)) / b(-1), но не меньше 0
-    raw_vol_minus1 = p_minus1 - (1 - p_minus1) / b_minus1
+    raw_vol_minus1 = p_minus1[mask_bin_minus1] - (1 - p_minus1[mask_bin_minus1]) / b_minus1
     vol[mask_bin_minus1] = np.maximum(0.0, raw_vol_minus1)
 
-    return_minus1 = return_value[mask_bin_minus1]
+    return_minus1 = regression[mask_bin_minus1]
     tp[mask_bin_minus1] = coeff_tp * return_minus1
     sl[mask_bin_minus1] = - coeff_sl * return_minus1 / b_minus1
 
     # --- bin = 3 (long) ---
     mask_bin_plus1 = (max_bin == 3)
-    p_plus1 = first_three[mask_bin_plus1, 2]
-    p_plus1 = np.clip(p_plus1, eps, 1 - eps)
-    b_plus1 = p_plus1 / (1.0 - p_plus1)
+    b_plus1 = p_plus1[mask_bin_plus1] / (1.0 - p_plus1[mask_bin_plus1])
 
-    raw_vol_plus1 = p_plus1 - (1 - p_plus1) / b_plus1
+    raw_vol_plus1 = p_plus1[mask_bin_plus1] - (1 - p_plus1[mask_bin_plus1]) / b_plus1
     vol[mask_bin_plus1] = np.maximum(0.0, raw_vol_plus1)
 
-    return_plus1 = return_value[mask_bin_plus1]
+    return_plus1 = regression[mask_bin_plus1]
     tp[mask_bin_plus1] = coeff_tp * return_plus1
     sl[mask_bin_plus1] = - coeff_sl * return_plus1 / b_plus1
 
-    # Формируем финальную структуру: [p(-1), p(0), p(+1), vol, tp, sl]
-    updated_predictions = []
-    for i, row in enumerate(predictions):
-        # Берём первые три вероятности
-        row_3 = list(row[:3])
-        # Добавляем vol, tp, sl
-        new_row = row_3 + [vol[i], tp[i], sl[i]]
-        updated_predictions.append(new_row)
-
-    # Записываем обновлённую колонку обратно в DataFrame
-    predicted_data['prediction'] = updated_predictions
+    # Добавляем колонки vol, tp, sl в DataFrame
+    predicted_data['vol'] = vol
+    predicted_data['tp'] = tp
+    predicted_data['sl'] = sl
 
     return predicted_data
 
