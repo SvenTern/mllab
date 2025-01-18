@@ -1481,6 +1481,8 @@ class StockPortfolioEnv(gym.Env):
         return final_price
 
     def __get_predictions__(self, type: str = 'prediction'):
+        import tensorflow as tf
+
         # Теперь данные уже хранятся в отдельных колонках bin-1, bin-0, bin+1, sl, tp
         if type == 'prediction':
             # Проверяем, что необходимые колонки присутствуют в DataFrame
@@ -1489,24 +1491,29 @@ class StockPortfolioEnv(gym.Env):
                 if col not in self.df.columns:
                     raise ValueError(f"Колонка '{col}' отсутствует в DataFrame.")
 
-            # Формируем массив значений из колонок bin-1, bin-0, bin+1
-            comparison_array = self.df[['bin-1', 'bin-0', 'bin+1']].to_numpy()
-            max_indices = np.argmax(comparison_array, axis=1)
+            # Преобразуем DataFrame в тензоры для TPU
+            bin_columns = self.df[['bin-1', 'bin-0', 'bin+1']].to_numpy()
+            comparison_tensor = tf.convert_to_tensor(bin_columns, dtype=tf.float32)
 
-            # Извлекаем значения sl и tp
-            sl = self.df['sl'].to_numpy()
-            tp = self.df['tp'].to_numpy()
+            # Используем TPU-оптимизированные операции
+            max_indices = tf.argmax(comparison_tensor, axis=1)
+
+            # Извлекаем значения sl, tp и col3 (для вычисления bin)
+            sl = tf.convert_to_tensor(self.df['sl'].to_numpy(), dtype=tf.float32)
+            tp = tf.convert_to_tensor(self.df['tp'].to_numpy(), dtype=tf.float32)
+            col3 = tf.convert_to_tensor(self.df['bin+1'].to_numpy(), dtype=tf.float32)
+            col1 = tf.convert_to_tensor(self.df['bin-1'].to_numpy(), dtype=tf.float32)
 
             # Вычисляем значения для новой колонки 'bin' на основе max_indices
-            col_bin_minus1 = self.df['bin-1'].to_numpy()
-            col_bin_0 = self.df['bin-0'].to_numpy()
-            col_bin_plus1 = self.df['bin+1'].to_numpy()
-            chosen_values = np.choose(max_indices, [col_bin_minus1, col_bin_0, col_bin_plus1])
+            bin_minus1 = -col1
+            bin_0 = tf.zeros_like(col3)
+            bin_plus1 = col3
+            chosen_values = tf.gather(tf.stack([bin_minus1, bin_0, bin_plus1], axis=1), max_indices, batch_dims=1)
 
-            # Добавляем новые колонки в DataFrame
-            self.df['sl'] = sl
-            self.df['tp'] = tp
-            self.df['bin'] = chosen_values
+            # Преобразуем обратно в numpy для добавления в DataFrame
+            self.df['sl'] = sl.numpy()
+            self.df['tp'] = tp.numpy()
+            self.df['bin'] = chosen_values.numpy()
 
         # Общие операции для обоих типов
         self.df.sort_values(['date', 'tic'], inplace=True)
