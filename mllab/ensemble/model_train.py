@@ -1547,9 +1547,9 @@ class StockPortfolioEnv(gym.Env):
                 actions = grouped_data[current_date]
                 results = self.step(actions)
 
-                if self.terminal:
-                    # прерываем цикл
-                    break
+                #if self.terminal:
+                #    # прерываем цикл
+                #    break
         finally:
             # Закрываем прогресс-бар, если нужно
             pbar.n = pbar.total
