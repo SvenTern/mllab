@@ -1475,7 +1475,7 @@ class StockPortfolioEnv(gym.Env):
         if type == 'prediction':
             # Формируем массив прогнозов из столбца 'prediction'
             predictions_array = np.stack(self.df['prediction'].values)
-
+            print('predictions_array', predictions_array)
             # Используем первые три столбца для сравнения
             comparison_array = predictions_array[:, :3]
             max_indices = np.argmax(comparison_array, axis=1)
