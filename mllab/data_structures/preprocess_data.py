@@ -1906,7 +1906,7 @@ class FinancePreprocessor:
 
         return data_normalized
 
-    def test_prediction_game(self, tickers = None, risk_volume = 0.2, sl_scale = 1.0, tp_scale = 1.0):
+    def test_prediction_game(self, tickers = None, risk_volume = 0.2, sl_scale = 1.0, tp_scale = 1.0, prediction_cash = None):
 
         if tickers is None:
             tickers = self.top100_tickers
@@ -1994,10 +1994,12 @@ class FinancePreprocessor:
 
         e_train_gym = StockPortfolioEnv(df=data, **env_kwargs)
 
-        _, _, _, results = e_train_gym.__run__(type='prediction', )
+        if prediction_cash is None:
+            _, _, _, results, prediction_cash = e_train_gym.__run__(type='prediction')
+        else:
+            _, _, _, results, prediction_cash = e_train_gym.__run__(type='prediction', prediction_cash = prediction_cash)
 
-
-        return results
+        return results, prediction_cash
 
 
 

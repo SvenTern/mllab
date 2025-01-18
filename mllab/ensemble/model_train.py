@@ -1530,12 +1530,13 @@ class StockPortfolioEnv(gym.Env):
 
         return grouped_data
 
-    def __run__(self, type: str = 'prediction'):
+    def __run__(self, type: str = 'prediction', prediction_cash = None):
 
         # включение play_mode для более быстрого проведения игры
         self.play_mode = True
-
-        grouped_data = self.__get_predictions__(type=type)
+        if prediction_cash is None:
+            prediction_cash = self.__get_predictions__(type=type)
+        grouped_data = prediction_cash
         dates = sorted(grouped_data.keys())
         results = None
 
@@ -1556,7 +1557,7 @@ class StockPortfolioEnv(gym.Env):
             pbar.refresh()
             pbar.close()
 
-        return results
+        return results, prediction_cash
 
 
 
