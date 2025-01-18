@@ -1519,13 +1519,13 @@ class StockPortfolioEnv(gym.Env):
             # Сортируем внутри группы по тикерам
             group_sorted = group.sort_values('tic')
 
-            # Формируем строки для матрицы
-            bin_row = group_sorted['bin'].to_numpy()
-            sl_row = group_sorted['sl'].to_numpy()
-            tp_row = group_sorted['tp'].to_numpy()
+            # Формируем колонки для матрицы
+            bin_col = group_sorted['bin'].to_numpy()
+            sl_col = group_sorted['sl'].to_numpy()
+            tp_col = group_sorted['tp'].to_numpy()
 
-            # Формируем матрицу с сортировкой по колонкам (тикерам)
-            matrix = np.array([bin_row, sl_row, tp_row])
+            # Формируем матрицу с сортировкой по строкам (тикерам)
+            matrix = np.column_stack([bin_col, sl_col, tp_col])
             grouped_data[date] = matrix
 
         return grouped_data
