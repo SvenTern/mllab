@@ -1488,7 +1488,6 @@ class StockPortfolioEnv(gym.Env):
             # Формируем массив прогнозов
             predictions_array = np.array(self.df['prediction'].tolist())
 
-
             # Используем первые три столбца для сравнения
             comparison_array = predictions_array[:, :3]
             max_indices = np.argmax(comparison_array, axis=1)
@@ -1519,11 +1518,14 @@ class StockPortfolioEnv(gym.Env):
                                 position=2, dynamic_ncols=True):
             # Сортируем внутри группы по тикерам
             group_sorted = group.sort_values('tic')
-            # Формируем матрицу
+
+            # Формируем строки для матрицы
             bin_row = group_sorted['bin'].to_numpy()
             sl_row = group_sorted['sl'].to_numpy()
             tp_row = group_sorted['tp'].to_numpy()
-            matrix = np.vstack([bin_row, sl_row, tp_row])
+
+            # Формируем матрицу с сортировкой по колонкам (тикерам)
+            matrix = np.array([bin_row, sl_row, tp_row])
             grouped_data[date] = matrix
 
         return grouped_data
