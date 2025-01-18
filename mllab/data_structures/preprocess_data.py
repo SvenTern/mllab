@@ -38,6 +38,7 @@ from pandas.errors import EmptyDataError
 from mllab.labeling.labeling import short_long_box
 from mllab.microstructural_features.feature_generator import calculate_indicators, get_correlation
 from mllab.ensemble.model_train import train_regression, train_bagging, update_indicators, StockPortfolioEnv
+from finrl.agents.stablebaselines3.models import DRLAgent
 
 # Настройка логирования
 logging.basicConfig(
@@ -97,6 +98,7 @@ class FinancePreprocessor:
         self.indicators_after_bagging = 'indicators_after_bagging'
         self.indicators_after_regression = 'indicators_after_regression'
         self.predictions = 'predictions'
+        self.game = 'game'
 
         self.top100_tickers = ['NVR', 'MPWR', 'TDG', 'FICO', 'KLAC', 'ORLY', 'REGN', 'MTD', 'URI', 'NOW', 'GWW', 'EQIX', 'LLY', 'TPL', 'NFLX',
                        'LII', 'SNPS', 'INTU', 'MLM', 'COST', 'BKNG', 'IDXX', 'META', 'TYL', 'MSCI', 'PH', 'ERIE', 'AXON', 'HUBB', 'AZO',
@@ -107,6 +109,7 @@ class FinancePreprocessor:
                        'SYK', 'ESS', 'HII', 'LIN', 'SNA', 'NDSN', 'WDAY', 'BLDR', 'SHW', 'ODFL']
 
         os.makedirs(os.path.join(self.file_path, self.raw_data), exist_ok=True)
+        os.makedirs(os.path.join(self.file_path, self.game), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.cleaned_data), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.predictions), exist_ok=True)
         os.makedirs(os.path.join(self.file_path, self.labels), exist_ok=True)
@@ -191,6 +194,8 @@ class FinancePreprocessor:
             joblib.dump(data, file_path, compress=3)
         elif ext == ".csv":
             data.to_csv(file_path)
+        elif ext == 'zip':
+            data.save(file_path)
         else:
             with open(file_path, 'wb') as file:  # Open the file in write-binary mode
                 pickle.dump(data, file)
@@ -226,7 +231,11 @@ class FinancePreprocessor:
                 else:
                     raise ValueError("The 'timestamp' column is not present in the DataFrame.")
             return result
-
+        elif ext == 'zip':
+            agent = DRLAgent(env=env_train)
+            A2C_PARAMS = {"n_steps": 5, "ent_coef": 0.005, "learning_rate": 0.0002}
+            model_a2c = agent.get_model(model_name="a2c", model_kwargs=A2C_PARAMS)
+            return model_a2c.load(file_path)
         else:
             with open(file_path, 'rb') as file:  # Open the file in read-binary mode
                 return pickle.load(file)
@@ -2002,6 +2011,118 @@ class FinancePreprocessor:
         _ , _ , _ , result = results
 
         return result, prediction_cash
+
+    def train_game(self, tickers = None, risk_volume = 0.2, sl_scale = 1.0, tp_scale = 1.0, prediction_cash = None):
+
+        if tickers is None:
+            tickers = self.top100_tickers
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        combined_data = []
+
+        for ticker in tqdm(tickers, desc="Prepare predictions for game", total=len(tickers)):
+            predictions_path = Path(self.file_path, self.predictions,
+                                    f"{ticker}_{start_str}_{end_str}_predictions.csv")
+
+            if not predictions_path.is_file():
+                logging.info(f"[{ticker}] Predictions file doesn't exist: {predictions_path.name}")
+                continue
+
+            try:
+                predictions = self.load(predictions_path)
+
+                #if 'timestamp' not in predictions.columns or 'tic' not in predictions.columns:
+                #    logging.warning(f"[{ticker}] Predictions file missing required columns.")
+                #    continue
+
+                # Ensure 'timestamp' and 'tic' are available and valid
+                combined_data.append(predictions)
+
+            except Exception as e:
+                logging.error(f"[{ticker}] Error while creating predictions: {e}")
+                continue
+
+        if not combined_data:
+            logging.error("No valid predictions data available.")
+            return None
+
+        # Combine all predictions into a single DataFrame
+        data = pd.concat(combined_data, ignore_index=False)
+        # Reset index to move 'timestamp' (assumed index) into a column
+        data.reset_index(inplace=True)
+
+        # Rename and sort as required
+        data.rename(columns={'timestamp': 'date'}, inplace=True)
+        #print('data', data)
+        data.sort_values(by=['date', 'tic'], inplace=True)
+
+        stock_dimension = len(data.tic.unique())
+        risk_volume = risk_volume
+
+        FEATURE_LENGTHS = {
+            'prediction': 6,  # массив из 6 элементов
+            'covariance': 3  # массив из 3 элементов
+            # и т.д. для остальных feature...
+        }
+        # Constants and Transaction Cost Definitions
+        lookback = 5
+        features_list = ['bin-1', 'bin-0', 'bin+1', 'regression', 'vol', 'sl', 'tp', 'volatility', 'last_return']
+        # 'base':0.0035 стоимость за акцию, 'minimal':0.35 минимальная комиссия в сделке, 'maximal':0.01 максимальный процент 1% комиссии, 'short_loan': 0.17 ставка займа в short 0.17% в день,
+        # 'short_rebate': 0.83 выплата rebate по коротким позициям 0.83% в день, 'short_rebate_limit':100000 лимит начиная с которого выплачивается rebate
+        transaction_cost_amount = {
+            'base': 0.0035,
+            'minimal': 0.35,
+            'maximal': 0.01,
+            'short_loan': 0.17,
+            'short_rebate': 0.83,
+            'short_rebate_limit': 100000
+        }
+        slippage = 0.02
+
+        env_kwargs = {
+            "stock_dim": stock_dimension,
+            "hmax": 100,
+            'risk_volume': risk_volume,
+            "initial_amount": 400000,
+            "transaction_cost_amount": transaction_cost_amount,
+            "tech_indicator_list": [],
+            'features_list': features_list,
+            'FEATURE_LENGTHS': FEATURE_LENGTHS,
+            'use_logging': 0,
+            'use_sltp': True,
+            'sl_scale' : sl_scale,
+            'tp_scale' : tp_scale
+        }
+
+        e_train_gym = StockPortfolioEnv(df=data, **env_kwargs)
+
+        # нужно запустить train ...
+        # сохранить потом модель ...
+
+        env_train, _ = e_train_gym.get_sb_env()
+        agent = DRLAgent(env=env_train)
+
+        model_name = "a2c"
+        A2C_PARAMS = {"n_steps": 5, "ent_coef": 0.005, "learning_rate": 0.0002}
+        model_a2c = agent.get_model(model_name=model_name, model_kwargs=A2C_PARAMS)
+        trained_a2c = agent.train_model(model=model_a2c,
+                                        tb_log_name='a2c',
+                                        total_timesteps=500000)
+
+        start_date = pd.Timestamp(self.start).tz_localize('UTC')
+        end_date = pd.Timestamp(self.end).tz_localize('UTC')
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
+
+        model_a2c_path = Path(self.file_path, self.game,
+                                    f"{start_str}_{end_str}_{model_name}_game.zip")
+        self.save(trained_a2c, model_a2c_path)
+
+        return True
 
 
 
