@@ -1474,14 +1474,14 @@ class StockPortfolioEnv(gym.Env):
     def __get_predictions__(self, type: str = 'prediction'):
         if type == 'prediction':
             # Проверяем, что все элементы в колонке prediction являются массивами одинаковой формы
-            first_shape = None
-            for pred in self.df['prediction']:
-                if not isinstance(pred, np.ndarray):
-                    raise ValueError("Все элементы в колонке 'prediction' должны быть numpy массивами.")
-                if first_shape is None:
-                    first_shape = pred.shape
-                elif pred.shape != first_shape:
-                    raise ValueError("Все массивы в колонке 'prediction' должны иметь одинаковую форму.")
+            #first_shape = None
+            #for pred in self.df['prediction']:
+            #    if not isinstance(pred, np.ndarray):
+            #        raise ValueError("Все элементы в колонке 'prediction' должны быть numpy массивами.")
+            #    if first_shape is None:
+            #        first_shape = pred.shape
+            #    elif pred.shape != first_shape:
+            #        raise ValueError("Все массивы в колонке 'prediction' должны иметь одинаковую форму.")
 
             # Формируем массив прогнозов из столбца 'prediction'
             predictions_array = np.array(self.df['prediction'].tolist())  # Преобразуем в единую матрицу
