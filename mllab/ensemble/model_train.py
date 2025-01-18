@@ -1359,7 +1359,7 @@ class StockPortfolioEnv(gym.Env):
 
     def softmax_normalization(self, actions):
         """
-        Нормализация действий: сортировка по убыванию, отбор и масштабирование.
+        Нормализация действий с учетом ограничения на максимальный объем вложений в одну акцию.
 
         Параметры:
         - actions: массив исходных значений весов.
@@ -1371,28 +1371,28 @@ class StockPortfolioEnv(gym.Env):
         if len(actions) == 0:
             return np.zeros_like(actions)
 
-        # Сортировка индексов по убыванию абсолютных значений
-        sorted_indices = np.argsort(-np.abs(actions))
-        sorted_actions = actions[sorted_indices]
-
-        # Определение количества элементов для отбора
-        top_k = min(len(actions), int(1 / self.risk_volume))
-
-        # Отбор топ-k значений
-        selected_actions = sorted_actions[:top_k]
-
         # Нормализация: приведение к сумме абсолютных значений 1
-        abs_sum = np.sum(np.abs(selected_actions))
+        abs_sum = np.sum(np.abs(actions))
         if abs_sum == 0:
-            normalized = np.zeros_like(selected_actions)
+            normalized = np.zeros_like(actions)
         else:
-            normalized = selected_actions / abs_sum
+            normalized = actions / abs_sum
 
-        # Восстановление порядка и заполнение невыбранных элементов нулями
-        normalized_weights = np.zeros_like(actions)
-        normalized_weights[sorted_indices[:top_k]] = normalized
+        # Ограничение максимального веса
+        clamped = np.clip(normalized, -self.risk_volume, self.risk_volume)
 
-        return normalized_weights
+        # Проверка суммы абсолютных значений после клэмпинга
+        excess = 1 - np.sum(np.abs(clamped))
+        if excess > 0:  # Перераспределяем излишек
+            # Определяем индексы элементов, которые не достигли ограничения
+            underutilized = np.abs(clamped) < self.risk_volume
+            if np.any(underutilized):
+                adjustment = excess / np.sum(underutilized)  # Распределение излишка равномерно
+                clamped[underutilized] += np.sign(clamped[underutilized]) * adjustment
+                # Дополнительный клэмпинг для предотвращения выхода за пределы
+                clamped = np.clip(clamped, -self.risk_volume, self.risk_volume)
+
+        return clamped
 
     def reset(self):
         """
