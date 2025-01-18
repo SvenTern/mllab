@@ -1923,7 +1923,7 @@ class FinancePreprocessor:
             return None
 
         # Combine all predictions into a single DataFrame
-        data = pd.concat(combined_data, ignore_index=True)
+        data = pd.concat(combined_data, ignore_index=False)
 
         # Rename and sort as required
         data.rename(columns={'timestamp': 'date'}, inplace=True)
