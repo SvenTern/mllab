@@ -537,6 +537,10 @@ class StockPortfolioEnv(gym.Env):
             self.sl_scale = sl_scale
             self.tp_scale = tp_scale
 
+        self.sl_decrease = 10.0
+        self.tp_decrease = 10.0
+
+
         self.min = 0  # Current time index
         self.episode =0 # подсчет количества полных циклов через reset
         self.lookback = lookback  # Number of previous steps for state construction
@@ -1087,8 +1091,12 @@ class StockPortfolioEnv(gym.Env):
     def get_sltp(self, actions):
         if self.use_sltp:
 
-            stop_loss = actions[:, 1]
-            take_profit = actions[:, 2]
+            if self.play_mode:
+                stop_loss = actions[:, 1]
+                take_profit = actions[:, 2]
+            else:
+                stop_loss = actions[:, 1] / self.sl_decrease
+                take_profit = actions[:, 2] / self.tp_decrease
 
             for idx, tic in enumerate(self.ticker_list):
                 sl_value = stop_loss[idx]
