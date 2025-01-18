@@ -1468,23 +1468,25 @@ class StockPortfolioEnv(gym.Env):
 
         return final_price
 
-    import numpy as np
-    import pandas as pd
-
     def __get_predictions__(self, type: str = 'prediction'):
         if type == 'prediction':
-            # Проверяем, что все элементы в колонке prediction являются массивами одинаковой формы
-            #first_shape = None
-            #for pred in self.df['prediction']:
-            #    if not isinstance(pred, np.ndarray):
-            #        raise ValueError("Все элементы в колонке 'prediction' должны быть numpy массивами.")
-            #    if first_shape is None:
-            #        first_shape = pred.shape
-            #    elif pred.shape != first_shape:
-            #        raise ValueError("Все массивы в колонке 'prediction' должны иметь одинаковую форму.")
+            # Преобразуем строки в массивы
+            self.df['prediction'] = self.df['prediction'].apply(
+                lambda x: np.array(ast.literal_eval(x)) if isinstance(x, str) else x
+            )
 
-            # Формируем массив прогнозов из столбца 'prediction'
-            predictions_array = np.array(self.df['prediction'].tolist())  # Преобразуем в единую матрицу
+            # Проверяем, что все элементы в prediction являются массивами одинаковой формы
+            first_shape = None
+            for pred in self.df['prediction']:
+                if not isinstance(pred, np.ndarray):
+                    raise ValueError("Все элементы в колонке 'prediction' должны быть numpy массивами.")
+                if first_shape is None:
+                    first_shape = pred.shape
+                elif pred.shape != first_shape:
+                    raise ValueError("Все массивы в колонке 'prediction' должны иметь одинаковую форму.")
+
+            # Формируем массив прогнозов
+            predictions_array = np.array(self.df['prediction'].tolist())
             print('predictions_array', predictions_array)
 
             # Используем первые три столбца для сравнения
@@ -1513,7 +1515,6 @@ class StockPortfolioEnv(gym.Env):
 
         # Инициализация прогресс-бара для этапа группировки
         grouped_data = {}
-        # Используем tqdm для отображения прогресса по группам
         for date, group in tqdm(grouped, desc="Подготовка массива actions: ", total=len(grouped), leave=False,
                                 position=2, dynamic_ncols=True):
             # Сортируем внутри группы по тикерам
