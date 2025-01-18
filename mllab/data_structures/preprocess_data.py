@@ -1927,6 +1927,7 @@ class FinancePreprocessor:
 
         # Rename and sort as required
         data.rename(columns={'timestamp': 'date'}, inplace=True)
+        print('data', data)
         data.sort_values(by=['date', 'tic'], inplace=True)
 
         stock_dimension = len(data.tic.unique())
