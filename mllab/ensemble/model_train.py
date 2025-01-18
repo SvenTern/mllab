@@ -1473,9 +1473,20 @@ class StockPortfolioEnv(gym.Env):
 
     def __get_predictions__(self, type: str = 'prediction'):
         if type == 'prediction':
+            # Проверяем, что все элементы в колонке prediction являются массивами одинаковой формы
+            first_shape = None
+            for pred in self.df['prediction']:
+                if not isinstance(pred, np.ndarray):
+                    raise ValueError("Все элементы в колонке 'prediction' должны быть numpy массивами.")
+                if first_shape is None:
+                    first_shape = pred.shape
+                elif pred.shape != first_shape:
+                    raise ValueError("Все массивы в колонке 'prediction' должны иметь одинаковую форму.")
+
             # Формируем массив прогнозов из столбца 'prediction'
-            predictions_array = np.stack(self.df['prediction'].values)
+            predictions_array = np.array(self.df['prediction'].tolist())  # Преобразуем в единую матрицу
             print('predictions_array', predictions_array)
+
             # Используем первые три столбца для сравнения
             comparison_array = predictions_array[:, :3]
             max_indices = np.argmax(comparison_array, axis=1)
@@ -1503,8 +1514,15 @@ class StockPortfolioEnv(gym.Env):
         # Инициализация прогресс-бара для этапа группировки
         grouped_data = {}
         # Используем tqdm для отображения прогресса по группам
-        for date, group in tqdm(grouped, desc="Подготовка массива actions: ", total=len(grouped), leave=False, position=2, dynamic_ncols=True):
-            matrix = group[['bin', 'sl', 'tp']].to_numpy()
+        for date, group in tqdm(grouped, desc="Подготовка массива actions: ", total=len(grouped), leave=False,
+                                position=2, dynamic_ncols=True):
+            # Сортируем внутри группы по тикерам
+            group_sorted = group.sort_values('tic')
+            # Формируем матрицу
+            bin_row = group_sorted['bin'].to_numpy()
+            sl_row = group_sorted['sl'].to_numpy()
+            tp_row = group_sorted['tp'].to_numpy()
+            matrix = np.vstack([bin_row, sl_row, tp_row])
             grouped_data[date] = matrix
 
         return grouped_data
