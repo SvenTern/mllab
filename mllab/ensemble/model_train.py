@@ -1359,28 +1359,40 @@ class StockPortfolioEnv(gym.Env):
 
     def softmax_normalization(self, actions):
         """
-        Normalize actions to valid weights where the sum of absolute weights equals 1,
-        and each weight does not exceed self.risk_volume.
+        Нормализация действий: сортировка по убыванию, отбор и масштабирование.
 
-        Parameters:
-        - actions: Array of raw action weights.
+        Параметры:
+        - actions: массив исходных значений весов.
 
-        Returns:
-        - normalized_weights: Array of weights balanced and capped by self.risk_volume.
+        Возвращает:
+        - normalized_weights: массив нормализованных весов.
         """
-        abs_sum = np.sum(np.abs(actions))
-        if abs_sum == 0:
+        # Проверка на пустой массив
+        if len(actions) == 0:
             return np.zeros_like(actions)
 
-        # First, scale so sum of abs is 1 (or self.risk_volume).
-        normalized = actions / abs_sum
+        # Сортировка индексов по убыванию абсолютных значений
+        sorted_indices = np.argsort(-np.abs(actions))
+        sorted_actions = actions[sorted_indices]
 
-        # Then clamp each weight in magnitude by self.risk_volume.
-        clamped = np.clip(normalized, -self.risk_volume, self.risk_volume)
+        # Определение количества элементов для отбора
+        top_k = min(len(actions), int(1 / self.risk_volume))
 
-        # Note: once you clamp, the sum of absolute values might be below 1.
-        # If you must preserve sum=1 while also clamping, you'd need more complex logic.
-        return clamped
+        # Отбор топ-k значений
+        selected_actions = sorted_actions[:top_k]
+
+        # Нормализация: приведение к сумме абсолютных значений 1
+        abs_sum = np.sum(np.abs(selected_actions))
+        if abs_sum == 0:
+            normalized = np.zeros_like(selected_actions)
+        else:
+            normalized = selected_actions / abs_sum
+
+        # Восстановление порядка и заполнение невыбранных элементов нулями
+        normalized_weights = np.zeros_like(actions)
+        normalized_weights[sorted_indices[:top_k]] = normalized
+
+        return normalized_weights
 
     def reset(self):
         """
