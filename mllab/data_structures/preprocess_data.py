@@ -1994,9 +1994,7 @@ class FinancePreprocessor:
 
         return results
 
-    def test_sltp_game(self, sl, tp, risk_volume=0.02):
 
-        self.test_prediction_game(risk_volume = risk_volume, )
 
 def add_takeprofit_stoploss_volume(
         predicted_data: pd.DataFrame,
