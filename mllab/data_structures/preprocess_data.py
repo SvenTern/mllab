@@ -1924,10 +1924,12 @@ class FinancePreprocessor:
 
         # Combine all predictions into a single DataFrame
         data = pd.concat(combined_data, ignore_index=False)
+        # Reset index to move 'timestamp' (assumed index) into a column
+        data.reset_index(inplace=True)
 
         # Rename and sort as required
         data.rename(columns={'timestamp': 'date'}, inplace=True)
-        print('data', data)
+        #print('data', data)
         data.sort_values(by=['date', 'tic'], inplace=True)
 
         stock_dimension = len(data.tic.unique())
