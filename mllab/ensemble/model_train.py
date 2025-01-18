@@ -1487,7 +1487,7 @@ class StockPortfolioEnv(gym.Env):
 
             # Формируем массив прогнозов
             predictions_array = np.array(self.df['prediction'].tolist())
-            print('predictions_array', predictions_array)
+
 
             # Используем первые три столбца для сравнения
             comparison_array = predictions_array[:, :3]

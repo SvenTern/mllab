@@ -1322,6 +1322,23 @@ class FinancePreprocessor:
         # Создаём новую колонку, в которую упакуем нужные значения в виде списка
         data_prediction['prediction'] = indicators[['bin-1', 'bin-0', 'bin+1', 'regression']].values.tolist()
 
+        # 2. Считаем логарифмическую доходность для каждого тикера
+        #    groupby('tic') нужен, чтобы сдвигать close только внутри одного тикера.
+        data_prediction['log_return'] = (
+            data_prediction['close']
+            .transform(lambda x: np.log(x / x.shift(1)))
+        )
+
+        # 3. Вычисляем стандартное отклонение логарифмической доходности на 5-шаговом окне
+        #    (тоже отдельно по каждому тикеру)
+        data_prediction['volatility'] = (
+            data_prediction['log_return']
+            .transform(lambda x: x.rolling(window=5).std())
+        )
+
+        # 4. При необходимости убираем NaN, которые появляются на первых строках при скользящем okне
+        data_prediction['volatility'].fillna(0, inplace=True)
+
 
         #print('data_prediction', data_prediction)
         data_prediction = add_takeprofit_stoploss_volume(data_prediction, coeff_tp=coeff_tp, coeff_sl=coeff_sl)
