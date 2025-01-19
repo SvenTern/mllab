@@ -182,7 +182,7 @@ def calculate_indicators(data,
         group = group.copy()
         x = pd.DataFrame(index=group.index)
 
-        # --- Сдвигаем видимый интервал на 1 шаг ---
+        # --- Сдвигаем видимый интервал на 0 шаг ---
         data_row = group['close'].shift(shift)
         data_row_volume = group['volume'].shift(shift)
         data_row_vwap = group['vwap'].shift(shift)

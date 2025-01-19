@@ -38,7 +38,7 @@ from pandas.errors import EmptyDataError
 from mllab.labeling.labeling import short_long_box
 from mllab.microstructural_features.feature_generator import calculate_indicators, get_correlation
 from mllab.ensemble.model_train import train_regression, train_bagging, update_indicators, StockPortfolioEnv
-from finrl.agents.stablebaselines3.models import DRLAgent
+#from finrl.agents.stablebaselines3.models import DRLAgent
 
 # Настройка логирования
 logging.basicConfig(
@@ -2104,10 +2104,10 @@ class FinancePreprocessor:
         # сохранить потом модель ...
 
         env_train, _ = e_train_gym.get_sb_env()
-        agent = DRLAgent(env=env_train)
+        agent = '' #DRLAgent(env=env_train)
 
         model_name = "a2c"
-        A2C_PARAMS = {"n_steps": 5, "ent_coef": 0.005, "learning_rate": 0.0002}
+        A2C_PARAMS = {"n_steps": 10, "ent_coef": 0.005, "learning_rate": 0.00002}
         model_a2c = agent.get_model(model_name=model_name, model_kwargs=A2C_PARAMS)
         trained_a2c = agent.train_model(model=model_a2c,
                                         tb_log_name='a2c',

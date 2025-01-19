@@ -487,7 +487,7 @@ class StockPortfolioEnv(gym.Env):
                  features_list,
                  FEATURE_LENGTHS,
                  turbulence_threshold=None,
-                 reward_scaling=100,
+                 reward_scaling=1,
                  lookback=5,
                  initial=True,
                  previous_state=[],
