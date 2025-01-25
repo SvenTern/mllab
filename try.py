@@ -1,4 +1,4 @@
-from mllab.pipiline.drive import GoogleDriveHandler
+from mllab.pipeline.drive import GoogleDriveHandler
 
 
 
