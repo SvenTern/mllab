@@ -4,8 +4,8 @@ import pandas as pd
 import os
 import threading
 from sklearn.ensemble import BaggingClassifier, BaggingRegressor
-from google.colab import drive
 import joblib
+from mllab.drive import GoogleDriveHandler
 
 
 class TradingPipeline:
@@ -26,6 +26,7 @@ class TradingPipeline:
         self.trend_model_path = trend_model_path
         self.growth_model_path = growth_model_path
         self.ibkr_module = ibkr_module
+        self.drive_handler = GoogleDriveHandler()
         self.trend_model = self.load_model(trend_model_path, "trend_model.pkl")
         self.growth_model = self.load_model(growth_model_path, "growth_model.pkl")
         self.raw_data = {}
@@ -48,15 +49,11 @@ class TradingPipeline:
 
         return wrapper
 
-    def connect_google_drive(self):
-        """Connects to Google Drive to access models. This is required to retrieve pre-trained models."""
-        drive.mount('/content/drive')
-
-    def load_model(self, model_path, local_filename):
-        """Loads a model from Google Drive if not already cached locally.
+    def load_model(self, drive_path, local_filename):
+        """Loads a model from Google Drive using GoogleDriveHandler.
 
         Args:
-            model_path (str): Path to the model file on Google Drive.
+            drive_path (str): Path to the model file on Google Drive.
             local_filename (str): Name of the cached file locally.
 
         Returns:
@@ -66,14 +63,11 @@ class TradingPipeline:
         os.makedirs("/content/cache", exist_ok=True)
 
         if not os.path.exists(local_cache_path):
-            print(f"Downloading {local_filename} from Google Drive...")
-            drive_file_path = os.path.join("/content/drive", model_path)
-            if os.path.exists(drive_file_path):
-                os.system(f"cp '{drive_file_path}' '{local_cache_path}'")
-            else:
-                raise FileNotFoundError(f"Model file {model_path} not found on Google Drive.")
+            self.logger.info(f"Downloading {local_filename} from Google Drive...")
+            file_id = self.drive_handler.file_exists(os.path.basename(drive_path))['id']
+            self.drive_handler.download_file(file_id, local_cache_path)
         else:
-            print(f"Using cached model {local_filename}.")
+            self.logger.info(f"Using cached model {local_filename}.")
 
         return joblib.load(local_cache_path)
 

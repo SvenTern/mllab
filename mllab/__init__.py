@@ -26,3 +26,4 @@ import mllab.backtest_statistics.statistics as backtest_statistics
 import mllab.networks as networks
 import mllab.data_generation as data_generation
 import mllab.regression as regression
+import mllab.pipiline as pipiline
