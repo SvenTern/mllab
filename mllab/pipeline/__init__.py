@@ -1,2 +1,2 @@
-from mllab.pipeline import TradingPipeline
-from mllab.drive import GoogleDriveHandler
+from mllab.pipeline.pipeline import TradingPipeline
+from mllab.pipeline.drive import GoogleDriveHandler
