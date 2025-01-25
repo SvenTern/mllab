@@ -5,7 +5,7 @@ import os
 import threading
 from sklearn.ensemble import BaggingClassifier, BaggingRegressor
 import joblib
-from pipeline import GoogleDriveHandler
+from mllab.pipeline.drive import GoogleDriveHandler
 
 
 
