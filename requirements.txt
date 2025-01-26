@@ -1,30 +1,39 @@
-# Production
-numpy>=0.16.0
-matplotlib>=3.0.0
-pandas>=1.0.0
-scikit-learn>=0.20.0
-scipy>=1.2.0
-statsmodels>=0.9.0
-cython>=0.29
-POT>=0.7.0
-numba>=0.40.0
-networkx>=2.2
-dash>=1.0.0
-dash-cytoscape>=0.1.0
-dash-bootstrap-components>=0.10.0
-jupyter-dash>=0.2.0
-tensorflow>=2.0.0
-joblib>=1.0.0
-decorator>=4.0.0
-analytics-python>=1.2.7
-getmac>=0.8.0
-
-
-# Develop
-codecov==2.1.11
-coverage==5.4
-pylint==2.6.0
-sphinx==3.4.3 # Docs
-hudsonthames-sphinx-theme==0.1.5 # Docs
-sphinx-rtd-theme==0.5.2 # Docs
-releases==1.6.3 # Docs
+jupyter
+pandas
+numpy
+matplotlib
+numba
+POT
+statsmodels
+tensorflow
+jupyter-dash
+dash-bootstrap-components
+dash-cytoscape
+dash
+coverage
+pylint
+sphinx
+analytics-python
+getmac
+sphinx-rtd-theme
+releases
+yfinance
+mplfinance
+shimmy
+polygon-api-client
+selenium
+webdriver-manager
+alpaca-trade-api
+alpaca-py
+git+https://github.com/AI4Finance-Foundation/FinRL.git
+blinker
+exchange_calendars
+stockstats
+stable_baselines3
+gym
+google_auth_oauthlib
+joblib>=1.0.0,<2.0.0
+scikit-learn
+google
+google_auth_oauthlib
+google-api-python-client

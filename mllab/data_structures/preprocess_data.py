@@ -236,7 +236,7 @@ class FinancePreprocessor:
             A2C_PARAMS = {"n_steps": 5, "ent_coef": 0.005, "learning_rate": 0.0002}
             model_a2c = agent.get_model(model_name="a2c", model_kwargs=A2C_PARAMS)
             return model_a2c.load(file_path)
-        else:
+        else: #"lst file"
             with open(file_path, 'rb') as file:  # Open the file in read-binary mode
                 return pickle.load(file)
 

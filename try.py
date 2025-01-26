@@ -1,8 +1,8 @@
-from mllab.pipeline.drive import GoogleDriveHandler
+from mllab.pipeline.pipeline import TradingPipeline
 
 
+# Основной скрипт
+if __name__ == "__main__":
 
-drive = GoogleDriveHandler()
-
-print(drive.list_files())
-
+    # тестируем загрузку данных моделей ...
+    pipe = TradingPipeline()

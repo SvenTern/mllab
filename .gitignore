@@ -12,3 +12,6 @@ cover/
 mlfinlab.egg-info/*
 token.json
 credentials.json
+jupyter_notebook_config.py
+sshd_config
+Dockerfile
